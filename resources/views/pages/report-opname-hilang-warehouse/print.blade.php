@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -31,7 +31,7 @@
 <table class="header">
     <tr>
         <td style="vertical-align:middle;">
-            <h3><b>WAREHOUSE — LINEN MASIH DALAM PROSES DI LAUNDRY : #{{ $opname->opname_id }}</b></h3>
+            <h3><b>WAREHOUSE â€” LINEN MASIH DALAM PROSES DI LAUNDRY : #{{ $opname->opname_id }}</b></h3>
             <h3>RUMAH SAKIT : {{ $opname->hasRs?->rs_nama ?? 'Semua Rumah Sakit' }}</h3>
             <h3>OPNAME : {{ $opname->opname_nama }}</h3>
             <h3>Periode : {{ formatDate($opname->opname_mulai) ?? '-' }} - {{ formatDate($opname->opname_selesai) ?? '-' }}</h3>
@@ -94,7 +94,7 @@
 
 <table class="footer">
     <tr>
-        <td colspan="2" class="print-date">{{ env('APP_LOCATION', config('app.name')) }}, {{ date('d F Y') }}</td>
+        <td colspan="2" class="print-date">{{ config('app.location') }}, {{ date('d F Y') }}</td>
     </tr>
     <tr>
         <td colspan="2" class="print-person">{{ auth()->user()->name ?? '' }}</td>

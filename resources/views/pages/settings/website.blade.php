@@ -42,6 +42,13 @@
                     <input type="email" name="email" value="{{ old('email', $settings['email'] ?? '') }}"
                         class="w-full border border-outline-variant rounded-lg px-3 py-2 bg-surface text-on-surface focus:border-primary focus:ring-1 focus:ring-primary text-sm">
                 </div>
+                <div>
+                    <label class="block text-sm font-semibold text-on-surface mb-1">Print Location (APP_LOCATION)</label>
+                    <input type="text" name="location" value="{{ old('location', $settings['location'] ?? '') }}"
+                        placeholder="Jakarta"
+                        class="w-full border border-outline-variant rounded-lg px-3 py-2 bg-surface text-on-surface focus:border-primary focus:ring-1 focus:ring-primary text-sm">
+                    <p class="text-xs text-on-surface-variant mt-1">Kota/lokasi di footer cetak laporan (print).</p>
+                </div>
 
                 {{-- Logo Upload --}}
                 <div>

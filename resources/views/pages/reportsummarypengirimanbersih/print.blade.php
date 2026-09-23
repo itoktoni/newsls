@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -81,7 +81,7 @@
 
 <table class="footer">
     <tr>
-        <td colspan="2" class="print-date">{{ env('APP_LOCATION', config('app.name')) }}, {{ date('d F Y') }}</td>
+        <td colspan="2" class="print-date">{{ config('app.location') }}, {{ date('d F Y') }}</td>
     </tr>
     <tr>
         <td colspan="2" class="print-person">{{ auth()->user()->name ?? '' }}</td>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -33,7 +33,7 @@
         .toolbar .btn-export { background: #16a34a; border-color: #16a34a; color: #fff; }
         .toolbar .btn-export:hover { background: #15803d; }
 
-        /* —— mobile cards (pola users/table.blade.php) —— */
+        /* â€”â€” mobile cards (pola users/table.blade.php) â€”â€” */
         .mobile-only { display: none; }
         .kpi-cards { display: none; }
         .day-cards { display: none; }
@@ -142,7 +142,7 @@
 <br>
 
 <div id="table_data">
-    {{-- ========== DESKTOP / PRINT — tabel andalan ========== --}}
+    {{-- ========== DESKTOP / PRINT â€” tabel andalan ========== --}}
     <div class="desktop-only">
         <div class="table-scroll">
             <table class="data">
@@ -197,14 +197,14 @@
         </div>
     </div>
 
-    {{-- ========== MOBILE — kartu (pola users/table) ========== --}}
+    {{-- ========== MOBILE â€” kartu (pola users/table) ========== --}}
     <div class="mobile-only">
         <p class="section-title">Scan Linen Saat SO</p>
         <div class="day-cards">
             @forelse($map as $key => $rows)
             <div class="day-card">
                 <div class="row">
-                    <span class="label">{{ $loop->iteration }} · {{ $key ?? '' }}</span>
+                    <span class="label">{{ $loop->iteration }} Â· {{ $key ?? '' }}</span>
                     <span class="value">{{ $tembakSo($rows) }}</span>
                 </div>
             </div>
@@ -259,7 +259,7 @@
 
 <table class="footer">
     <tr>
-        <td colspan="2" class="print-date">{{ env('APP_LOCATION', config('app.name')) }}, {{ date('d F Y') }}</td>
+        <td colspan="2" class="print-date">{{ config('app.location') }}, {{ date('d F Y') }}</td>
     </tr>
     <tr>
         <td colspan="2" class="print-person">{{ auth()->user()->name ?? '' }}</td>

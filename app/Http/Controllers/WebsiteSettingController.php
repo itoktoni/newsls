@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\WebsiteSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -30,6 +29,7 @@ class WebsiteSettingController extends Controller
             'alamat' => ['nullable', 'string'],
             'telepon' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
+            'location' => ['nullable', 'string', 'max:255'],
             'logo' => ['nullable', 'image', 'max:2048'],
             'favicon' => ['nullable', 'image', 'max:512'],
             'remove_logo' => ['nullable', 'boolean'],
@@ -50,7 +50,10 @@ class WebsiteSettingController extends Controller
         if (! is_dir($dir)) {
             // Coba buat junction link jika hilang (Windows) atau symlink
             if (! File::exists(public_path('storage'))) {
-                try { Artisan::call('storage:link'); } catch (\Throwable $e) {}
+                try {
+                    Artisan::call('storage:link');
+                } catch (\Throwable $e) {
+                }
             }
             // Tetap ensure public dir (akan lewat junction jika sudah ada)
             try {
@@ -71,6 +74,7 @@ class WebsiteSettingController extends Controller
         $envUpdates['WEBSITE_ALAMAT'] = $validated['alamat'] ?? '';
         $envUpdates['WEBSITE_TELEPON'] = $validated['telepon'] ?? '';
         $envUpdates['WEBSITE_EMAIL'] = $validated['email'] ?? '';
+        $envUpdates['APP_LOCATION'] = $validated['location'] ?? '';
         $envUpdates['WEBSITE_FOOTER_TEXT'] = $validated['footer_text'] ?? '';
 
         // Color → .env

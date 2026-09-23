@@ -17,6 +17,10 @@ final class RoleEnum extends Enum
 
     const DEVELOPER = 'developer';
 
+    const RS = 'rs';
+
+    const LAUNDRY = 'laundry';
+
     public static function getDescription(mixed $value): string
     {
         return match ($value) {
@@ -24,6 +28,8 @@ final class RoleEnum extends Enum
             self::EDITOR => 'Editor',
             self::DEVELOPER => 'Developer',
             self::USER => 'Pengguna Biasa',
+            self::RS => 'Rumah Sakit',
+            self::LAUNDRY => 'Petugas Laundry',
             default => parent::getDescription($value),
         };
     }

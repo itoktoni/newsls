@@ -1,6 +1,10 @@
 <?php
 
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Dashboard\AdminDashboardController;
+use App\Http\Controllers\Dashboard\LaundryDashboardController;
+use App\Http\Controllers\Dashboard\RsDashboardController;
+use App\Http\Controllers\DashboardRouterController;
+use App\Http\Controllers\OpnameController;
 use App\Http\Controllers\WebsiteSettingController;
 use App\Models\Notification;
 use App\Services\CentrifugoService;
@@ -29,7 +33,10 @@ Route::middleware('auth')->post('/centrifugo/token', function (Request $request)
 
 Route::middleware(['auth', 'verified', 'access'])->group(function () {
 
-    Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('dashboard', DashboardRouterController::class)->name('dashboard');
+    Route::get('dashboard/admin', AdminDashboardController::class)->name('dashboard.admin');
+    Route::get('dashboard/rs', RsDashboardController::class)->name('dashboard.rs');
+    Route::get('dashboard/laundry', LaundryDashboardController::class)->name('dashboard.laundry');
 
     Route::auto('/user', 'UsersController', ['name' => 'user']);
     Route::auto('/rs', 'RsController', ['name' => 'rs']);
@@ -77,10 +84,10 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
     Route::auto('/detail-linen', 'DetailLinenController', ['name' => 'detail-linen']);
     Route::auto('/config-linen', 'ConfigLinenController', ['name' => 'config-linen']);
     Route::auto('/opname', 'OpnameController', ['name' => 'opname']);
-    Route::get('/opname/capture/{code}', [\App\Http\Controllers\OpnameController::class, 'getCapture'])->name('opname.capture');
-    Route::get('/opname/sync/{code}', [\App\Http\Controllers\OpnameController::class, 'getSync'])->name('opname.sync');
-    Route::post('/opname/sync/{code}', [\App\Http\Controllers\OpnameController::class, 'postSync'])->name('opname.sync.post');
-    Route::get('/opname/detail/{code}', [\App\Http\Controllers\OpnameController::class, 'getDetail'])->name('opname.detail');
+    Route::get('/opname/capture/{code}', [OpnameController::class, 'getCapture'])->name('opname.capture');
+    Route::get('/opname/sync/{code}', [OpnameController::class, 'getSync'])->name('opname.sync');
+    Route::post('/opname/sync/{code}', [OpnameController::class, 'postSync'])->name('opname.sync.post');
+    Route::get('/opname/detail/{code}', [OpnameController::class, 'getDetail'])->name('opname.detail');
 
     Route::get('/native-bridge-test', function () {
         return view('pages.settings.native-bridge-test');

@@ -2,50 +2,60 @@
 
 namespace App\Charts;
 
-use App\Models\Notification;
-use App\Models\User;
+use App\Models\DetailLinen;
+use App\Models\Transaksi;
 use ArielMejiaDev\LarapexCharts\LarapexChart;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardChart
 {
     /**
-     * User registrations over the last 7 days.
+     * Kotor (transaksi KOTOR) vs Bersih (tabel bersih) per hari — N hari terakhir.
      */
-    public function userRegistrations(): LarapexChart
+    public function kotorVsBersih(int $days = 7): LarapexChart
     {
-        $days = collect(range(6, 0))->map(function ($i) {
-            $date = Carbon::today()->subDays($i);
+        $labels = [];
+        $kotor = [];
+        $bersih = [];
 
-            return [
-                'label' => $date->format('d M'),
-                'count' => User::whereDate('created_at', $date)->count(),
-            ];
-        });
+        for ($i = 0; $i < $days; $i++) {
+            $d = Carbon::today()->subDays($days - 1 - $i);
+            $labels[] = $d->format('d M');
+            $kotor[] = Transaksi::where('transaksi_status', 'KOTOR')
+                ->whereDate('transaksi_created_at', $d)
+                ->count();
+            $bersih[] = DB::table('bersih')
+                ->where('bersih_status', 'BERSIH')
+                ->whereDate('bersih_created_at', $d)
+                ->count();
+        }
 
         return (new LarapexChart)->areaChart()
-            ->setTitle('User Registrations')
-            ->setSubtitle('New users — last 7 days')
-            ->addData($days->pluck('count')->toArray())
-            ->setXAxis($days->pluck('label')->toArray())
-            ->setColors(['#3755c3'])
+            ->setTitle('Kotor vs Bersih ('.$days.' hari)')
+            ->setSubtitle('Transaksi kotor vs linen bersih harian')
+            ->addData($kotor)
+            ->addData($bersih)
+            ->setXAxis($labels)
+            ->setColors(['#dc2626', '#16a34a'])
             ->setGrid()
-            ->setMarkers(['#3755c3'], 4, 6);
+            ->setMarkers(['#dc2626', '#16a34a'], 4, 6);
     }
 
     /**
-     * Notifications: read vs unread.
+     * Distribusi status linen (Register / Kotor / Bersih) — donut global.
      */
-    public function notificationStats(): LarapexChart
+    public function statusLinenDonut(): LarapexChart
     {
-        $read = Notification::where('read', true)->count();
-        $unread = Notification::where('read', false)->count();
+        $register = DetailLinen::where('detail_status_linen', 'REGISTER')->count();
+        $kotor = DetailLinen::where('detail_status_linen', 'KOTOR')->count();
+        $bersih = DetailLinen::where('detail_status_linen', 'BERSIH')->count();
 
         return (new LarapexChart)->donutChart()
-            ->setTitle('Notifications')
-            ->setSubtitle('Read / Unread')
-            ->addData([$read, $unread])
-            ->setLabels(['Read', 'Unread'])
-            ->setColors(['#16a34a', '#d97706']);
+            ->setTitle('Status Linen')
+            ->setSubtitle('Register / Kotor / Bersih')
+            ->addData([$register, $kotor, $bersih])
+            ->setLabels(['Register', 'Kotor', 'Bersih'])
+            ->setColors(['#3755c3', '#d97706', '#16a34a']);
     }
 }

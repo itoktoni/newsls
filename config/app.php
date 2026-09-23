@@ -22,6 +22,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Print Location
+    |--------------------------------------------------------------------------
+    |
+    | Kota / lokasi cetak yang muncul di footer laporan (print) — contoh
+    | "Jakarta". Diakses lewat config('app.location').
+    |
+    */
+
+    'location' => env('APP_LOCATION', env('APP_NAME', 'Laravel')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |
