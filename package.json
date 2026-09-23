@@ -1,0 +1,34 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "dependencies": {
+        "@iconify-json/tabler": "^1.2.35",
+        "@iconify/tailwind4": "^1.2.3",
+        "@tailwindcss/vite": "^4.1.11",
+        "apexcharts": "^6.10.0",
+        "autoprefixer": "^10.4.20",
+        "centrifuge": "^5.7.0",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^3.1",
+        "tailwindcss": "^4.0.7",
+        "tinymce": "^6.8.3",
+        "tom-select": "^2.6.2",
+        "vite": "^8.0.0"
+    },
+    "optionalDependencies": {
+        "@rollup/rollup-linux-x64-gnu": "4.9.5",
+        "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
+        "lightningcss-linux-x64-gnu": "^1.29.1"
+    },
+    "devDependencies": {
+        "@alpinejs/anchor": "^3.16.3",
+        "@alpinejs/collapse": "^3.16.3",
+        "@alpinejs/focus": "^3.16.3",
+        "@floating-ui/dom": "^1.8.0"
+    }
+}

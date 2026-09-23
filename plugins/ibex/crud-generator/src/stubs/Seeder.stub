@@ -1,0 +1,47 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use {{modelNamespace}}\{{modelName}};
+use Illuminate\Support\Facades\DB;
+use Faker\Factory as Faker;
+
+class {{modelName}}Seeder extends Seeder
+{
+    public function run(): void
+    {
+        $faker = Faker::create('id_ID');
+        $now = now();
+        $chunks = [];
+
+        foreach(range(1, 10) as $item)
+        {
+            {{tableName}}[] = [
+                '{{tableName}}_id' => $item,
+                '{{tableName}}_nama' => $faker->name,
+                '{{tableName}}_keterangan' => $faker->sentence(),
+            ];
+        }
+
+        {{modelName}}::insert(${{tableName}});
+
+        for ($i = 0; $i < 10000; $i++) {
+            $chunks[] = [
+                '{{tableName}}_nama' => $faker->words(rand(2, 4), true),
+                '{{tableName}}_harga' => $faker->randomFloat(2, 10000, 50000000),
+                '{{tableName}}_keterangan' => $faker->sentence(),
+                '{{tableName}}_id_category' => rand(1, 10)
+            ];
+
+            if (count($chunks) === 500) {
+                {{modelName}}::insert($chunks);
+                $chunks = [];
+            }
+        }
+
+        if ($chunks) {
+            {{modelName}}::insert($chunks);
+        }
+    }
+}

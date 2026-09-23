@@ -1,0 +1,45 @@
+{
+    "name": "Startok",
+    "short_name": "Startok",
+    "description": "Startok - Point of Sale & Business Management",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000",
+    "orientation": "any",
+    "scope": "/",
+    "lang": "en",
+    "categories": ["business", "productivity"],
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "any",
+            "type": "image/x-icon"
+        },
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/apple-touch-icon.png",
+            "sizes": "180x180",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "Dashboard",
+            "url": "/dashboard",
+            "icons": [{ "src": "/favicon.ico", "sizes": "any" }]
+        },
+        {
+            "name": "POS",
+            "url": "/pos",
+            "icons": [{ "src": "/favicon.ico", "sizes": "any" }]
+        }
+    ]
+}

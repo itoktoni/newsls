@@ -1,0 +1,56 @@
+<?php
+
+namespace {{modelNamespace}};
+
+use App\Models\BaseModel;
+
+class {{modelName}} extends BaseModel
+{
+    protected $table = '{{tableName}}';
+    protected $keyType = 'int';
+    protected $primaryKey = '{{tableName}}_id';
+
+    public $timestamps = false;
+    public $incrementing = true;
+
+    /**
+     * Columns available for filtering.
+     */
+    public static $filterColumns = [
+        {{filterColumns}}
+    ];
+
+    /**
+     * Columns available for sorting.
+     */
+    public static $sortColumns = [
+        {{sortColumns}}
+    ];
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        {{fillable}}
+    ];
+
+    /**
+     * Validation rules.
+     */
+    public function rules(): array
+    {
+        return [
+            {{rules}}
+        ];
+    }
+
+    public function toArray(){}
+
+    public static function field_name()
+    {
+        return '{{tableName}}_nama';
+    }
+
+}

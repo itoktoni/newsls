@@ -1,0 +1,1 @@
+                <x-input col="6" name="{{column}}" />

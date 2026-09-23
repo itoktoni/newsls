@@ -1,0 +1,16 @@
+<?php
+
+namespace {{controllerNamespace}};
+
+use App\Concerns\ControllerTrait;
+use App\Models\{{modelName}};
+
+class {{modelName}}Controller extends Controller
+{
+    use ControllerTrait;
+
+    public function __construct({{modelName}} $model)
+    {
+        $this->model = $model::getModel();
+    }
+}
