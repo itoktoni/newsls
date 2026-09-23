@@ -2,9 +2,10 @@
 
 namespace App\Actions;
 
-use App\Models\DetailLinen;
+use App\Models\Opname;
 use App\Models\OpnameDetail;
-use App\Models\Outstanding;
+use App\Support\DashboardCache;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsAction;
 
@@ -12,7 +13,7 @@ class CaptureOpnameAction
 {
     use AsAction;
 
-    public function handle(\App\Models\Opname $opname): array
+    public function handle(Opname $opname): array
     {
         if (! empty($opname->opname_capture)) {
             throw new \RuntimeException('Opname sudah di capture !');
@@ -42,6 +43,8 @@ class CaptureOpnameAction
 
             if ($rows->isEmpty()) {
                 DB::commit();
+                DashboardCache::flush();
+
                 return ['captured' => 0];
             }
 
@@ -60,9 +63,9 @@ class CaptureOpnameAction
                     'opname_detail_waktu' => $tgl,
                     'opname_detail_created_at' => $tgl,
                     'opname_detail_created_by' => $userId,
-                    'opname_detail_updated_at' => $r->detail_updated_at ? \Carbon\Carbon::parse($r->detail_updated_at)->format('Y-m-d H:i:s') : null,
-                    'opname_detail_pending_at' => $r->outstanding_pending_created_at ? \Carbon\Carbon::parse($r->outstanding_pending_created_at)->format('Y-m-d H:i:s') : null,
-                    'opname_detail_hilang_at' => $r->outstanding_hilang_created_at ? \Carbon\Carbon::parse($r->outstanding_hilang_created_at)->format('Y-m-d H:i:s') : null,
+                    'opname_detail_updated_at' => $r->detail_updated_at ? Carbon::parse($r->detail_updated_at)->format('Y-m-d H:i:s') : null,
+                    'opname_detail_pending_at' => $r->outstanding_pending_created_at ? Carbon::parse($r->outstanding_pending_created_at)->format('Y-m-d H:i:s') : null,
+                    'opname_detail_hilang_at' => $r->outstanding_hilang_created_at ? Carbon::parse($r->outstanding_hilang_created_at)->format('Y-m-d H:i:s') : null,
                 ];
             }
 
@@ -71,6 +74,8 @@ class CaptureOpnameAction
             }
 
             DB::commit();
+            DashboardCache::flush();
+
             return ['captured' => count($data)];
         } catch (\Throwable $th) {
             DB::rollBack();

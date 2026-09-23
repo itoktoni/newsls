@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Concerns\PayloadTrait;
 use App\Concerns\RulesTrait;
+use App\Support\DashboardCache;
 use Illuminate\Http\Request;
 use Lorisleiva\Actions\Concerns\AsAction;
 
@@ -24,6 +25,7 @@ class UpdateAction
         try {
             $response = $model->findOrFail($id);
             $response->update($data);
+            DashboardCache::flush();
 
             return $this->payload(TOAST_SUCCESS, $response);
 

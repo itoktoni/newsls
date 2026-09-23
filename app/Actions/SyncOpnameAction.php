@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\OpnameDetail;
+use App\Support\DashboardCache;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsAction;
 
@@ -76,6 +77,8 @@ class SyncOpnameAction
             // plus sync ke outstanding if needed
 
             DB::commit();
+            DashboardCache::flush();
+
             return ['inserted' => count($toInsert), 'updated' => count($toUpdate), 'total' => count($rfids)];
         } catch (\Throwable $th) {
             DB::rollBack();

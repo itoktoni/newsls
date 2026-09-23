@@ -4,11 +4,10 @@
 /** @var array $health */
 /** @var array $opname */
 /** @var array $stats */
-/** @var \Illuminate\Database\Eloquent\Collection $recentUsers */
+/** @var array $recentUsers */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $userChart */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $notifChart */
 /** @var string $title */
-
 $badgeClass = fn (string $level) => match ($level) {
     'ok' => 'bg-green-100 text-green-800',
     'warn' => 'bg-amber-100 text-amber-800',
@@ -46,11 +45,11 @@ $badgeClass = fn (string $level) => match ($level) {
                     <ul class="space-y-2">
                         @foreach ($sebaran as $row)
                             <li class="flex items-center justify-between text-sm border-b border-outline-variant/50 pb-1.5">
-                                <span class="text-on-surface">{{ $row->ruangan_nama }}</span>
+                                <span class="text-on-surface">{{ $row['ruangan_nama'] }}</span>
                                 <span class="flex items-center gap-2">
-                                    <span class="font-semibold">{{ number_format($row->stok) }}</span>
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ $badgeClass($row->level) }}">
-                                        {{ $row->level === 'ok' ? 'Aman' : ($row->level === 'warn' ? 'Tipis' : 'Kosong') }}
+                                    <span class="font-semibold">{{ number_format($row['stok']) }}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ $badgeClass($row['level']) }}">
+                                        {{ $row['level'] === 'ok' ? 'Aman' : ($row['level'] === 'warn' ? 'Tipis' : 'Kosong') }}
                                     </span>
                                 </span>
                             </li>
@@ -159,12 +158,12 @@ $badgeClass = fn (string $level) => match ($level) {
                         <tbody>
                             @foreach ($recentUsers as $user)
                                 <tr class="border-b border-outline-variant/50">
-                                    <td class="py-3 pr-4 font-medium">{{ $user->name }}</td>
-                                    <td class="py-3 pr-4 text-on-surface-variant">{{ $user->email }}</td>
+                                    <td class="py-3 pr-4 font-medium">{{ $user['name'] }}</td>
+                                    <td class="py-3 pr-4 text-on-surface-variant">{{ $user['email'] }}</td>
                                     <td class="py-3 pr-4">
-                                        <span class="bg-surface-container text-xs px-2 py-1 rounded-full">{{ ucfirst($user->role) }}</span>
+                                        <span class="bg-surface-container text-xs px-2 py-1 rounded-full">{{ ucfirst($user['role']) }}</span>
                                     </td>
-                                    <td class="py-3 text-on-surface-variant">{{ $user->created_at?->format('d M Y') }}</td>
+                                    <td class="py-3 text-on-surface-variant">{{ $user['created_at'] ?? '—' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

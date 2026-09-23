@@ -7,8 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
 use App\Models\Transaksi;
+use App\Models\User;
+use App\Support\DashboardCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Plugins\Notes;
 
 /**
  * RFID dirty/return/rewash scan — entry from desktop.
@@ -39,11 +42,11 @@ class TransaksiApiController extends Controller
     {
         $status = $this->resolveStatus($type);
         if ($status === null) {
-            return \Plugins\Notes::validation('Tipe transaksi tidak valid.', ['type' => ['Tipe transaksi tidak valid.']]);
+            return Notes::validation('Tipe transaksi tidak valid.', ['type' => ['Tipe transaksi tidak valid.']]);
         }
 
         $this->validateTransactionRequest($request);
-        \App\Models\User::ensureRsAccess((int) $request->input('rs_id'));
+        User::ensureRsAccess((int) $request->input('rs_id'));
 
         return $this->handle($request, $status, 'SCAN');
     }
@@ -67,11 +70,13 @@ class TransaksiApiController extends Controller
             $this->logTransactions($rows['transaksi'], $request);
 
             DB::commit();
+            DashboardCache::flush();
 
             return $this->successResponse($ctx, $statusTransaksi, $rows['transaksi']);
         } catch (\Throwable $th) {
             DB::rollBack();
-            return \Plugins\Notes::failed(500, $th->getMessage());
+
+            return Notes::failed(500, $th->getMessage());
         }
     }
 
@@ -88,6 +93,7 @@ class TransaksiApiController extends Controller
             'REJECT' => TransactionType::REJECT,
             'REWASH' => TransactionType::REWASH,
         ];
+
         return $map[$type] ?? null;
     }
 
@@ -104,6 +110,7 @@ class TransaksiApiController extends Controller
     private function prepareContext(Request $request): array
     {
         $rfids = collect($request->input('rfid'))->filter()->unique()->values()->all();
+
         return [
             'rfids' => $rfids,
             'key' => $request->input('key'),
@@ -329,10 +336,10 @@ class TransaksiApiController extends Controller
 
     private function successResponse(array $ctx, string $statusTransaksi, array $transaksi)
     {
-        return \Plugins\Notes::sentJson([
+        return Notes::sentJson([
             'status' => true,
             'code' => 200,
-            'name' => \Plugins\Notes::create,
+            'name' => Notes::create,
             'message' => 'Transaksi berhasil.',
             'data' => [
                 'key' => $ctx['key'],

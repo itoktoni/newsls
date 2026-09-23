@@ -8,11 +8,13 @@ use App\Models\Rs;
 use App\Models\Ruangan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    Cache::flush();
     $this->admin = User::create([
         'name' => 'A', 'email' => 'a@example.com',
         'password' => Hash::make('password123'), 'role' => 'admin',
@@ -61,7 +63,8 @@ it('exposes rs and laundry in RoleEnum options', function () {
 it('keeps dashboard config thresholds', function () {
     expect(config('dashboard.understock_threshold'))->toBe(0.6)
         ->and(config('dashboard.top_ruangan'))->toBe(12)
-        ->and(config('dashboard.chart_days'))->toBe(7);
+        ->and(config('dashboard.chart_days'))->toBe(7)
+        ->and(config('dashboard.cache_ttl'))->toBe(60);
 });
 
 it('routes each role default dashboard to matching content', function () {
@@ -144,7 +147,36 @@ it('shows ruangan sebaran and pending on rs dashboard', function () {
         ->assertSee('Sebaran', false)
         ->assertSee('Pending', false)
         ->assertSee('Ruang Mawar', false)
-        ->assertSee('Dashboard Rumah Sakit', false);
+        ->assertSee('Dashboard Rumah Sakit', false)
+        ->assertDontSee('Attempt to read property', false);
+});
+
+it('renders admin sebaran rows from cached arrays without 500', function () {
+    $rs = Rs::create(['rs_nama' => 'RS Cache', 'rs_status' => 'DEDICATED', 'rs_aktif' => 1]);
+    $ruangan = Ruangan::create(['ruangan_nama' => 'Ruang Melati']);
+    DetailLinen::create([
+        'detail_rfid' => 'CACHE_1',
+        'detail_id_rs' => $rs->rs_id,
+        'detail_id_ruangan' => $ruangan->ruangan_id,
+        'detail_status_linen' => 'BERSIH',
+    ]);
+
+    // Hit pertama (miss) + hit kedua (cache → array) — keduanya wajib 200.
+    $this->actingAs($this->admin)->get('/dashboard/admin')
+        ->assertOk()
+        ->assertSee('Ruang Melati', false);
+    $this->actingAs($this->admin)->get('/dashboard/admin')
+        ->assertOk()
+        ->assertSee('Ruang Melati', false)
+        ->assertSee('Sebaran Global', false);
+});
+
+it('renders laundry gudang rows from cached arrays without 500', function () {
+    $this->actingAs($this->laundry)->get('/dashboard/laundry')
+        ->assertOk()
+        ->assertSee('Warehouse', false);
+    $this->actingAs($this->laundry)->get('/dashboard/laundry')
+        ->assertOk();
 });
 
 it('shows pipeline antrean and warehouse on laundry dashboard', function () {

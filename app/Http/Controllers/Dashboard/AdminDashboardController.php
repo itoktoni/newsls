@@ -14,6 +14,7 @@ use App\Models\Outstanding;
 use App\Models\Rs;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Support\DashboardCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,68 +30,82 @@ class AdminDashboardController extends Controller
             return redirect()->route('dashboard');
         }
 
-        $gudangId = Warehouse::utamaId();
+        $scope = DashboardCache::userScope();
 
-        $kpi = [
-            'register' => DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER)->count(),
-            'kotor' => DetailLinen::where('detail_status_linen', LinenStatusEnum::KOTOR)->count(),
-            'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
-            'bersih' => DetailLinen::where('detail_status_linen', LinenStatusEnum::BERSIH)->count(),
-            'outstanding' => Outstanding::count(),
-            'warehouse' => Outstanding::where('outstanding_status_proses', 'GUDANG')
-                ->where('outstanding_id_warehouse', $gudangId)
-                ->count(),
-        ];
+        $payload = DashboardCache::remember($scope, 'admin:stats', function () {
+            $gudangId = Warehouse::utamaId();
 
-        $sebaran = DetailLinen::query()
-            ->where('detail_status_linen', LinenStatusEnum::BERSIH)
-            ->join('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
-            ->selectRaw('detail_linen.detail_id_ruangan as ruangan_id, ruangan.ruangan_nama, COUNT(*) as stok')
-            ->groupBy('detail_linen.detail_id_ruangan', 'ruangan.ruangan_nama')
-            ->orderBy('stok')
-            ->limit((int) config('dashboard.top_ruangan', 12))
-            ->get()
-            ->map(fn ($row) => (object) [
-                'ruangan_id' => $row->ruangan_id,
-                'ruangan_nama' => $row->ruangan_nama,
-                'stok' => (int) $row->stok,
-                'par' => null,
-                'level' => (int) $row->stok === 0 ? 'danger' : ((int) $row->stok < 5 ? 'warn' : 'ok'),
-            ]);
+            $kpi = [
+                'register' => DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER)->count(),
+                'kotor' => DetailLinen::where('detail_status_linen', LinenStatusEnum::KOTOR)->count(),
+                'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
+                'bersih' => DetailLinen::where('detail_status_linen', LinenStatusEnum::BERSIH)->count(),
+                'outstanding' => Outstanding::count(),
+                'warehouse' => Outstanding::where('outstanding_status_proses', 'GUDANG')
+                    ->where('outstanding_id_warehouse', $gudangId)
+                    ->count(),
+            ];
 
-        $health = [
-            'rs' => Rs::count(),
-            'jenis_linen' => JenisLinen::count(),
-            'config_linen' => DB::table('config_linen')->count(),
-            'outstanding' => Outstanding::count(),
-            'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
-        ];
+            $sebaran = DetailLinen::query()
+                ->where('detail_status_linen', LinenStatusEnum::BERSIH)
+                ->join('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
+                ->selectRaw('detail_linen.detail_id_ruangan as ruangan_id, ruangan.ruangan_nama, COUNT(*) as stok')
+                ->groupBy('detail_linen.detail_id_ruangan', 'ruangan.ruangan_nama')
+                ->orderBy('stok')
+                ->limit((int) config('dashboard.top_ruangan', 12))
+                ->get()
+                ->map(fn ($row) => [
+                    'ruangan_id' => $row->ruangan_id,
+                    'ruangan_nama' => $row->ruangan_nama,
+                    'stok' => (int) $row->stok,
+                    'par' => null,
+                    'level' => (int) $row->stok === 0 ? 'danger' : ((int) $row->stok < 5 ? 'warn' : 'ok'),
+                ])
+                ->all();
 
-        $opname = [
-            'total' => Opname::count(),
-            'selesai' => Opname::whereNotNull('opname_capture')->count(),
-            'proses' => Opname::whereNull('opname_capture')->count(),
-            'hilang_warehouse' => Opname::query()
-                ->whereHas('hasDetail', fn ($q) => $q->where('opname_detail_ketemu', 0))
-                ->count(),
-        ];
+            $health = [
+                'rs' => Rs::count(),
+                'jenis_linen' => JenisLinen::count(),
+                'config_linen' => DB::table('config_linen')->count(),
+                'outstanding' => Outstanding::count(),
+                'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
+            ];
 
-        // System overview — data lama dari DashboardController.
-        $stats = [
-            'total_users' => User::count(),
-            'total_notifications' => Notification::count(),
-            'unread_notifications' => Notification::where('read', false)->count(),
-        ];
-        $recentUsers = User::latest()->limit(5)->get();
+            $opname = [
+                'total' => Opname::count(),
+                'selesai' => Opname::whereNotNull('opname_capture')->count(),
+                'proses' => Opname::whereNull('opname_capture')->count(),
+                'hilang_warehouse' => Opname::query()
+                    ->whereHas('hasDetail', fn ($q) => $q->where('opname_detail_ketemu', 0))
+                    ->count(),
+            ];
+
+            // System overview — data lama dari DashboardController.
+            $stats = [
+                'total_users' => User::count(),
+                'total_notifications' => Notification::count(),
+                'unread_notifications' => Notification::where('read', false)->count(),
+            ];
+            $recentUsers = User::latest()->limit(5)->get()
+                ->map(fn ($user) => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'created_at' => $user->created_at?->format('d M Y'),
+                ])
+                ->all();
+
+            return compact('kpi', 'sebaran', 'health', 'opname', 'stats', 'recentUsers');
+        });
 
         return view('dashboard.admin', [
             'title' => 'Dashboard Admin',
-            'kpi' => $kpi,
-            'sebaran' => $sebaran,
-            'health' => $health,
-            'opname' => $opname,
-            'stats' => $stats,
-            'recentUsers' => $recentUsers,
+            'kpi' => $payload['kpi'],
+            'sebaran' => collect($payload['sebaran']),
+            'health' => $payload['health'],
+            'opname' => $payload['opname'],
+            'stats' => $payload['stats'],
+            'recentUsers' => collect($payload['recentUsers']),
             'userChart' => $chart->kotorVsBersih((int) config('dashboard.chart_days', 7)),
             'notifChart' => $chart->statusLinenDonut(),
         ]);

@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Concerns\PayloadTrait;
 use App\Concerns\RulesTrait;
+use App\Support\DashboardCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -27,6 +28,7 @@ class DeleteAction
         try {
 
             $model->whereIn($model->field_primary(), $data['ids'])->delete();
+            DashboardCache::flush();
 
             return $this->payload(TOAST_SUCCESS, $data['ids']);
 
@@ -47,6 +49,7 @@ class DeleteAction
 
         try {
             $model->findOrFail($id)->delete();
+            DashboardCache::flush();
 
             return $this->payload(TOAST_SUCCESS, ['id' => $id]);
 

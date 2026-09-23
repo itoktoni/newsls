@@ -9,9 +9,12 @@ use App\Models\Outstanding;
 use App\Models\Rs;
 use App\Models\Ruangan;
 use App\Models\Transaksi;
+use App\Models\User;
+use App\Support\DashboardCache;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Plugins\Notes;
 
@@ -26,7 +29,7 @@ class PackingDeliveryController extends Controller
         if ($err = $this->validatePacking($request)) {
             return $err;
         }
-        \App\Models\User::ensureRsAccess((int) $request->input('rs_id'));
+        User::ensureRsAccess((int) $request->input('rs_id'));
 
         $input = $this->normalizePacking($request);
 
@@ -63,6 +66,7 @@ class PackingDeliveryController extends Controller
         if ($v->fails()) {
             return Notes::validation($v->errors()->first(), $v->errors()->toArray());
         }
+
         return null;
     }
 
@@ -73,6 +77,7 @@ class PackingDeliveryController extends Controller
         if ($status === TransactionType::BERSIH) {
             $status = TransactionType::KOTOR;
         }
+
         return [
             'rfids' => $rfids,
             'rsId' => (int) $request->input('rs_id'),
@@ -90,6 +95,7 @@ class PackingDeliveryController extends Controller
         if ($count != count($input['rfids'])) {
             return Notes::validation('RFID dengan status ready packing tidak ditemukan!', ['rfid' => ['RFID dengan status ready packing tidak ditemukan!']]);
         }
+
         return null;
     }
 
@@ -104,6 +110,7 @@ class PackingDeliveryController extends Controller
             }
         } catch (\Throwable $e) {
         }
+
         return null;
     }
 
@@ -113,6 +120,7 @@ class PackingDeliveryController extends Controller
         if ($count > 0) {
             return Notes::validation('Status RFID sudah bersih!', ['rfid' => ['Status RFID sudah bersih!']]);
         }
+
         return null;
     }
 
@@ -122,6 +130,7 @@ class PackingDeliveryController extends Controller
         if (count($input['rfids']) > $max) {
             return Notes::validation('RFID maksimal '.$max, ['rfid' => ['RFID maksimal '.$max]]);
         }
+
         return null;
     }
 
@@ -141,9 +150,12 @@ class PackingDeliveryController extends Controller
             $report = $this->buildPackingReport($input, $code, $date, $userName);
 
             DB::commit();
+            DashboardCache::flush();
+
             return Notes::data($report);
         } catch (\Throwable $th) {
             DB::rollBack();
+
             return Notes::error($th->getMessage());
         }
     }
@@ -180,7 +192,7 @@ class PackingDeliveryController extends Controller
     private function logPacking(array $input, string $code): void
     {
         try {
-            activity('packing')->causedBy(auth()->user())->withProperties(['rfid' => $input['rfids'], 'rs_id' => $input['rsId'], 'code' => $code])->log("Packing ".count($input['rfids'])." RFID ke RS {$input['rsId']}");
+            activity('packing')->causedBy(auth()->user())->withProperties(['rfid' => $input['rfids'], 'rs_id' => $input['rsId'], 'code' => $code])->log('Packing '.count($input['rfids'])." RFID ke RS {$input['rsId']}");
         } catch (\Throwable $e) {
         }
     }
@@ -188,7 +200,7 @@ class PackingDeliveryController extends Controller
     private function buildPackingReport(array $input, string $code, string $date, string $userName): array
     {
         $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $input['rfids'])->get();
-        $grouped = $details->groupBy(fn ($item) => $item->detail_id_jenis . '#' . $item->detail_id_ruangan);
+        $grouped = $details->groupBy(fn ($item) => $item->detail_id_jenis.'#'.$item->detail_id_ruangan);
 
         $report = [];
         $no = 1;
@@ -254,9 +266,11 @@ class PackingDeliveryController extends Controller
             'status_transaksi.required' => 'Status transaksi wajib diisi.',
         ]);
         if ($v->fails()) {
-            \App\Models\User::ensureRsAccess((int) $request->input('rs_id'));
+            User::ensureRsAccess((int) $request->input('rs_id'));
+
             return Notes::validation($v->errors()->first(), $v->errors()->toArray());
         }
+
         return null;
     }
 
@@ -266,6 +280,7 @@ class PackingDeliveryController extends Controller
         if ($status === TransactionType::BERSIH) {
             $status = TransactionType::KOTOR;
         }
+
         return [
             'rsId' => (int) $request->input('rs_id'),
             'status' => $status,
@@ -281,6 +296,7 @@ class PackingDeliveryController extends Controller
         if ($count == 0) {
             return Notes::validation('RFID belum ada yang di packing!', ['rfid' => ['RFID belum ada yang di packing!']]);
         }
+
         return null;
     }
 
@@ -303,9 +319,12 @@ class PackingDeliveryController extends Controller
             $report = $this->buildDeliveryReport($input, $code, $rfids, $reportDate);
 
             DB::commit();
+            DashboardCache::flush();
+
             return Notes::data($report);
         } catch (\Throwable $th) {
             DB::rollBack();
+
             return Notes::error($th->getMessage());
         }
     }
@@ -318,6 +337,7 @@ class PackingDeliveryController extends Controller
             TransactionType::REWASH => env('CODE_DELIVERY_REWASH', 'RWS'),
             default => env('CODE_DELIVERY_BERSIH', 'BSH'),
         };
+
         return generateDeliveryCode($codeRs, $prefix);
     }
 
@@ -327,6 +347,7 @@ class PackingDeliveryController extends Controller
         $start = Carbon::createFromFormat('Y-m-d H:i', date('Y-m-d').' 13:00');
         $end = Carbon::createFromFormat('Y-m-d H:i:s', date('Y-m-d').' 23:59:59');
         $reportDate = Carbon::now()->between($start, $end) ? Carbon::now()->addDay(1) : Carbon::now();
+
         return [$date, $reportDate];
     }
 
@@ -417,7 +438,7 @@ class PackingDeliveryController extends Controller
     private function updatePending(array $input, array $rfids, string $code, $reportDate): void
     {
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('pending')) {
+            if (Schema::hasTable('pending')) {
                 DB::table('pending')->where('pending_transaksi', '!=', TransactionType::BERSIH)->whereIn('pending_rfid', $rfids)->update([
                     'pending_bersih_by' => auth()->id(),
                     'pending_bersih_at' => $reportDate->format('Y-m-d H:i:s'),
@@ -432,7 +453,7 @@ class PackingDeliveryController extends Controller
     private function logDelivery(array $input, string $code, array $rfids): void
     {
         try {
-            activity('delivery')->causedBy(auth()->user())->withProperties(['rfid' => $rfids, 'rs_id' => $input['rsId'], 'code' => $code])->log("Delivery $code ".count($rfids)." RFID");
+            activity('delivery')->causedBy(auth()->user())->withProperties(['rfid' => $rfids, 'rs_id' => $input['rsId'], 'code' => $code])->log("Delivery $code ".count($rfids).' RFID');
         } catch (\Throwable $e) {
         }
     }
@@ -440,7 +461,7 @@ class PackingDeliveryController extends Controller
     private function buildDeliveryReport(array $input, string $code, array $rfids, $reportDate): array
     {
         $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $rfids)->get();
-        $grouped = $details->groupBy(fn ($item) => $item->detail_id_jenis . '#' . $item->detail_id_ruangan);
+        $grouped = $details->groupBy(fn ($item) => $item->detail_id_jenis.'#'.$item->detail_id_ruangan);
 
         $report = [];
         $no = 1;
@@ -484,6 +505,7 @@ class PackingDeliveryController extends Controller
     public function listPacking($rsid)
     {
         $data = DB::table('cetak')->select(['cetak_code'])->where('cetak_id_rs', $rsid)->where('cetak_type', 1)->where('cetak_date', '>=', now()->subDays(30)->format('Y-m-d'))->orderBy('cetak_id', 'desc')->get();
+
         return Notes::data($data);
     }
 
@@ -493,6 +515,7 @@ class PackingDeliveryController extends Controller
         if (request()->get('tgl')) {
             $q->where('cetak_date', '=', request()->get('tgl'));
         }
+
         return Notes::data($q->get());
     }
 
@@ -506,6 +529,7 @@ class PackingDeliveryController extends Controller
             $rfids = Transaksi::where('transaksi_key', $code)->pluck('transaksi_rfid')->all();
         }
         $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $rfids ?: ['__none__'])->get();
+
         return Notes::data($details);
     }
 
@@ -516,6 +540,7 @@ class PackingDeliveryController extends Controller
             $rfids = Transaksi::where('transaksi_key', $code)->pluck('transaksi_rfid')->all();
         }
         $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $rfids ?: ['__none__'])->get();
+
         return Notes::data($details);
     }
 
@@ -527,6 +552,7 @@ class PackingDeliveryController extends Controller
                 return [];
             }
             $decoded = json_decode($row->cetak_rfids, true);
+
             return is_array($decoded) ? array_values(array_filter($decoded)) : [];
         } catch (\Throwable $e) {
             return [];
@@ -543,6 +569,7 @@ class PackingDeliveryController extends Controller
             $status = TransactionType::KOTOR;
         }
         $count = Outstanding::where('outstanding_rs_scan', $rsid)->where('outstanding_status_proses', 'PACKING')->where('outstanding_status_transaksi', $status)->count();
+
         return Notes::data(['total' => $count, 'view_total' => $count]);
     }
 
@@ -557,6 +584,7 @@ class PackingDeliveryController extends Controller
             $q->whereIn('outstanding_rfid', $rfids);
         }
         $count = $q->count();
+
         return Notes::data(['view_total' => $count, 'view_rs_id' => $rsid, 'view_jenis_id' => $jenis, 'view_ruangan_id' => $ruangan, 'view_status' => $transaksi]);
     }
 
@@ -567,6 +595,7 @@ class PackingDeliveryController extends Controller
             $q->where('detail_id_jenis', $jenis);
         }
         $count = $q->count();
+
         return Notes::data(['view_total' => $count]);
     }
 }

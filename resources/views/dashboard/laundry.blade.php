@@ -54,8 +54,8 @@
                     <ul class="space-y-2">
                         @foreach ($gudangPerJenis as $row)
                             <li class="flex items-center justify-between text-sm border-b border-outline-variant/50 pb-1.5">
-                                <span class="text-on-surface">{{ $row->nama }}</span>
-                                <span class="font-semibold text-on-surface">{{ number_format($row->pcs) }} pcs</span>
+                                <span class="text-on-surface">{{ $row['nama'] }}</span>
+                                <span class="font-semibold text-on-surface">{{ number_format($row['pcs']) }} pcs</span>
                             </li>
                         @endforeach
                     </ul>

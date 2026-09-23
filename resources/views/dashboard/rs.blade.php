@@ -59,7 +59,7 @@ $badgeClass = fn (string $level) => match ($level) {
                 <p class="font-semibold mb-1">Ruangan kurang stok</p>
                 <ul class="list-disc pl-5 space-y-0.5">
                     @foreach ($alert as $row)
-                        <li>{{ $row->ruangan_nama }} — stok 0</li>
+                        <li>{{ $row['ruangan_nama'] }} — stok 0</li>
                     @endforeach
                 </ul>
             </div>
@@ -75,12 +75,12 @@ $badgeClass = fn (string $level) => match ($level) {
                     @foreach ($sebaran as $row)
                         <div class="border border-outline-variant rounded-xl p-4 bg-surface-container">
                             <div class="flex items-start justify-between gap-2 mb-2">
-                                <p class="font-medium text-on-surface text-sm">{{ $row->ruangan_nama }}</p>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ $badgeClass($row->level) }}">
-                                    {{ $row->level === 'ok' ? 'Aman' : ($row->level === 'warn' ? 'Tipis' : 'Kosong') }}
+                                <p class="font-medium text-on-surface text-sm">{{ $row['ruangan_nama'] }}</p>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ $badgeClass($row['level']) }}">
+                                    {{ $row['level'] === 'ok' ? 'Aman' : ($row['level'] === 'warn' ? 'Tipis' : 'Kosong') }}
                                 </span>
                             </div>
-                            <p class="text-2xl font-bold text-on-surface">{{ number_format($row->stok) }}</p>
+                            <p class="text-2xl font-bold text-on-surface">{{ number_format($row['stok']) }}</p>
                             <p class="text-xs text-on-surface-variant mt-0.5">Stok bersih · par —</p>
                         </div>
                     @endforeach

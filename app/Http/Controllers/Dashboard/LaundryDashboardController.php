@@ -10,6 +10,7 @@ use App\Models\DetailLinen;
 use App\Models\Outstanding;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Support\DashboardCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,64 +26,75 @@ class LaundryDashboardController extends Controller
             return redirect()->route('dashboard');
         }
 
-        $gudangId = Warehouse::utamaId();
+        $scope = DashboardCache::userScope();
 
-        $kpi = [
-            'register' => User::scopeRs(
-                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::REGISTER),
-                'detail_linen.detail_id_rs'
-            )->count(),
-            'kotor' => User::scopeRs(
-                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
-                'detail_linen.detail_id_rs'
-            )->count(),
-            'pending' => User::scopeRs(
-                Outstanding::query()->whereNotNull('outstanding_pending_created_at'),
-                'outstanding.outstanding_rs_scan'
-            )->count(),
-            'bersih' => User::scopeRs(
-                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
-                'detail_linen.detail_id_rs'
-            )->count(),
-            'delivered' => User::scopeRs(
-                DB::table('bersih')->whereDate('bersih_created_at', today()),
-                'bersih.bersih_id_rs'
-            )->count(),
-            'warehouse' => User::scopeRs(
-                Outstanding::query()
-                    ->where('outstanding_status_proses', 'GUDANG')
-                    ->where('outstanding_id_warehouse', $gudangId),
-                'outstanding.outstanding_rs_scan'
-            )->count(),
-        ];
+        $payload = DashboardCache::remember($scope, 'laundry:stats', function () {
+            $gudangId = Warehouse::utamaId();
 
-        $antrean = [
-            'packing' => User::scopeRs(
-                Outstanding::whereIn('outstanding_status_proses', ['SCAN', 'QC', 'REGISTER', 'GUDANG']),
-                'outstanding.outstanding_rs_scan'
-            )->count(),
-            'delivery' => User::scopeRs(
-                Outstanding::query()->where('outstanding_status_proses', 'PACKING'),
-                'outstanding.outstanding_rs_scan'
-            )->count(),
-        ];
+            $kpi = [
+                'register' => User::scopeRs(
+                    DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::REGISTER),
+                    'detail_linen.detail_id_rs'
+                )->count(),
+                'kotor' => User::scopeRs(
+                    DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
+                    'detail_linen.detail_id_rs'
+                )->count(),
+                'pending' => User::scopeRs(
+                    Outstanding::query()->whereNotNull('outstanding_pending_created_at'),
+                    'outstanding.outstanding_rs_scan'
+                )->count(),
+                'bersih' => User::scopeRs(
+                    DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
+                    'detail_linen.detail_id_rs'
+                )->count(),
+                'delivered' => User::scopeRs(
+                    DB::table('bersih')->whereDate('bersih_created_at', today()),
+                    'bersih.bersih_id_rs'
+                )->count(),
+                'warehouse' => User::scopeRs(
+                    Outstanding::query()
+                        ->where('outstanding_status_proses', 'GUDANG')
+                        ->where('outstanding_id_warehouse', $gudangId),
+                    'outstanding.outstanding_rs_scan'
+                )->count(),
+            ];
 
-        $gudangPerJenis = User::scopeRs(Outstanding::query(), 'outstanding.outstanding_rs_scan')
-            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
-            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
-            ->where('outstanding.outstanding_status_proses', 'GUDANG')
-            ->where('outstanding.outstanding_id_warehouse', $gudangId)
-            ->selectRaw('COALESCE(jenis_linen.jenis_nama, ?) as nama, COUNT(*) as pcs', ['Tanpa Jenis'])
-            ->groupBy('jenis_linen.jenis_nama')
-            ->orderByDesc('pcs')
-            ->limit((int) config('dashboard.top_ruangan', 12))
-            ->get();
+            $antrean = [
+                'packing' => User::scopeRs(
+                    Outstanding::whereIn('outstanding_status_proses', ['SCAN', 'QC', 'REGISTER', 'GUDANG']),
+                    'outstanding.outstanding_rs_scan'
+                )->count(),
+                'delivery' => User::scopeRs(
+                    Outstanding::query()->where('outstanding_status_proses', 'PACKING'),
+                    'outstanding.outstanding_rs_scan'
+                )->count(),
+            ];
+
+            $gudangPerJenis = User::scopeRs(Outstanding::query(), 'outstanding.outstanding_rs_scan')
+                ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
+                ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+                ->where('outstanding.outstanding_status_proses', 'GUDANG')
+                ->where('outstanding.outstanding_id_warehouse', $gudangId)
+                ->selectRaw('COALESCE(jenis_linen.jenis_nama, ?) as nama, COUNT(*) as pcs', ['Tanpa Jenis'])
+                ->groupBy('jenis_linen.jenis_nama')
+                ->orderByDesc('pcs')
+                ->limit((int) config('dashboard.top_ruangan', 12))
+                ->get()
+                ->map(fn ($row) => [
+                    'nama' => $row->nama,
+                    'pcs' => (int) $row->pcs,
+                ])
+                ->all();
+
+            return compact('kpi', 'antrean', 'gudangPerJenis');
+        });
 
         return view('dashboard.laundry', [
             'title' => 'Dashboard Petugas Laundry',
-            'kpi' => $kpi,
-            'antrean' => $antrean,
-            'gudangPerJenis' => $gudangPerJenis,
+            'kpi' => $payload['kpi'],
+            'antrean' => $payload['antrean'],
+            'gudangPerJenis' => collect($payload['gudangPerJenis']),
             'chart' => $chart->kotorVsBersih((int) config('dashboard.chart_days', 7)),
         ]);
     }

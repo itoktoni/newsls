@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Concerns\PayloadTrait;
 use App\Concerns\RulesTrait;
+use App\Support\DashboardCache;
 use Illuminate\Http\Request;
 use Lorisleiva\Actions\Concerns\AsAction;
 
@@ -22,7 +23,10 @@ class CreateAction
         $data = $request->validate($this->rules());
 
         try {
-            return $this->payload(TOAST_SUCCESS, $model->create($data));
+            $created = $model->create($data);
+            DashboardCache::flush();
+
+            return $this->payload(TOAST_SUCCESS, $created);
         } catch (\Throwable $th) {
             return $this->payload(TOAST_FAILED, $th->getMessage());
         }

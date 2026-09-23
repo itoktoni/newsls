@@ -9,6 +9,7 @@ use App\Enums\RsStatusEnum;
 use App\Models\ConfigLinen;
 use App\Models\DetailLinen;
 use App\Models\Rs;
+use App\Support\DashboardCache;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -64,7 +65,7 @@ class RegisterLinenAction
     }
 
     /**
-     * @return Collection<int, DetailLinen>  baris detail_linen yang baru dibuat
+     * @return Collection<int, DetailLinen> baris detail_linen yang baru dibuat
      */
     private function register(array $data): Collection
     {
@@ -119,6 +120,7 @@ class RegisterLinenAction
             }
 
             DB::commit();
+            DashboardCache::flush();
         } catch (\Throwable $th) {
             DB::rollBack();
 
