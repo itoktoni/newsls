@@ -48,183 +48,19 @@ $asalBadge = fn ($v) => match ($v) {
                class="px-4 py-2 rounded-lg text-sm font-semibold {{ $tab === 'delivery' ? 'bg-primary text-white' : 'bg-surface-container text-on-surface-variant' }}">
                 Delivery
             </a>
-            <a href="{{ moduleRoute('getTable', ['tab' => 'riwayat']) }}" wire:navigate
-               class="px-4 py-2 rounded-lg text-sm font-semibold {{ $tab === 'riwayat' ? 'bg-primary text-white' : 'bg-surface-container text-on-surface-variant' }}">
-                Riwayat Cetak
-            </a>
         </div>
 
         {{-- Filters --}}
         <x-filter :per-page="25" :fields="$fields">
             <x-slot:advanced>
-                @if ($tab === 'riwayat')
                 <x-filter-item label="RFID" name="bersih_rfid" operator="$contains" placeholder="Sebagian RFID..." />
                 <x-filter-item label="Rumah Sakit" name="bersih_id_rs" :options="$rsOptions" />
                 <x-filter-item label="Status" name="bersih_status" :options="$statusOptions" />
                 <x-filter-item label="Linen" name="linen_nama" operator="$contains" placeholder="Nama linen..." />
-                @else
-                <x-filter-item label="RFID" name="outstanding_rfid" operator="$contains" placeholder="Sebagian RFID..." />
-                <x-filter-item label="RS Scan" name="outstanding_rs_scan" :options="$rsOptions" />
-                <x-filter-item label="Ruangan" name="outstanding_id_ruangan" :options="$ruanganOptions" />
-                <x-filter-item label="Asal (Kotor/Retur/Rewash)" name="outstanding_status_transaksi" :options="$statusOptions" />
-                @endif
             </x-slot:advanced>
         </x-filter>
 
         {{-- Table --}}
-        @if ($tab === 'packing')
-        <div>
-            <x-table>
-                <x-slot:head>
-                    <th>No.</th>
-                    <x-table-sort field="outstanding_rfid" label="NO. RFID" :sortField="$sortField" :sortDir="$sortDir" />
-                    <th>Linen</th>
-                    <th>RS Scan</th>
-                    <th>Ruangan</th>
-                    <x-table-sort field="outstanding_status_transaksi" label="Asal" :sortField="$sortField" :sortDir="$sortDir" />
-                    <th>Proses</th>
-                    <x-table-sort field="outstanding_updated_at" label="Update" :sortField="$sortField" :sortDir="$sortDir" />
-                </x-slot:head>
-
-                <x-slot:body>
-                    @foreach($data as $i => $table)
-                    <tr>
-                        <td>{{ $i + 1 }}</td>
-                        <td class="whitespace-nowrap font-mono text-xs">{{ $table->outstanding_rfid }}</td>
-                        <td>{{ $table->linen_nama ?? '-' }}</td>
-                        <td>{{ $table->rs_nama ?? '-' }}</td>
-                        <td>{{ $table->ruangan_nama ?? '-' }}</td>
-                        <td>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $asalBadge($table->outstanding_status_transaksi) }}">
-                                {{ $asalLabel($table->outstanding_status_transaksi) }}
-                            </span>
-                        </td>
-                        <td>{{ $table->outstanding_status_proses }}</td>
-                        <td class="whitespace-nowrap text-xs">{{ $table->outstanding_updated_at }}</td>
-                    </tr>
-                    @endforeach
-                </x-slot:body>
-
-                <x-slot:mobile>
-                    <x-table-mobile-select :model="null" :total="$data"/>
-                    <div class="p-3 space-y-3" id="mBody">
-                        @foreach($data as $table)
-                        <div class="border border-outline-variant rounded-xl p-4 bg-surface-container-lowest shadow-sm active:scale-[0.99] transition-transform" data-id="{{ $table->outstanding_rfid }}" onclick="mToggle(this)">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span data-check class="icon-[tabler--circle] size-5 text-base-content/20 shrink-0"></span>
-                                <p class="flex-1 min-w-0 text-sm font-bold font-mono text-on-surface truncate">{{ $table->outstanding_rfid }}</p>
-                                <span class="inline-flex items-center shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $asalBadge($table->outstanding_status_transaksi) }}">
-                                    {{ $asalLabel($table->outstanding_status_transaksi) }}
-                                </span>
-                            </div>
-                            <div class="mb-3 rounded-lg bg-surface-container px-3 py-2 text-xs">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="text-on-surface-variant shrink-0">Rumah Sakit</span>
-                                    <span class="font-semibold text-primary text-right truncate">{{ $table->rs_nama ?? '-' }}</span>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-x-3 gap-y-2 mb-3 text-xs">
-                                <div class="min-w-0">
-                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Linen</p>
-                                    <p class="font-medium text-on-surface truncate">{{ $table->linen_nama ?? '-' }}</p>
-                                </div>
-                                <div class="min-w-0 text-right">
-                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Ruangan</p>
-                                    <p class="font-medium text-on-surface truncate">{{ $table->ruangan_nama ?? '-' }}</p>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Proses</p>
-                                    <p class="font-medium text-on-surface">{{ $table->outstanding_status_proses }}</p>
-                                </div>
-                                <div class="min-w-0 text-right">
-                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Update</p>
-                                    <p class="font-medium text-on-surface truncate">{{ $table->outstanding_updated_at }}</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center justify-between pt-2 border-t border-outline-variant/50">
-                                <span class="text-[9px] font-mono text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ $table->outstanding_key }}</span>
-                            </div>
-                        </div>
-                        @endforeach
-                    </div>
-                </x-slot:mobile>
-            </x-table>
-        </div>
-        @endif
-
-        @if ($tab === 'delivery')
-        <div>
-            <x-table>
-                <x-slot:head>
-                    <th>No.</th>
-                    <x-table-sort field="outstanding_rfid" label="NO. RFID" :sortField="$sortField" :sortDir="$sortDir" />
-                    <th>Linen</th>
-                    <th>RS Scan</th>
-                    <th>Ruangan</th>
-                    <x-table-sort field="outstanding_status_transaksi" label="Asal" :sortField="$sortField" :sortDir="$sortDir" />
-                    <th>Key Packing</th>
-                    <x-table-sort field="outstanding_updated_at" label="Update" :sortField="$sortField" :sortDir="$sortDir" />
-                </x-slot:head>
-
-                <x-slot:body>
-                    @foreach($data as $i => $table)
-                    <tr>
-                        <td>{{ $i + 1 }}</td>
-                        <td class="whitespace-nowrap font-mono text-xs">{{ $table->outstanding_rfid }}</td>
-                        <td>{{ $table->linen_nama ?? '-' }}</td>
-                        <td>{{ $table->rs_nama ?? '-' }}</td>
-                        <td>{{ $table->ruangan_nama ?? '-' }}</td>
-                        <td>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $asalBadge($table->outstanding_status_transaksi) }}">
-                                {{ $asalLabel($table->outstanding_status_transaksi) }}
-                            </span>
-                        </td>
-                        <td class="whitespace-nowrap font-mono text-xs">{{ $table->outstanding_key }}</td>
-                        <td class="whitespace-nowrap text-xs">{{ $table->outstanding_updated_at }}</td>
-                    </tr>
-                    @endforeach
-                </x-slot:body>
-
-                <x-slot:mobile>
-                    <x-table-mobile-select :model="null" :total="$data"/>
-                    <div class="p-3 space-y-3" id="mBody">
-                        @foreach($data as $table)
-                        <div class="border border-outline-variant rounded-xl p-4 bg-surface-container-lowest shadow-sm active:scale-[0.99] transition-transform" data-id="{{ $table->outstanding_rfid }}" onclick="mToggle(this)">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span data-check class="icon-[tabler--circle] size-5 text-base-content/20 shrink-0"></span>
-                                <p class="flex-1 min-w-0 text-sm font-bold font-mono text-on-surface truncate">{{ $table->outstanding_rfid }}</p>
-                                <span class="inline-flex items-center shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $asalBadge($table->outstanding_status_transaksi) }}">
-                                    {{ $asalLabel($table->outstanding_status_transaksi) }}
-                                </span>
-                            </div>
-                            <div class="mb-3 rounded-lg bg-surface-container px-3 py-2 text-xs">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="text-on-surface-variant shrink-0">Rumah Sakit</span>
-                                    <span class="font-semibold text-primary text-right truncate">{{ $table->rs_nama ?? '-' }}</span>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-x-3 gap-y-2 mb-3 text-xs">
-                                <div class="min-w-0">
-                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Linen</p>
-                                    <p class="font-medium text-on-surface truncate">{{ $table->linen_nama ?? '-' }}</p>
-                                </div>
-                                <div class="min-w-0 text-right">
-                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Ruangan</p>
-                                    <p class="font-medium text-on-surface truncate">{{ $table->ruangan_nama ?? '-' }}</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center justify-between pt-2 border-t border-outline-variant/50">
-                                <span class="text-[9px] font-mono text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ $table->outstanding_key }}</span>
-                            </div>
-                        </div>
-                        @endforeach
-                    </div>
-                </x-slot:mobile>
-            </x-table>
-        </div>
-        @endif
-
-        @if ($tab === 'riwayat')
         <x-table>
             <x-slot:head>
                 <th>No.</th>
@@ -303,7 +139,6 @@ $asalBadge = fn ($v) => match ($v) {
                 </div>
             </x-slot:mobile>
         </x-table>
-        @endif
 
         <x-pagination :paginator="$data" />
 

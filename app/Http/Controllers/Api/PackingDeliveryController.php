@@ -145,6 +145,7 @@ class PackingDeliveryController extends Controller
             $userName = auth()->user()->name ?? 'System';
 
             $this->updateOutstandingToPacking($input, $date, $userId);
+            $this->insertBersihPacking($input, $code, $date, $userId);
             $this->insertCetakPacking($input, $code, $userName);
             $this->logPacking($input, $code);
 
@@ -173,6 +174,35 @@ class PackingDeliveryController extends Controller
             'outstanding_hilang_created_at' => null,
             'outstanding_pending_created_at' => null,
         ]);
+    }
+
+    private function insertBersihPacking(array $input, string $code, string $date, $userId): void
+    {
+        foreach ($input['rfids'] as $rfid) {
+            DB::table('bersih')->insert([
+                'bersih_rfid' => $rfid,
+                'bersih_status' => $this->bersihStatus($input['status']),
+                'bersih_id_rs' => $input['rsId'],
+                'bersih_id_ruangan' => $input['ruanganId'],
+                'bersih_barcode' => strtoupper($code),
+                'bersih_delivery' => null,
+                'bersih_created_at' => $date,
+                'bersih_updated_at' => $date,
+                'bersih_created_by' => $userId,
+                'bersih_updated_by' => $userId,
+                'bersih_report' => null,
+            ]);
+        }
+    }
+
+    private function bersihStatus(string $status): string
+    {
+        return match ($status) {
+            TransactionType::REJECT => 'REJECT',
+            TransactionType::REWASH => 'REWASH',
+            TransactionType::REGISTER => 'REGISTER',
+            default => 'BERSIH',
+        };
     }
 
     private function insertCetakPacking(array $input, string $code, string $userName): void
@@ -323,7 +353,7 @@ class PackingDeliveryController extends Controller
             $this->updateDetailRuangan($input, $rfids);
             $this->updateDetailsToBersih($input, $rfids, $date, $reportDate);
             $this->insertCetakDelivery($input, $code, $rfids);
-            $this->insertBersihRows($input, $code, $rfids, $date, $reportDate);
+            $this->updateBersihRows($input, $code, $rfids, $date, $reportDate);
             $this->deleteOutstanding($rfids);
             $this->updatePending($input, $rfids, $code, $reportDate);
             $this->logDelivery($input, $code, $rfids);
@@ -419,27 +449,19 @@ class PackingDeliveryController extends Controller
         ]);
     }
 
-    private function insertBersihRows(array $input, string $code, array $rfids, $date, $reportDate): void
+    private function updateBersihRows(array $input, string $code, array $rfids, $date, $reportDate): void
     {
-        $packBarcode = DB::table('cetak')->where('cetak_type', 1)->where('cetak_id_rs', $input['rsId'])->orderByDesc('cetak_id')->value('cetak_barcode')
-            ?? DB::table('cetak')->where('cetak_type', 1)->where('cetak_id_rs', $input['rsId'])->orderByDesc('cetak_id')->value('cetak_code');
-        $packBarcode = $packBarcode ? strtoupper($packBarcode) : strtoupper($code);
-        foreach ($rfids as $rfid) {
-            $ruangan = DetailLinen::where('detail_rfid', $rfid)->value('detail_id_ruangan');
-            DB::table('bersih')->insert([
-                'bersih_rfid' => $rfid,
-                'bersih_status' => 'BERSIH',
-                'bersih_id_rs' => $input['rsId'],
-                'bersih_id_ruangan' => $ruangan,
-                'bersih_barcode' => $packBarcode,
+        DB::table('bersih')
+            ->where('bersih_id_rs', $input['rsId'])
+            ->where('bersih_status', $this->bersihStatus($input['status']))
+            ->whereNull('bersih_delivery')
+            ->whereIn('bersih_rfid', $rfids)
+            ->update([
                 'bersih_delivery' => strtoupper($code),
-                'bersih_created_at' => $date->format('Y-m-d H:i:s'),
-                'bersih_updated_at' => $date->format('Y-m-d H:i:s'),
-                'bersih_created_by' => auth()->id(),
-                'bersih_updated_by' => auth()->id(),
                 'bersih_report' => $reportDate->format('Y-m-d'),
+                'bersih_updated_at' => $date->format('Y-m-d H:i:s'),
+                'bersih_updated_by' => auth()->id(),
             ]);
-        }
     }
 
     private function deleteOutstanding(array $rfids): void

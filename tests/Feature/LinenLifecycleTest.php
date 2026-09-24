@@ -191,7 +191,7 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
 
     // Outstanding GUDANG juga harus terlihat di BersihController stats (packing queue)
     // via Outstanding SCAN/QC/REGISTER/GUDANG
-    expect(Outstanding::whereIn('outstanding_status_proses', ['SCAN','QC','REGISTER','GUDANG'])->count())->toBe(3);
+    expect(Outstanding::whereIn('outstanding_status_proses', ['SCAN', 'QC', 'REGISTER', 'GUDANG'])->count())->toBe(3);
 
     // ------------------------------------------------------------------
     // 4) PACKING — POST /api/packing : Outstanding GUDANG/REGISTER → PACKING + cetak type 1
@@ -217,7 +217,8 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     expect($cetakPacking)->not->toBeNull();
     $decoded = json_decode($cetakPacking->cetak_rfids, true);
     sort($decoded);
-    $expectedSorted = $rfids; sort($expectedSorted);
+    $expectedSorted = $rfids;
+    sort($expectedSorted);
     expect($decoded)->toBe($expectedSorted);
     $packingCode = $cetakPacking->cetak_code;
 
@@ -234,9 +235,9 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
         ->assertOk()
         ->assertJsonPath('data.total', 3);
 
-    // View web Bersih tab delivery juga harus melihat 3 antrean PACKING
+    // View web Bersih tab packing menampilkan 3 RFID yang sudah PACKING
     $this->actingAs($this->admin)
-        ->get('/bersih/table?tab=delivery')
+        ->get('/bersih/table?tab=packing')
         ->assertOk()
         ->assertSee('PACKING');
 
@@ -277,10 +278,17 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
         ->assertOk()
         ->assertJsonCount(3, 'data');
 
-    // Riwayat cetak (tab riwayat) harus menampilkan packing + delivery
+    // Tab packing = baris bersih hari ini (hasil packing hari itu)
     $this->actingAs($this->admin)
-        ->get('/bersih/table?tab=riwayat')
-        ->assertOk();
+        ->get('/bersih/table?tab=packing')
+        ->assertOk()
+        ->assertSee($packingCode);
+
+    // Tab delivery = baris bersih yang sudah terkirim (bersih_delivery terisi)
+    $this->actingAs($this->admin)
+        ->get('/bersih/table?tab=delivery')
+        ->assertOk()
+        ->assertSee($deliveryCode1);
 
     // Stats bersih_hari_ini harus >=3 (DetailLinen BERSIH hari ini)
     expect(DetailLinen::where('detail_status_linen', 'BERSIH')->whereDate('detail_updated_at', today())->count())->toBeGreaterThanOrEqual(3);
@@ -290,7 +298,11 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     //    Setelah bersih, linen dipakai lagi → kotor → perlu dicuci ulang.
     //    Menggunakan endpoint transaksi (bukan andalan BersihController) — sesuai routes/api.php
     // ------------------------------------------------------------------
-    $kotorKey = 'KTR-TEST-' . now()->format('YmdHis') . '-' . uniqid();
+    // Guard kotor (port andalan): detail_updated_at harus sudah lewat
+    // TRANSACTION_HOURS_ALLOWED jam, jadi mundurkan dulu.
+    DetailLinen::whereIn('detail_rfid', $rfids)->update(['detail_updated_at' => now()->subDays(2)]);
+
+    $kotorKey = 'KTR-TEST-'.now()->format('YmdHis').'-'.uniqid();
     $kotorRes = $this->withToken($this->token)
         ->postJson('/api/transaksi/kotor', [
             'rfid' => $rfids,
@@ -407,11 +419,11 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     expect(Transaksi::whereIn('transaksi_rfid', $rfids)->where('transaksi_status', 'KOTOR')->count())->toBeGreaterThanOrEqual(3);
 
     // Web Bersih riwayat harus menampilkan 4 baris cetak
-    $this->actingAs($this->admin)->get('/bersih/table?tab=riwayat')->assertOk();
+    $this->actingAs($this->admin)->get('/bersih/table?tab=delivery')->assertOk();
 
     // Guard dedup: coba scan kotor lagi di hari yang sama dengan key berbeda harus tetap update Outstanding
     // tapi transaksi hari ini tidak duplikat (TransaksiApiController skip if existsToday)
-    $kotorKeyDedup = 'KTR-DEDUP-' . uniqid();
+    $kotorKeyDedup = 'KTR-DEDUP-'.uniqid();
     $this->withToken($this->token)
         ->postJson('/api/transaksi/kotor', [
             'rfid' => $rfids,
@@ -420,17 +432,16 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
         ])
         ->assertOk()->assertJson(['status' => true]);
 
-    // Karena hari sama, transaksi tidak boleh nambah (Transaksi::whereDate today exists skip)
-    // Tapi Outstanding harus tetap ada (update ke SCAN)
-    expect(Outstanding::whereIn('outstanding_rfid', $rfids)->count())->toBe(3);
-    // Jumlah transaksi KOTOR hari ini tetap 3 (tidak jadi 6)
+    // Guard kotor (port andalan): detail_report masih hari ini (hasil delivery siklus
+    // kedua), jadi scan kotor di hari yang sama DIBLOKIR — tidak ada outstanding
+    // maupun transaksi baru.
+    expect(Outstanding::whereIn('outstanding_rfid', $rfids)->count())->toBe(0);
+    expect(Transaksi::where('transaksi_key', $kotorKeyDedup)->count())->toBe(0);
+    // Jumlah transaksi KOTOR hari ini tetap 3 (dari scan siklus kedua)
     $todayCount = Transaksi::whereIn('transaksi_rfid', $rfids)->whereDate('transaksi_created_at', today())->count();
     expect($todayCount)->toBe(3);
 
-    // Negative: packing tanpa grouping (Outstanding sudah bersih -> SCAN lagi tapi belum GUDANG?)
-    // Setelah kotor dedup, Outstanding ada SCAN, langsung packing tanpa grouping harus tetap bisa?
-    // Tapi packing butuh Outstanding status_transaksi KOTOR dan belum PACKING — jadi masih bisa.
-    // Yang tidak boleh: packing RFID yang tidak ada di Outstanding
+    // Negative: packing RFID yang tidak ada di Outstanding harus ditolak
     $this->withToken($this->token)
         ->postJson('/api/packing', [
             'rfid' => ['BOGUS_RFID_999'],
@@ -518,7 +529,7 @@ it('mencegah akses RS di luar hak user dan menolak RFID duplikat saat registrasi
         ->postJson('/api/transaksi/kotor', [
             'rfid' => ['DUPE_001'],
             'rs_id' => $otherRs->rs_id,
-            'key' => 'KTR-FORBIDDEN-' . uniqid(),
+            'key' => 'KTR-FORBIDDEN-'.uniqid(),
         ])
         ->assertOk()
         ->assertJson(['status' => false, 'code' => 403]);

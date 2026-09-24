@@ -2,6 +2,7 @@
 
 use App\Enums\CuciEnum;
 use App\Enums\LinenStatusEnum;
+use App\Enums\LogType;
 use App\Enums\RegisterEnum;
 use App\Enums\RsStatusEnum;
 use App\Models\DetailLinen;
@@ -55,7 +56,8 @@ beforeEach(function () {
             'detail_id_jenis' => $this->jenis->jenis_id, 'detail_id_bahan' => $this->bahan->bahan_id, 'detail_id_supplier' => $this->supplier->supplier_id,
             'detail_status_cuci' => CuciEnum::CUCI, 'detail_status_kepemilikan' => RsStatusEnum::DEDICATED,
             'detail_status_register' => RegisterEnum::REGISTER, 'detail_status_linen' => LinenStatusEnum::BERSIH,
-            'detail_report' => now()->format('Y-m-d'), 'detail_total_bersih' => 1, 'detail_created_by' => $this->admin->id,
+            'detail_report' => now()->subDays(2)->format('Y-m-d'),
+            'detail_total_bersih' => 1, 'detail_created_by' => $this->admin->id,
         ]);
         DB::table('config_linen')->insert(['detail_rfid' => $rfid, 'rs_id' => $this->rs->rs_id]);
         DB::table('bersih')->insert([
@@ -71,6 +73,10 @@ beforeEach(function () {
  */
 it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function () {
     $rfids = $this->rfids;
+
+    // Guard kotor (port andalan): detail_updated_at harus sudah lewat
+    // TRANSACTION_HOURS_ALLOWED jam. Kolomnya tidak fillable → set lewat query builder.
+    DetailLinen::whereIn('detail_rfid', $rfids)->update(['detail_updated_at' => now()->subDays(2)]);
 
     // 1) Scan KOTOR via API — POST /api/transaksi/kotor
     $kotorKey = 'KTR-STEP2-'.strtoupper(uniqid());
@@ -102,6 +108,19 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
     foreach ($rfids as $rfid) {
         $this->withToken($this->token)->getJson("/api/grouping/{$rfid}")->assertOk()->assertJson(['rfid' => $rfid]);
     }
+
+    // Log grouping wajib uppercase GROUPING + ber-subject DetailLinen (RFID),
+    // supaya RFID-nya tampil di activity-log/table — bukan subject kosong.
+    foreach ($rfids as $rfid) {
+        $log = DB::table('activity_log')
+            ->where('log_name', LogType::GROUPING)
+            ->where('subject_type', DetailLinen::class)
+            ->where('subject_id', $rfid)
+            ->first();
+
+        expect($log)->not->toBeNull("Log GROUPING untuk {$rfid} harus punya subject RFID");
+        expect(json_decode($log->properties, true)['rfid'] ?? null)->toBe($rfid);
+    }
     foreach ($rfids as $rfid) {
         expect(DetailLinen::where('detail_rfid', $rfid)->value('detail_status_linen'))->toBe(LinenStatusEnum::GUDANG);
         $out = DB::table('outstanding')->where('outstanding_rfid', $rfid)->first();
@@ -109,9 +128,15 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
         expect((int) $out->outstanding_id_warehouse)->toBe(1);
     }
 
-    // 4) Cek stok gudang & viewer bersih packing queue
+    // Grouping mengisi transaksi_grouping_date untuk baris transaksi RFID itu yang masih kosong
+    foreach ($rfids as $rfid) {
+        expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->whereNull('transaksi_grouping_date')->count())->toBe(0);
+        expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->where('transaksi_grouping_date', today()->format('Y-m-d'))->exists())->toBeTrue();
+    }
+
+    // 4) Cek stok gudang & viewer bersih (stat Antrean Packing = outstanding SCAN/QC/REGISTER/GUDANG)
     expect(DB::table('outstanding')->where('outstanding_status_proses', 'GUDANG')->count())->toBe(3);
-    $this->actingAs($this->admin)->get('/bersih/table?tab=packing')->assertOk()->assertSee('GUDANG');
+    $this->actingAs($this->admin)->get('/bersih/table?tab=packing')->assertOk()->assertSee('Antrean Packing');
 
     // dedup: scan kotor lagi hari sama tidak nambah transaksi (existing today skip)
     $dupKey = 'KTR-DUP-'.strtoupper(uniqid());

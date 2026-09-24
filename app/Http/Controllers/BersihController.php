@@ -6,7 +6,6 @@ use App\Enums\TransactionType;
 use App\Http\Requests\GeneralRequest;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
-use App\Models\Ruangan;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +29,7 @@ class BersihController extends Controller
     public function getTable(GeneralRequest $request)
     {
         $tab = $request->input('tab', 'packing');
-        if (! in_array($tab, ['packing', 'delivery', 'riwayat'])) {
+        if (! in_array($tab, ['packing', 'delivery'])) {
             $tab = 'packing';
         }
 
@@ -55,75 +54,11 @@ class BersihController extends Controller
 
         $share = [
             'rsOptions' => User::rsOptions(),
-            'ruanganOptions' => Ruangan::orderBy('ruangan_nama')->pluck('ruangan_nama', 'ruangan_id')->all(),
             'statusOptions' => TransactionType::getOptions(),
-            'typeOptions' => ['1' => 'Packing', '2' => 'Delivery'],
         ];
 
-        if ($tab === 'packing') {
-            $map = [
-                'outstanding_rfid' => 'outstanding.outstanding_rfid',
-                'outstanding_rs_scan' => 'outstanding.outstanding_rs_scan',
-                'outstanding_id_ruangan' => 'outstanding.outstanding_id_ruangan',
-                'outstanding_status_transaksi' => 'outstanding.outstanding_status_transaksi',
-                'outstanding_status_proses' => 'outstanding.outstanding_status_proses',
-                'linen_nama' => 'jenis_linen.jenis_nama',
-            ];
-            $fields = [
-                'outstanding_rfid' => 'RFID',
-                'outstanding_rs_scan' => 'RS Scan',
-                'outstanding_id_ruangan' => 'Ruangan',
-                'outstanding_status_transaksi' => 'Status Transaksi',
-                'linen_nama' => 'Linen',
-            ];
-            $sortMap = [
-                'outstanding_rfid' => 'outstanding.outstanding_rfid',
-                'outstanding_status_transaksi' => 'outstanding.outstanding_status_transaksi',
-                'outstanding_updated_at' => 'outstanding.outstanding_updated_at',
-            ];
-            $data = $this->applySort(
-                $this->applyFilters($this->packingQueue(), $map, $request),
-                $sortMap, 'outstanding.outstanding_updated_at', $sortField, $sortDir
-            )->cursorPaginate($perPage)->withQueryString();
-
-            return view('pages.bersih.table', array_merge($share, [
-                'tab' => $tab, 'stats' => $stats, 'data' => $data, 'fields' => $fields,
-                'sortField' => $sortField, 'sortDir' => $sortDir,
-            ]));
-        }
-
-        if ($tab === 'delivery') {
-            $map = [
-                'outstanding_rfid' => 'outstanding.outstanding_rfid',
-                'outstanding_rs_scan' => 'outstanding.outstanding_rs_scan',
-                'outstanding_id_ruangan' => 'outstanding.outstanding_id_ruangan',
-                'outstanding_status_transaksi' => 'outstanding.outstanding_status_transaksi',
-                'linen_nama' => 'jenis_linen.jenis_nama',
-            ];
-            $fields = [
-                'outstanding_rfid' => 'RFID',
-                'outstanding_rs_scan' => 'RS Scan',
-                'outstanding_id_ruangan' => 'Ruangan',
-                'outstanding_status_transaksi' => 'Status Transaksi',
-                'linen_nama' => 'Linen',
-            ];
-            $sortMap = [
-                'outstanding_rfid' => 'outstanding.outstanding_rfid',
-                'outstanding_status_transaksi' => 'outstanding.outstanding_status_transaksi',
-                'outstanding_updated_at' => 'outstanding.outstanding_updated_at',
-            ];
-            $data = $this->applySort(
-                $this->applyFilters($this->deliveryQueue(), $map, $request),
-                $sortMap, 'outstanding.outstanding_updated_at', $sortField, $sortDir
-            )->cursorPaginate($perPage)->withQueryString();
-
-            return view('pages.bersih.table', array_merge($share, [
-                'tab' => $tab, 'stats' => $stats, 'data' => $data, 'fields' => $fields,
-                'sortField' => $sortField, 'sortDir' => $sortDir,
-            ]));
-        }
-
-        // Riwayat = list RFID yang sudah BERSIH (per RFID, bukan per batch cetak)
+        // Packing = baris bersih yang dibuat hari ini (berapa banyak yang di-packing
+        // hari itu); Delivery = baris bersih yang sudah terkirim (bersih_delivery terisi).
         $map = [
             'bersih_rfid' => 'bersih.bersih_rfid',
             'bersih_id_rs' => 'bersih.bersih_id_rs',
@@ -147,19 +82,16 @@ class BersihController extends Controller
             'bersih_delivery' => 'bersih.bersih_delivery',
             'bersih_barcode' => 'bersih.bersih_barcode',
         ];
-        $q = User::scopeRs(DB::table('bersih'), 'bersih.bersih_id_rs')
-            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'bersih.bersih_rfid')
-            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
-            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'bersih.bersih_id_ruangan')
-            ->leftJoin('rs', 'rs.rs_id', '=', 'bersih.bersih_id_rs')
-            ->leftJoin('users', 'users.id', '=', 'bersih.bersih_created_by')
-            ->select([
-                'bersih.*',
-                'jenis_linen.jenis_nama as linen_nama',
-                'ruangan.ruangan_nama as ruangan_nama',
-                'rs.rs_nama as rs_nama',
-                'users.name as user_nama',
-            ]);
+        $q = $this->bersihListQuery();
+
+        if ($tab === 'packing') {
+            // Packing = berapa banyak yang di-packing hari itu (baris bersih hari ini)
+            $q->whereDate('bersih.bersih_created_at', today());
+        } else {
+            // Delivery = baris bersih yang sudah terkirim
+            $q->whereNotNull('bersih.bersih_delivery');
+        }
+
         $data = $this->applySort(
             $this->applyFilters($q, $map, $request),
             $sortMap, 'bersih.bersih_id', $sortField, $sortDir
@@ -223,43 +155,20 @@ class BersihController extends Controller
         return $query->orderBy($default, 'desc');
     }
 
-    private function packingQueue()
+    private function bersihListQuery()
     {
-        return User::scopeRs(Outstanding::query(), 'outstanding.outstanding_rs_scan')
-            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
+        return User::scopeRs(DB::table('bersih'), 'bersih.bersih_id_rs')
+            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'bersih.bersih_rfid')
             ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
-            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'outstanding.outstanding_id_ruangan')
-            ->leftJoin('rs', 'rs.rs_id', '=', 'outstanding.outstanding_rs_scan')
-            ->whereIn('outstanding.outstanding_status_proses', ['SCAN', 'QC', 'REGISTER', 'GUDANG'])
-            ->addSelect([
-                'outstanding.outstanding_rfid',
-                'outstanding.outstanding_key',
-                'outstanding.outstanding_status_transaksi',
-                'outstanding.outstanding_status_proses',
-                'outstanding.outstanding_updated_at',
+            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'bersih.bersih_id_ruangan')
+            ->leftJoin('rs', 'rs.rs_id', '=', 'bersih.bersih_id_rs')
+            ->leftJoin('users', 'users.id', '=', 'bersih.bersih_created_by')
+            ->select([
+                'bersih.*',
                 'jenis_linen.jenis_nama as linen_nama',
                 'ruangan.ruangan_nama as ruangan_nama',
                 'rs.rs_nama as rs_nama',
-            ]);
-    }
-
-    private function deliveryQueue()
-    {
-        return User::scopeRs(Outstanding::query(), 'outstanding.outstanding_rs_scan')
-            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
-            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
-            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'outstanding.outstanding_id_ruangan')
-            ->leftJoin('rs', 'rs.rs_id', '=', 'outstanding.outstanding_rs_scan')
-            ->where('outstanding.outstanding_status_proses', 'PACKING')
-            ->addSelect([
-                'outstanding.outstanding_rfid',
-                'outstanding.outstanding_key',
-                'outstanding.outstanding_status_transaksi',
-                'outstanding.outstanding_id_ruangan',
-                'outstanding.outstanding_updated_at',
-                'jenis_linen.jenis_nama as linen_nama',
-                'ruangan.ruangan_nama as ruangan_nama',
-                'rs.rs_nama as rs_nama',
+                'users.name as user_nama',
             ]);
     }
 }

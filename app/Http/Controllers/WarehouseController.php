@@ -40,8 +40,7 @@ class WarehouseController extends Controller
             'per_jenis' => User::scopeRs(Outstanding::query(), 'outstanding.outstanding_rs_scan')
                 ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
                 ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
-                ->where('outstanding.outstanding_status_proses', 'GUDANG')
-                ->where('outstanding.outstanding_id_warehouse', $gudangId)
+                ->where(fn ($q) => $q->whereNull('outstanding.outstanding_id_warehouse')->orWhere('outstanding.outstanding_id_warehouse', $gudangId))
                 ->selectRaw('COALESCE(jenis_linen.jenis_nama, ?) as nama, COUNT(*) as pcs', ['Tanpa Jenis'])
                 ->groupBy('jenis_linen.jenis_nama')
                 ->orderByDesc('pcs')
@@ -95,8 +94,7 @@ class WarehouseController extends Controller
             ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'outstanding.outstanding_id_ruangan')
             ->leftJoin('rs', 'rs.rs_id', '=', 'outstanding.outstanding_rs_scan')
             ->leftJoin('warehouse', 'warehouse.warehouse_id', '=', 'outstanding.outstanding_id_warehouse')
-            ->where('outstanding.outstanding_status_proses', 'GUDANG')
-            ->where('outstanding.outstanding_id_warehouse', $gudangId)
+            ->where(fn ($q) => $q->whereNull('outstanding.outstanding_id_warehouse')->orWhere('outstanding.outstanding_id_warehouse', $gudangId))
             ->addSelect([
                 'outstanding.outstanding_rfid',
                 'outstanding.outstanding_key',

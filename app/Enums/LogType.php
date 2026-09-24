@@ -43,6 +43,7 @@ final class LogType extends Enum
     const HILANG = 'HILANG';
 
     const DELETE_DETAIL = 'DELETE_DETAIL';
+
     const DELETE_TRANSAKSI = 'DELETE_TRANSAKSI';
 
     const DELETE_BARCODE = 'DELETE_BARCODE';
@@ -68,6 +69,10 @@ final class LogType extends Enum
     // Tambahan web: pengiriman bersih ke RS (API delivery).
     const DELIVERY = 'DELIVERY';
 
+    // Tambahan web: grouping QC (GET /api/grouping/{rfid}). Desktop memakai
+    // QC / ObsesimanType::Grouping; web menulis log_name eksplisit per operasi.
+    const GROUPING = 'GROUPING';
+
     public static function getDescription(mixed $value): string
     {
         return match ($value) {
@@ -91,6 +96,7 @@ final class LogType extends Enum
             self::RETUR => 'Retur',
             self::REWASH => 'Rewash',
             self::DELIVERY => 'Delivery',
+            self::GROUPING => 'Grouping',
             default => parent::getDescription($value),
         };
     }

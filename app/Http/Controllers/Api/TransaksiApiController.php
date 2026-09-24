@@ -12,6 +12,7 @@ use App\Models\Transaksi;
 use App\Models\User;
 use App\Support\DashboardCache;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Plugins\Notes;
 
@@ -148,6 +149,15 @@ class TransaksiApiController extends Controller
             $detail = $ctx['details'][$rfid] ?? null;
             $out = $ctx['outstandingExisting'][$rfid] ?? null;
 
+            // andalan (TransaksiController::rfidCanSyncToServer): RFID hanya
+            // boleh di-sync kalau linen masih BERSIH dan — untuk KOTOR — sudah
+            // lewat TRANSACTION_HOURS_ALLOWED jam sejak detail_updated_at. Yang tidak
+            // lolos dilewati (tanpa transaksi/outstanding), sisanya tetap diproses.
+            if ($detail && empty($out?->outstanding_status_transaksi)
+                && ! $this->rfidCanSyncToServer($statusTransaksi, $detail->detail_status_linen, $detail->detail_updated_at)) {
+                continue;
+            }
+
             if ($detail) {
                 $this->buildForRegistered($rfid, $detail, $out, $ctx, $statusTransaksi, $statusProcess, $transaksi, $outstanding, $toKotor);
             } else {
@@ -158,6 +168,30 @@ class TransaksiApiController extends Controller
         $transaksi = collect($transaksi)->unique('transaksi_rfid')->values()->all();
 
         return compact('transaksi', 'outstanding', 'toKotor');
+    }
+
+    /**
+     * Port andalan: linen harus BERSIH; khusus KOTOR harus sudah lewat
+     * TRANSACTION_HOURS_ALLOWED jam sejak detail_updated_at (default 15) supaya
+     * tidak bisa di-scan kotor di hari/shift yang sama.
+     */
+    private function rfidCanSyncToServer(string $formTransaksi, ?string $statusLinen, $updatedAt): bool
+    {
+        if ($statusLinen !== TransactionType::BERSIH) {
+            return false;
+        }
+
+        if ($formTransaksi === TransactionType::KOTOR) {
+            if (empty($updatedAt)) {
+                return false;
+            }
+
+            $hours = (int) env('TRANSACTION_HOURS_ALLOWED', 15);
+
+            return now()->diffInHours(Carbon::parse($updatedAt), true) >= $hours;
+        }
+
+        return true;
     }
 
     private function buildForRegistered(string $rfid, $detail, $out, array $ctx, string $statusTransaksi, string $statusProcess, array &$transaksi, array &$outstanding, array &$toKotor): void
@@ -335,8 +369,8 @@ class TransaksiApiController extends Controller
 
         // ponytail: 10rb+ sync — N insert activity diganti bulk insert
         // chunk 500 (kolom persis tiruan ActivityLogger manual: event null,
-        // attribute_changes '[]', causer dari auth). 1 log per RFID tetap
-        // dipertahankan (subject = DetailLinen bila terdaftar).
+        // attribute_changes '[]', causer dari auth). Subject = DetailLinen
+        // RFID baris tersebut.
         $causer = auth()->user() ?? $request->user();
         $now = now()->format('Y-m-d H:i:s');
         $rows = [];
@@ -372,6 +406,8 @@ class TransaksiApiController extends Controller
             ];
         }
 
+        // ponytail: bulk insert tidak lewat model event, jadi ditulis manual
+        // di sini — satu baris per RFID, tanpa dedupe.
         foreach (array_chunk($rows, 500) as $chunk) {
             Activity::insert($chunk);
         }

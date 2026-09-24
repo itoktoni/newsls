@@ -159,12 +159,34 @@ Catatan: `transaksi_status` enum DB tidak ada `BERSIH` — delivery TIDAK insert
 ### 5.5 Master data untuk dropdown / sync
 
 ```
-GET /api/download/{rsid} (Bearer) -> { data: DetailLinen with hasRuangan,hasJenis,hasRs } | 404
+GET /api/download/{rsid} (Bearer)   -> STREAMED JSON (lihat catatan di bawah)
 GET /api/configuration   (Bearer) -> { supplier[], jenis_bahan[], jenis_linen[], status_*[], kepemilikan[] }
 GET /api/rs?type=free|dedicated (Bearer) -> { data, ruangan[], jenis_linen[], jenis_rs[], ruangan_rs[] }
 GET /api/rs_lite         (Bearer) -> { data: [rs_id, rs_nama] }
 GET /api/rs/{rsid}       (Bearer) -> { data: Rs with hasRuangan,hasJenis }
 ```
+
+**`GET /api/download/{rsid}`** — sync master RFID 1 RS ke desktop (bisa 12rb+ baris).
+Controller `app/Http/Controllers/Api/DownloadApiController.php` (invokable, `->whereNumber('rsid')`).
+
+```
+{ status, code, name:"List", message, total, data[], rs{rs_id,rs_nama}, ruangan[{ruangan_id,ruangan_nama}], opname[rfid] }
+data[] = { rfid, rs_id, rs_nama, ruangan_id, ruangan_nama, jenis_id, jenis_nama, status_transaksi, status_proses, tanggal }
+```
+
+Aturan (tiruan `andalan/app/Http/Resources/DownloadCollection`):
+- `status_transaksi`/`status_proses` = baris `outstanding` bila ada, selain itu `BERSIH`; dipaksa
+  `BERSIH` bila RFID belum pernah punya baris `transaksi`. `tanggal` = `detail_updated_at`
+  (format `Y-m-d H:i:s`) atau waktu generate bila ada `outstanding`.
+- `ruangan` = pivot `rs_dan_ruangan` milik RS; `opname` = RFID dengan `opname_detail_ketemu=1`
+  pada opname aktif (`opname_status=1`). RS kosong -> envelope `code 404` `Data Tidak Ditemukan !`.
+- `total` = jumlah baris yang diharapkan (key TAMBAHAN, bukan legacy) — desktop wajib cek
+  `data.length === total` supaya download terpotong ketahuan, bukan gagal deserialize.
+
+Tuning anti-putus: `response()->streamJson()` (generator, chunk 2.000 baris via `DB::table` tanpa
+hidrasi model + `flush()` per chunk + `X-Accel-Buffering: no`), `set_time_limit(0)`, query log off,
+`JSON_INVALID_UTF8_SUBSTITUTE`. Jangan kembalikan ke `DetailLinen::with(...)->get()` — 12rb model =
+memory_limit habis = JSON terpotong. Bila kontrak field berubah, sync `desktop/DAO/*`.
 
 ### 5.6 Konvensi response
 

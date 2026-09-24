@@ -82,6 +82,22 @@ Belum menulis `outstanding`/`transaksi` (model belum ada).
 Catatan: `jenis_id` / `bahan_id` / `supplier_id` / `ruangan_id` masih pakai rule `exists`,
 jadi ID dari DB lain (mis. DB dev berbeda) akan ditolak 422.
 
+## API download linen (dibuat 2026-09-24)
+
+- `GET /api/download/{rsid}` (Bearer, middleware `rs.access`) — sync master RFID 1 RS ke desktop.
+  Route → `App\Http\Controllers\Api\DownloadApiController` (invokable, `->whereNumber('rsid')`).
+- Kontrak mengikuti `andalan/app/Http/Resources/DownloadCollection`:
+  `{status,code,name,message,total,data[],rs,ruangan,opname}`; item `data[]` =
+  `rfid, rs_id, rs_nama, ruangan_id, ruangan_nama, jenis_id, jenis_nama, status_transaksi, status_proses, tanggal`.
+  Sumbernya tabel BKA langsung (tidak ada `view_detail_linen` di project ini).
+- **Kenapa bukan `DetailLinen::with(...)->get()`**: 12rb RFID → 12rb model + relasi → memory_limit
+  habis di tengah response → JSON terpotong. Sekarang: generator + `DB::table` per chunk 2.000
+  baris, status di-preload per chunk (`outstanding` + `SELECT DISTINCT transaksi_rfid`),
+  `flush()` tiap chunk, `set_time_limit(0)`, query log off, `total` dikirim di depan `data`
+  supaya desktop bisa mendeteksi download terpotong.
+- Referensi angka: test `tests/Feature/Api/DownloadApiTest.php` — 12.000 baris ≈ 0,5 dtk,
+  delta memory sisi app < 32 MB (tanpa `json_decode` di test).
+
 ## Kebiasaan kerja
 
 - Folder `andalan/` = project lama, hanya untuk referensi. Jangan diedit.

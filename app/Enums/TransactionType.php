@@ -17,6 +17,8 @@ final class TransactionType extends Enum
 
     const BERSIH = 'BERSIH';
 
+    const REGISTER = 'REGISTER';
+
     // Alias UI: RETUR = REJECT (legacy nama)
     const RETUR = self::REJECT;
 
@@ -27,6 +29,7 @@ final class TransactionType extends Enum
             self::REJECT, self::RETUR => 'Retur',
             self::REWASH => 'Rewash',
             self::BERSIH => 'Bersih',
+            self::REGISTER => 'Register',
             default => parent::getDescription($value),
         };
     }

@@ -105,5 +105,5 @@ it('step1 register via api, cek data linen, cek report, packing & delivery bersi
     $this->actingAs($this->admin)->get('/report-rekap-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-detail-pengiriman-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-summary-pengiriman-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
-    $this->actingAs($this->admin)->get('/bersih/table?tab=riwayat')->assertOk();
+    $this->actingAs($this->admin)->get('/bersih/table?tab=delivery')->assertOk();
 });

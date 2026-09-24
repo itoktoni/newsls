@@ -161,10 +161,8 @@ namespace App\Models{
 
 namespace App\Models{
 /**
+ * @property int $detail_id
  * @property string $detail_rfid
- * @property string|null $detail_lama
- * @property string|null $detail_pengantian_user
- * @property string|null $detail_pengantian_waktu
  * @property int|null $detail_id_rs
  * @property int|null $detail_id_ruangan
  * @property int|null $detail_id_jenis
@@ -186,6 +184,9 @@ namespace App\Models{
  * @property int|null $detail_total_bersih
  * @property \Carbon\CarbonImmutable|null $detail_tgl_cek
  * @property \Carbon\CarbonImmutable|null $detail_report
+ * @property string|null $detail_lama
+ * @property string|null $detail_pengantian_user
+ * @property string|null $detail_pengantian_waktu
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activitiesAsSubject
  * @property-read int|null $activities_as_subject_count
  * @property-read mixed $field_bahan_id
@@ -226,6 +227,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailDeletedBy($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailDeskripsi($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailIdBahan($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailIdJenis($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailIdRs($value)
@@ -248,6 +250,38 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DetailLinen whereDetailUpdatedBy($value)
  */
 	class DetailLinen extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * @property int $ganti_id
+ * @property string $ganti_rfid_lama
+ * @property string $ganti_rfid_baru
+ * @property \Carbon\CarbonImmutable|null $ganti_tanggal
+ * @property int|null $ganti_by
+ * @property string|null $ganti_keterangan
+ * @property-read mixed $field_key
+ * @property-read mixed $field_name
+ * @property-read mixed|null $field_primary
+ * @property-read \App\Models\User|null $hasUser
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip filter(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip filterBy(array|string $filters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip filterFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip renamedFilterFields(array $renamedFilterFields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip sort(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip sortFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip whereGantiBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip whereGantiId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip whereGantiKeterangan($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip whereGantiRfidBaru($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip whereGantiRfidLama($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GantiChip whereGantiTanggal($value)
+ */
+	class GantiChip extends \Eloquent {}
 }
 
 namespace App\Models{
@@ -463,6 +497,166 @@ namespace App\Models{
 
 namespace App\Models{
 /**
+ * @property int $opname_id
+ * @property \Carbon\CarbonImmutable|null $opname_mulai
+ * @property \Carbon\CarbonImmutable|null $opname_selesai
+ * @property string|null $opname_nama
+ * @property int|null $opname_id_rs
+ * @property \Carbon\CarbonImmutable|null $opname_created_at
+ * @property int|null $opname_created_by
+ * @property \Carbon\CarbonImmutable|null $opname_updated_at
+ * @property int|null $opname_updated_by
+ * @property int|null $opname_status
+ * @property \Carbon\CarbonImmutable|null $opname_capture
+ * @property-read mixed $field_key
+ * @property-read mixed $field_name
+ * @property-read mixed|null $field_primary
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OpnameDetail> $hasDetail
+ * @property-read int|null $has_detail_count
+ * @property-read \App\Models\Rs|null $hasRs
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname filter(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname filterBy(array|string $filters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname filterFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname renamedFilterFields(array $renamedFilterFields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname sort(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname sortFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameCapture($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameCreatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameIdRs($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameMulai($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameNama($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameSelesai($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Opname whereOpnameUpdatedBy($value)
+ */
+	class Opname extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * @property int $opname_detail_id
+ * @property int|null $opname_detail_id_opname
+ * @property string|null $opname_detail_code
+ * @property string|null $opname_detail_rfid
+ * @property \Carbon\CarbonImmutable|null $opname_detail_waktu
+ * @property string|null $opname_detail_transaksi
+ * @property string|null $opname_detail_proses
+ * @property string|null $opname_detail_hilang
+ * @property int|null $opname_detail_ketemu
+ * @property \Carbon\CarbonImmutable|null $opname_detail_created_at
+ * @property string|null $opname_detail_updated_at
+ * @property int|null $opname_detail_created_by
+ * @property int|null $opname_detail_updated_by
+ * @property int|null $opname_detail_register
+ * @property string|null $opname_detail_hilang_at
+ * @property string|null $opname_detail_pending_at
+ * @property int|null $opname_detail_scan_rs
+ * @property int|null $opname_detail_sync
+ * @property string|null $opname_detail_reff
+ * @property string|null $opname_detail_scan_by
+ * @property-read mixed $field_key
+ * @property-read mixed $field_name
+ * @property-read mixed|null $field_primary
+ * @property-read \App\Models\Opname|null $hasOpname
+ * @property-read \App\Models\DetailLinen|null $hasView
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail filter(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail filterBy(array|string $filters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail filterFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail renamedFilterFields(array $renamedFilterFields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail sort(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail sortFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailCreatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailHilang($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailHilangAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailIdOpname($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailKetemu($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailPendingAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailProses($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailReff($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailRegister($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailRfid($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailScanBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailScanRs($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailSync($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailTransaksi($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailUpdatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OpnameDetail whereOpnameDetailWaktu($value)
+ */
+	class OpnameDetail extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * @property string $outstanding_rfid
+ * @property string|null $outstanding_key
+ * @property int|null $outstanding_rs_ori
+ * @property int|null $outstanding_rs_scan
+ * @property int|null $outstanding_id_ruangan
+ * @property string|null $outstanding_status_transaksi
+ * @property string|null $outstanding_status_hilang
+ * @property string|null $outstanding_status_proses
+ * @property string|null $outstanding_status_beda_rs
+ * @property \Carbon\CarbonImmutable|null $outstanding_created_at
+ * @property \Carbon\CarbonImmutable|null $outstanding_updated_at
+ * @property int|null $outstanding_created_by
+ * @property int|null $outstanding_updated_by
+ * @property string|null $outstanding_pending_created_at
+ * @property string|null $outstanding_pending_updated_at
+ * @property string|null $outstanding_hilang_created_at
+ * @property string|null $outstanding_hilang_updated_at
+ * @property int|null $outstanding_id_warehouse
+ * @property-read mixed $field_key
+ * @property-read mixed $field_name
+ * @property-read mixed|null $field_primary
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding filter(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding filterBy(array|string $filters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding filterFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding renamedFilterFields(array $renamedFilterFields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding sort(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding sortFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingCreatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingHilangCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingHilangUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingIdRuangan($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingIdWarehouse($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingPendingCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingPendingUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingRfid($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingRsOri($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingRsScan($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingStatusBedaRs($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingStatusHilang($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingStatusProses($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingStatusTransaksi($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Outstanding whereOutstandingUpdatedBy($value)
+ */
+	class Outstanding extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
  * @property int $rs_id
  * @property int|null $rs_id_group
  * @property string|null $rs_nama
@@ -580,6 +774,61 @@ namespace App\Models{
 
 namespace App\Models{
 /**
+ * @property int $transaksi_id
+ * @property string|null $transaksi_key
+ * @property string|null $transaksi_status
+ * @property string|null $transaksi_rfid
+ * @property int|null $transaksi_rs_scan
+ * @property int|null $transaksi_rs_ori
+ * @property int|null $transaksi_id_ruangan
+ * @property string|null $transaksi_beda_rs
+ * @property \Carbon\CarbonImmutable|null $transaksi_created_at
+ * @property \Carbon\CarbonImmutable|null $transaksi_updated_at
+ * @property int|null $transaksi_created_by
+ * @property int|null $transaksi_updated_by
+ * @property string|null $transaksi_grouping_date
+ * @property string|null $transaksi_report_date
+ * @property string|null $transaksi_grouping
+ * @property-read mixed $field_key
+ * @property-read mixed $field_name
+ * @property-read mixed|null $field_primary
+ * @property-read mixed $field_rfid
+ * @property-read mixed $field_status
+ * @property-read \App\Models\DetailLinen|null $hasDetail
+ * @property-read \App\Models\Rs|null $hasRsOri
+ * @property-read \App\Models\Rs|null $hasRsScan
+ * @property-read \App\Models\Ruangan|null $hasRuangan
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi filter(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi filterBy(array|string $filters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi filterFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi renamedFilterFields(array $renamedFilterFields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi sort(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi sortFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiBedaRs($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiCreatedBy($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiGrouping($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiGroupingDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiIdRuangan($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiReportDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiRfid($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiRsOri($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiRsScan($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaksi whereTransaksiUpdatedBy($value)
+ */
+	class Transaksi extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
  * @mixin IdeHelperUser
  * @property int $id
  * @property string $name
@@ -603,6 +852,8 @@ namespace App\Models{
  * @property-read mixed $field_primary
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Rs> $rsList
+ * @property-read int|null $rs_list_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Laravel\Sanctum\PersonalAccessToken> $tokens
  * @property-read int|null $tokens_count
  * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
@@ -614,6 +865,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User renamedFilterFields(array $renamedFilterFields)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User rs(array|string $columns)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User sort(?array $params = null)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User sortFields(array|string $fields)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereAvatar($value)
@@ -633,5 +885,30 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereVerifiedAt($value)
  */
 	class User extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * @property int $warehouse_id
+ * @property string|null $warehouse_nama
+ * @property-read mixed $field_key
+ * @property-read mixed $field_name
+ * @property-read mixed|null $field_primary
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Outstanding> $hasStock
+ * @property-read int|null $has_stock_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse filter(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse filterBy(array|string $filters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse filterFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse renamedFilterFields(array $renamedFilterFields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse sort(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse sortFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse whereWarehouseId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Warehouse whereWarehouseNama($value)
+ */
+	class Warehouse extends \Eloquent {}
 }
 

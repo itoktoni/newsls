@@ -12,8 +12,8 @@
                 <x-select col="6" name="rs_id_group" label="Group RS" :options="$group" />
                 <x-input col="6" name="rs_alamat" />
                 <x-select col="6" name="rs_status" :options="$status" />
-                <x-input col="6" name="rs_harga_cuci" type="number" />
-                <x-input col="6" name="rs_harga_sewa" type="number" />
+                <x-input col="3" name="rs_harga_cuci" type="number" />
+                <x-input col="3" name="rs_harga_sewa" type="number" />
                 <x-textarea col="12" name="rs_deskripsi" />
 
                 {{-- ponytail: pivot rs_dan_ruangan / rs_dan_jenis — dicentang di sini,

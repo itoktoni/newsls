@@ -32,6 +32,7 @@ return new class extends Migration
                 $table->integer('transaksi_created_by')->nullable();
                 $table->integer('transaksi_updated_by')->nullable();
                 $table->date('transaksi_report_date')->nullable();
+                $table->date('transaksi_grouping_date')->nullable();
                 $table->string('transaksi_grouping')->nullable();
                 $table->index('transaksi_rfid');
             });

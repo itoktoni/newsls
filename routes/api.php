@@ -2,20 +2,33 @@
 
 use App\Enums\CuciEnum;
 use App\Enums\LinenStatusEnum;
+use App\Enums\LogType;
 use App\Enums\RegisterEnum;
 use App\Enums\RsStatusEnum;
 use App\Enums\TransactionType;
+use App\Http\Controllers\Api\DownloadApiController;
+use App\Http\Controllers\Api\OpnameApiController;
+use App\Http\Controllers\Api\PackingDeliveryController;
+use App\Http\Controllers\Api\TransaksiApiController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterLinenController;
 use App\Http\Controllers\UsersController;
 use App\Models\DetailLinen;
 use App\Models\JenisBahan;
 use App\Models\JenisLinen;
+use App\Models\Outstanding;
 use App\Models\Rs;
 use App\Models\Ruangan;
 use App\Models\Supplier;
+use App\Models\Transaksi;
+use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+use Plugins\Notes;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -32,29 +45,21 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
     Route::auto('/users', UsersController::class, ['name' => 'users']);
 
-    Route::post('/transaksi/{type}', [\App\Http\Controllers\Api\TransaksiApiController::class, 'transaction'])
+    Route::post('/transaksi/{type}', [TransaksiApiController::class, 'transaction'])
         ->whereIn('type', ['kotor', 'retur', 'rewash', 'KOTOR', 'RETUR', 'REWASH'])
         ->name('transaksi.api');
 
     // ponytail: alias legacy andalan — Route::post('kotor') etc. dipakai device lama
-    Route::post('kotor', [\App\Http\Controllers\Api\TransaksiApiController::class, 'kotor'])->name('transaksi.kotor');
-    Route::post('retur', [\App\Http\Controllers\Api\TransaksiApiController::class, 'retur'])->name('transaksi.retur');
-    Route::post('rewash', [\App\Http\Controllers\Api\TransaksiApiController::class, 'rewash'])->name('transaksi.rewash');
+    Route::post('kotor', [TransaksiApiController::class, 'kotor'])->name('transaksi.kotor');
+    Route::post('retur', [TransaksiApiController::class, 'retur'])->name('transaksi.retur');
+    Route::post('rewash', [TransaksiApiController::class, 'rewash'])->name('transaksi.rewash');
 
-    // ponytail: andalan download/configuration/rs/rs_lite — convert ke model baru
-    Route::get('download/{rsid}', function ($rsid, Request $request) {
-        $data = DetailLinen::with(['hasRuangan', 'hasJenis', 'hasRs'])
-            ->where('detail_id_rs', $rsid)->get();
-
-        if ($data->isEmpty()) {
-            return \Plugins\Notes::failed(404, 'Data Tidak Ditemukan !');
-        }
-
-        return \Plugins\Notes::data($data);
-    })->name('api.download');
+    Route::get('download/{rsid}', DownloadApiController::class)
+        ->whereNumber('rsid')
+        ->name('api.download');
 
     Route::get('configuration', function () {
-        return \Plugins\Notes::data([
+        return Notes::data([
             'supplier' => Supplier::select('supplier_id', 'supplier_nama')->get(),
             'jenis_bahan' => JenisBahan::select('bahan_id', 'bahan_nama')->get(),
             'jenis_linen' => JenisLinen::select('jenis_id', 'jenis_nama')->get(),
@@ -63,7 +68,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             'status_transaksi' => TransactionType::getOptions(),
             'status_linen' => LinenStatusEnum::getOptions(),
             'kepemilikan' => RsStatusEnum::getOptions(),
-            'allowed_rs_ids' => \App\Models\User::allowedRsIds(),
+            'allowed_rs_ids' => User::allowedRsIds(),
         ]);
     })->name('api.configuration');
 
@@ -72,7 +77,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
         // ponytail: desktop hanya boleh lihat RS sesuai pivot rs_dan_user
         // (user A = RS A+B → dropdown desktop cuma RS A+B). Kosong = semua.
-        $query = \App\Models\User::scopeRs(Rs::query(), 'rs.rs_id');
+        $query = User::scopeRs(Rs::query(), 'rs.rs_id');
 
         if ($type === 'free') {
             $query->where('rs_status', RsStatusEnum::FREE);
@@ -84,7 +89,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
         }
 
         $rs = $query->with(['hasRuangan', 'hasJenis'])->get();
-        $allowed = \App\Models\User::allowedRsIds();
+        $allowed = User::allowedRsIds();
 
         // Desktop RsAllDAO expects format khusus (status_id/status_nama, ruangan dengan rs_id, jenis dengan rs_id)
         $toDesktopStatus = function ($enumClass) {
@@ -93,6 +98,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             foreach ($opts as $val => $label) {
                 $out[] = ['status_id' => $val, 'status_nama' => $label];
             }
+
             return $out;
         };
 
@@ -102,14 +108,14 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
         $jenis = JenisLinen::select('jenis_id', 'jenis_nama')->get();
 
         // jenis_rs dengan jenis_nama + rs_id (join) — saring ke RS milik user.
-        $jenisRs = \Illuminate\Support\Facades\DB::table('rs_dan_jenis')
+        $jenisRs = DB::table('rs_dan_jenis')
             ->join('jenis_linen', 'jenis_linen.jenis_id', '=', 'rs_dan_jenis.jenis_id')
             ->select('rs_dan_jenis.rs_id', 'rs_dan_jenis.jenis_id', 'jenis_linen.jenis_nama')
             ->when($allowed !== null, fn ($q) => $q->whereIn('rs_dan_jenis.rs_id', $allowed))
             ->get();
 
         // ruangan dengan rs_id (join pivot) — desktop filter by rs_id
-        $ruangan = \Illuminate\Support\Facades\DB::table('ruangan')
+        $ruangan = DB::table('ruangan')
             ->join('rs_dan_ruangan', 'ruangan.ruangan_id', '=', 'rs_dan_ruangan.ruangan_id')
             ->select('ruangan.ruangan_id', 'ruangan.ruangan_nama', 'rs_dan_ruangan.rs_id')
             ->when($allowed !== null, fn ($q) => $q->whereIn('rs_dan_ruangan.rs_id', $allowed))
@@ -118,12 +124,16 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
         // Fallback jika pivot kosong (RS belum mapping) → tetap kembalikan semua ruangan tanpa rs_id
         if ($ruangan->isEmpty()) {
             $ruangan = Ruangan::select('ruangan_id', 'ruangan_nama')->get()->map(function ($r) {
-                $r->rs_id = null; return $r;
+                $r->rs_id = null;
+
+                return $r;
             });
         }
         if ($jenisRs->isEmpty()) {
-            $jenisRs = \Illuminate\Support\Facades\DB::table('rs_dan_jenis')->select('rs_id', 'jenis_id')->get()->map(function ($r) {
-                $r->jenis_nama = null; return $r;
+            $jenisRs = DB::table('rs_dan_jenis')->select('rs_id', 'jenis_id')->get()->map(function ($r) {
+                $r->jenis_nama = null;
+
+                return $r;
             });
         }
 
@@ -136,11 +146,11 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
         // Kembalikan envelope Notes agar desktop deserialize ke RsAllDAO.Rootobject (status/code/name/message/data + extra)
         // ponytail: ruangan_rs ikut disaring ke RS milik user.
-        $ruanganRs = \Illuminate\Support\Facades\DB::table('rs_dan_ruangan')->select('rs_id', 'ruangan_id')
+        $ruanganRs = DB::table('rs_dan_ruangan')->select('rs_id', 'ruangan_id')
             ->when($allowed !== null, fn ($q) => $q->whereIn('rs_id', $allowed))
             ->get();
 
-        return \Plugins\Notes::data($rs, [
+        return Notes::data($rs, [
             'ruangan' => $ruangan,
             'jenis' => $jenis,
             'jenis_rs' => $jenisRs,
@@ -157,37 +167,41 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     })->name('api.rs');
 
     Route::get('rs_lite', function () {
-        $query = \App\Models\User::scopeRs(Rs::query(), 'rs.rs_id');
-        return \Plugins\Notes::data($query->select('rs_id', 'rs_nama')->get());
+        $query = User::scopeRs(Rs::query(), 'rs.rs_id');
+
+        return Notes::data($query->select('rs_id', 'rs_nama')->get());
     })->name('api.rs_lite');
 
     Route::get('rs/{rsid}', function ($rsid) {
         $rs = Rs::with(['hasRuangan', 'hasJenis'])->findOrFail($rsid);
-        return \Plugins\Notes::single($rs);
+
+        return Notes::single($rs);
     })->name('api.rs_detail');
 
     // Packing & Delivery — sesuai desktop andalan (BersihController)
-    Route::post('packing', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'packing'])->name('api.packing');
-    Route::post('delivery', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'delivery'])->name('api.delivery');
-    Route::get('packing/{code}', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'printPacking'])->name('api.printPacking');
-    Route::get('delivery/{code}', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'printDelivery'])->name('api.printDelivery');
-    Route::get('list/packing/{rsid}', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'listPacking'])->name('api.listPacking');
-    Route::get('list/delivery/{rsid}', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'listDelivery'])->name('api.listDelivery');
-    Route::get('total/delivery/{rsid}/{status}', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'totalDelivery'])->name('api.totalDelivery');
-    Route::get('total/outstanding/{rsid}/{ruangan}/{jenis}/{transaksi}', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'totalOutstanding'])->name('api.totalOutstanding');
-    Route::get('total/bersih/{rsid}/{ruangan}/{jenis}/{transaksi}', [\App\Http\Controllers\Api\PackingDeliveryController::class, 'totalBersih'])->name('api.totalBersih');
+    Route::post('packing', [PackingDeliveryController::class, 'packing'])->name('api.packing');
+    Route::post('delivery', [PackingDeliveryController::class, 'delivery'])->name('api.delivery');
+    Route::get('packing/{code}', [PackingDeliveryController::class, 'printPacking'])->name('api.printPacking');
+    Route::get('delivery/{code}', [PackingDeliveryController::class, 'printDelivery'])->name('api.printDelivery');
+    Route::get('list/packing/{rsid}', [PackingDeliveryController::class, 'listPacking'])->name('api.listPacking');
+    Route::get('list/delivery/{rsid}', [PackingDeliveryController::class, 'listDelivery'])->name('api.listDelivery');
+    Route::get('total/delivery/{rsid}/{status}', [PackingDeliveryController::class, 'totalDelivery'])->name('api.totalDelivery');
+    Route::get('total/outstanding/{rsid}/{ruangan}/{jenis}/{transaksi}', [PackingDeliveryController::class, 'totalOutstanding'])->name('api.totalOutstanding');
+    Route::get('total/bersih/{rsid}/{ruangan}/{jenis}/{transaksi}', [PackingDeliveryController::class, 'totalBersih'])->name('api.totalBersih');
 
     // Opname sync — desktop andalan (capture sudah di web, sync via RFID scan)
-    Route::get('opname', [\App\Http\Controllers\Api\OpnameApiController::class, 'index'])->name('api.opname.index');
-    Route::get('opname/{id}/detail', [\App\Http\Controllers\Api\OpnameApiController::class, 'detail'])->name('api.opname.detail');
-    Route::post('opname/sync', [\App\Http\Controllers\Api\OpnameApiController::class, 'sync'])->name('api.opname.sync');
-    Route::post('opname/capture/{id}', [\App\Http\Controllers\Api\OpnameApiController::class, 'capture'])->name('api.opname.capture');
+    Route::get('opname', [OpnameApiController::class, 'index'])->name('api.opname.index');
+    // Alias legacy andalan: POST /opname (opname_id, code, rfid[]) = POST /opname/sync.
+    Route::post('opname', [OpnameApiController::class, 'sync'])->name('api.opname.store');
+    Route::get('opname/{id}/detail', [OpnameApiController::class, 'detail'])->name('api.opname.detail');
+    Route::post('opname/sync', [OpnameApiController::class, 'sync'])->name('api.opname.sync');
+    Route::post('opname/capture/{id}', [OpnameApiController::class, 'capture'])->name('api.opname.capture');
 
     Route::get('grouping/{rfid}', function ($rfid) {
         try {
             $rfid = trim((string) $rfid);
             if ($rfid === '') {
-                return \Plugins\Notes::error(null, 'RFID tidak boleh kosong');
+                return Notes::error(null, 'RFID tidak boleh kosong');
             }
 
             $flag = 'Normal';
@@ -195,7 +209,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             $userId = auth()->id();
             $userName = auth()->user()->name ?? (string) $userId;
 
-            \Illuminate\Support\Facades\DB::beginTransaction();
+            DB::beginTransaction();
 
             // BKA: DetailLinen primary = detail_rfid, bukan id
             $detail = DetailLinen::with(['hasRs', 'hasRuangan', 'hasJenis', 'hasBahan', 'hasSupplier'])
@@ -203,7 +217,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                 ->first();
 
             if (! $detail) {
-                throw new \Illuminate\Database\Eloquent\ModelNotFoundException("RFID $rfid tidak ditemukan");
+                throw new ModelNotFoundException("RFID $rfid tidak ditemukan");
             }
 
             // Ambil view-like data dari relasi (BKA tidak punya view_detail_linen, pakai relasi)
@@ -217,8 +231,9 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
             // History log sederhana pakai activity log (jika ada) + fallback
             try {
-                activity('grouping')->causedBy(auth()->user())->withProperties(['rfid' => $rfid])->log("Grouping QC RFID $rfid");
-            } catch (\Throwable $e) {}
+                activity(LogType::GROUPING)->causedBy(auth()->user())->performedOn($detail)->withProperties(['rfid' => $rfid])->log("Grouping QC RFID $rfid");
+            } catch (Throwable $e) {
+            }
 
             $codeKotor = env('CODE_KOTOR', 'KTR');
             $codeRegister = env('CODE_REGISTER', 'REG');
@@ -237,11 +252,11 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             }
 
             // Auto number sederhana: CODE + ymd + 4 digit random (BKA tidak punya Query::autoNumber legacy)
-            $autoNumber = $code . date('ymd') . str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $autoNumber = $code.date('ymd').str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
             // Pastikan unik (retry jika duplikat)
             $try = 0;
-            while (\App\Models\Transaksi::where('transaksi_key', $autoNumber)->exists() && $try < 5) {
-                $autoNumber = $code . date('ymd') . str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            while (Transaksi::where('transaksi_key', $autoNumber)->exists() && $try < 5) {
+                $autoNumber = $code.date('ymd').str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
                 $try++;
             }
 
@@ -262,12 +277,12 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             ];
 
             // FREE ownership → rs_ori & ruangan null (sesuai legacy)
-            if ($detail->detail_status_kepemilikan === \App\Enums\RsStatusEnum::FREE || $detail->detail_status_kepemilikan === 'FREE') {
+            if ($detail->detail_status_kepemilikan === RsStatusEnum::FREE || $detail->detail_status_kepemilikan === 'FREE') {
                 $dataOutstanding['outstanding_rs_ori'] = null;
                 $dataOutstanding['outstanding_id_ruangan'] = null;
             }
 
-            $outstanding = \App\Models\Outstanding::where('outstanding_rfid', $rfid)->first();
+            $outstanding = Outstanding::where('outstanding_rfid', $rfid)->first();
 
             if ($outstanding) {
                 $outstanding->update($dataOutstanding);
@@ -277,8 +292,8 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                 $transaksiStatus = TransactionType::KOTOR;
                 $flagForTransaksi = 'KOTOR';
 
-                if (!empty($detail->detail_report)) {
-                    $reportDate = \Illuminate\Support\Carbon::parse($detail->detail_report)->format('Y-m-d');
+                if (! empty($detail->detail_report)) {
+                    $reportDate = Carbon::parse($detail->detail_report)->format('Y-m-d');
                     if ($reportDate !== date('Y-m-d')) {
                         $needsTransaksi = true;
                         $flag = 'KOTOR';
@@ -295,16 +310,17 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                 }
 
                 if ($needsTransaksi) {
-                    $existsToday = \App\Models\Transaksi::where('transaksi_rfid', $rfid)
+                    $existsToday = Transaksi::where('transaksi_rfid', $rfid)
                         ->whereDate('transaksi_created_at', date('Y-m-d'))
                         ->exists();
 
                     if (! $existsToday) {
                         try {
-                            activity('grouping')->causedBy(auth()->user())->withProperties(['rfid' => $rfid])->log("Grouping QC_TRANSACTION RFID $rfid");
-                        } catch (\Throwable $e) {}
+                            activity(LogType::GROUPING)->causedBy(auth()->user())->performedOn($detail)->withProperties(['rfid' => $rfid])->log("Grouping QC_TRANSACTION RFID $rfid");
+                        } catch (Throwable $e) {
+                        }
 
-                        \App\Models\Transaksi::create([
+                        Transaksi::create([
                             'transaksi_key' => $autoNumber,
                             'transaksi_rfid' => $rfid,
                             'transaksi_rs_ori' => $detail->detail_id_rs,
@@ -322,7 +338,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                         $flag = $flagForTransaksi;
                     }
 
-                    $outstanding = \App\Models\Outstanding::create(array_merge($dataOutstanding, [
+                    $outstanding = Outstanding::create(array_merge($dataOutstanding, [
                         'outstanding_key' => $autoNumber,
                         'outstanding_status_transaksi' => $transaksiStatus,
                         'outstanding_created_at' => $date,
@@ -331,8 +347,8 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
                     // Pending update legacy — jika tabel ada
                     try {
-                        if (\Illuminate\Support\Facades\Schema::hasTable('pending')) {
-                            \Illuminate\Support\Facades\DB::table('pending')
+                        if (Schema::hasTable('pending')) {
+                            DB::table('pending')
                                 ->where('pending_transaksi', '!=', TransactionType::BERSIH)
                                 ->where('pending_rfid', $rfid)
                                 ->update([
@@ -341,12 +357,13 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                                     'pending_proses' => 'QC',
                                 ]);
                         }
-                    } catch (\Throwable $e) {}
+                    } catch (Throwable $e) {
+                    }
                 } else {
                     // Outstanding REGISTER tanpa transaksi (sesuai legacy else branch)
                     if ($statusLinen === LinenStatusEnum::REGISTER || $statusLinen === 'REGISTER') {
                         $createdAt = $detail->detail_created_at ? $detail->detail_created_at->format('Y-m-d H:i:s') : $date;
-                        $outstanding = \App\Models\Outstanding::create(array_merge($dataOutstanding, [
+                        $outstanding = Outstanding::create(array_merge($dataOutstanding, [
                             'outstanding_key' => $autoNumber,
                             'outstanding_status_transaksi' => 'REGISTER',
                             'outstanding_created_at' => $createdAt,
@@ -354,7 +371,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                         ]));
                     } else {
                         // Buat outstanding kosong QC untuk RFID yang baru di-grouping
-                        $outstanding = \App\Models\Outstanding::create(array_merge($dataOutstanding, [
+                        $outstanding = Outstanding::create(array_merge($dataOutstanding, [
                             'outstanding_key' => $autoNumber,
                             'outstanding_status_transaksi' => $statusLinen ?: TransactionType::KOTOR,
                             'outstanding_created_at' => $date,
@@ -365,10 +382,16 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             }
 
             // Posisi linen = gudang utama (QC lolos = masuk gudang).
-            $detail->update(['detail_status_linen' => \App\Enums\LinenStatusEnum::GUDANG]);
+            $detail->update(['detail_status_linen' => LinenStatusEnum::GUDANG]);
+
+            // Tandai transaksi RFID ini sudah di-grouping — isi transaksi_grouping_date
+            // hanya untuk baris yang masih kosong (termasuk transaksi hari sebelumnya).
+            Transaksi::where('transaksi_rfid', $rfid)
+                ->whereNull('transaksi_grouping_date')
+                ->update(['transaksi_grouping_date' => date('Y-m-d')]);
 
             // Build collection untuk desktop GroupingDAO — andalan: linen_id = RFID (bukan jenis_id), biar konsisten dengan register
-            $outstandingFresh = \App\Models\Outstanding::where('outstanding_rfid', $rfid)->first();
+            $outstandingFresh = Outstanding::where('outstanding_rfid', $rfid)->first();
             $collection = [
                 'rfid' => $rfid,
                 'linen_id' => (string) $rfid,
@@ -380,19 +403,19 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                 'status_transaksi' => $outstandingFresh->outstanding_status_transaksi ?? $outstanding->outstanding_status_transaksi ?? '',
                 'status_proses' => $outstandingFresh->outstanding_status_proses ?? $outstanding->outstanding_status_proses ?? 'GUDANG',
                 'status_kepemilikan' => $detail->detail_status_kepemilikan ?? null,
-                'tanggal_create' => !empty($outstandingFresh->outstanding_created_at) ? \Illuminate\Support\Carbon::parse($outstandingFresh->outstanding_created_at)->format('Y-m-d') : null,
-                'tanggal_update' => !empty($outstandingFresh->outstanding_updated_at) ? \Illuminate\Support\Carbon::parse($outstandingFresh->outstanding_updated_at)->format('Y-m-d') : null,
+                'tanggal_create' => ! empty($outstandingFresh->outstanding_created_at) ? Carbon::parse($outstandingFresh->outstanding_created_at)->format('Y-m-d') : null,
+                'tanggal_update' => ! empty($outstandingFresh->outstanding_updated_at) ? Carbon::parse($outstandingFresh->outstanding_updated_at)->format('Y-m-d') : null,
                 'user_nama' => $viewCreatedName,
                 'status_linen' => $flag,
             ];
 
             // Opname detail update legacy — jika tabel ada
             try {
-                if (\Illuminate\Support\Facades\Schema::hasTable('opname') && \Illuminate\Support\Facades\Schema::hasTable('opname_detail')) {
+                if (Schema::hasTable('opname') && Schema::hasTable('opname_detail')) {
                     // kontrak kolom tinyint: opname_status 1=Proses, ketemu/sync/scan_rs 0|1 (bukan YA/TIDAK string)
-                    $opname = \Illuminate\Support\Facades\DB::table('opname')->where('opname_status', 1)->first();
+                    $opname = DB::table('opname')->where('opname_status', 1)->first();
                     if ($opname) {
-                        \Illuminate\Support\Facades\DB::table('opname_detail')
+                        DB::table('opname_detail')
                             ->where('opname_detail_id_opname', $opname->opname_id)
                             ->where('opname_detail_rfid', $rfid)
                             ->where('opname_detail_ketemu', 0)
@@ -406,24 +429,28 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                             ]);
                     }
                 }
-            } catch (\Throwable $e) {}
+            } catch (Throwable $e) {
+            }
 
-            \Illuminate\Support\Facades\DB::commit();
+            DB::commit();
 
             // Desktop GroupingDAO expects raw object (bukan envelope Notes) — kembalikan langsung
             return response()->json($collection);
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $th) {
-            \Illuminate\Support\Facades\DB::rollBack();
-            return \Plugins\Notes::error($rfid, 'RFID ' . $rfid . ' tidak ditemukan');
-        } catch (\Throwable $th) {
-            \Illuminate\Support\Facades\DB::rollBack();
+        } catch (ModelNotFoundException $th) {
+            DB::rollBack();
+
+            return Notes::error($rfid, 'RFID '.$rfid.' tidak ditemukan');
+        } catch (Throwable $th) {
+            DB::rollBack();
             if ($th->getCode() == 23000) {
                 $message = explode('for key', $th->getMessage());
                 $clean = str_replace('SQLSTATE[23000]: Integrity constraint violation: 1062', 'RFID', $message[0] ?? $th->getMessage());
-                return \Plugins\Notes::error($clean);
+
+                return Notes::error($clean);
             }
-            return \Plugins\Notes::error($rfid, $th->getMessage());
+
+            return Notes::error($rfid, $th->getMessage());
         }
     });
 });

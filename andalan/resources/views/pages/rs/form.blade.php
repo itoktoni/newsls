@@ -15,8 +15,8 @@
             <x-form-textarea col="6 form-group" name="rs_alamat" />
 
             @level(UserLevel::Finance)
-            <x-form-input type="number" col="6" name="rs_harga_cuci" />
-            <x-form-input type="number" col="6" name="rs_harga_sewa" label="Rental"/>
+            <x-form-input type="number" col="3" name="rs_harga_cuci" />
+            <x-form-input type="number" col="3" name="rs_harga_sewa" label="Rental"/>
             @endlevel
 
             <x-form-select col="6" class="tag" :default="$selected_ruangan ?? []" name="ruangan[]" multiple :options="$ruangan" />

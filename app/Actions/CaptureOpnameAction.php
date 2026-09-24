@@ -30,6 +30,9 @@ class CaptureOpnameAction
                 ->leftJoin('outstanding', 'config_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
                 ->join('detail_linen', function ($q) {
                     $q->on('config_linen.detail_rfid', '=', 'detail_linen.detail_rfid');
+                    // Legacy: snapshot hanya linen yang kepemilikannya (config_linen)
+                    // memang milik RS opname ini, bukan sekadar sedang di RS itu.
+                    $q->on('config_linen.rs_id', '=', 'detail_linen.detail_id_rs');
                 })
                 ->select([
                     'config_linen.detail_rfid',
@@ -54,8 +57,8 @@ class CaptureOpnameAction
                 $data[] = [
                     'opname_detail_id_opname' => $opname->opname_id,
                     'opname_detail_rfid' => $r->detail_rfid,
-                    'opname_detail_transaksi' => $r->outstanding_status_transaksi ?? 'BERSIH',
-                    'opname_detail_proses' => $r->outstanding_status_proses ?? 'BERSIH',
+                    'opname_detail_transaksi' => $this->mapTransaksi($r->outstanding_status_transaksi),
+                    'opname_detail_proses' => $this->mapProses($r->outstanding_status_proses),
                     'opname_detail_hilang' => $r->outstanding_status_hilang ?? 'NORMAL',
                     'opname_detail_ketemu' => 0,
                     'opname_detail_scan_rs' => 0,
@@ -81,5 +84,29 @@ class CaptureOpnameAction
             DB::rollBack();
             throw $th;
         }
+    }
+
+    /** Nilai valid enum opname_detail_proses. */
+    private const PROSES_OPNAME = ['SCAN', 'QC', 'PACKING', 'PENDING', 'HILANG', 'REGISTER', 'BERSIH'];
+
+    /** Nilai valid enum opname_detail_transaksi. */
+    private const TRANSAKSI_OPNAME = ['KOTOR', 'REJECT', 'REWASH', 'REGISTER', 'BERSIH'];
+
+    /**
+     * GUDANG tidak ada di enum opname_detail_proses (ProcessType legacy juga tidak)
+     * → dipetakan ke QC. Nilai lain yang tidak dikenal jatuh ke BERSIH.
+     */
+    private function mapProses(?string $value): string
+    {
+        if ($value === 'GUDANG') {
+            return 'QC';
+        }
+
+        return in_array($value, self::PROSES_OPNAME, true) ? $value : 'BERSIH';
+    }
+
+    private function mapTransaksi(?string $value): string
+    {
+        return in_array($value, self::TRANSAKSI_OPNAME, true) ? $value : 'BERSIH';
     }
 }

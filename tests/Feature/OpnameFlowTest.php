@@ -6,6 +6,7 @@ use App\Models\JenisBahan;
 use App\Models\JenisLinen;
 use App\Models\Opname;
 use App\Models\OpnameDetail;
+use App\Models\Outstanding;
 use App\Models\Rs;
 use App\Models\Ruangan;
 use App\Models\Supplier;
@@ -113,7 +114,27 @@ it('opname capture, sync, dan semua report opname', function () {
     $this->actingAs($this->admin)->get('/report-opname-hilang-warehouse/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
 
     // 6) API opname list/detail + record tetap ada
-    $this->actingAs($this->admin, 'sanctum')->getJson('/api/opname')->assertOk()->assertJson(['status' => true]);
+    $listRes = $this->actingAs($this->admin, 'sanctum')->getJson('/api/opname')->assertOk();
+    expect($listRes->json('status'))->toBeTrue()
+        ->and($listRes->json('name'))->toBe('List')
+        ->and($listRes->json('message'))->toBe('Data berhasil diambil');
+
+    // Kontrak legacy: {opname_id, opname_start, opname_end, rs_id, rs_nama}
+    $row = collect($listRes->json('data'))->firstWhere('opname_id', $opname->opname_id);
+    expect($row)->toMatchArray([
+        'opname_id' => $opname->opname_id,
+        'opname_start' => now()->format('Y-m-d'),
+        'opname_end' => now()->addDays(1)->format('Y-m-d'),
+        'rs_id' => $this->rs->rs_id,
+        'rs_nama' => 'RS Opname',
+    ])->and(array_keys($row))->toBe(['opname_id', 'opname_start', 'opname_end', 'rs_id', 'rs_nama']);
+
+    // Key tambahan top-level (diambil dari opname aktif pertama) — isinya
+    // tergantung opname aktif yang ada, jadi cukup dipastikan ada.
+    expect($listRes->json('rs'))->toHaveKeys(['rs_id', 'rs_nama'])
+        ->and($listRes->json('ruangan'))->toBeArray()
+        ->and($listRes->json('opname'))->toBeArray();
+
     $this->actingAs($this->admin, 'sanctum')->getJson("/api/opname/{$opname->opname_id}/detail")->assertOk();
 
     // 6b) halaman detail web — semua RFID capture + nama linen dari detail_linen
@@ -122,4 +143,107 @@ it('opname capture, sync, dan semua report opname', function () {
     $detailPage->assertSee('Seprai Opname'); // jenis dari join detail_linen
 
     expect(Opname::where('opname_id', $opname->opname_id)->exists())->toBeTrue();
+
+    // 7) Alias legacy: POST /api/opname sama dengan /api/opname/sync, responsnya
+    //    baris opname_detail (satu baris per RFID, sync = 1).
+    $aliasRes = $this->actingAs($this->admin, 'sanctum')->postJson('/api/opname', [
+        'opname_id' => $opname->opname_id,
+        'rfid' => ['OP_RFID_1'],
+        'code' => 'SYNC-ALIAS',
+    ])->assertOk()->assertJson(['status' => true, 'name' => 'Create']);
+    expect($aliasRes->json('data'))->toHaveCount(1)
+        ->and($aliasRes->json('data.0.opname_detail_rfid'))->toBe('OP_RFID_1')
+        ->and($aliasRes->json('data.0.opname_detail_sync'))->toBe(1);
+
+    // Key & urutan item harus sama persis dengan andalan (SaveOpnameService::$sent)
+    expect(array_keys($aliasRes->json('data.0')))->toBe([
+        'opname_detail_rfid',
+        'opname_detail_id_opname',
+        'opname_detail_code',
+        'opname_detail_register',
+        'opname_detail_updated_at',
+        'opname_detail_updated_by',
+        'opname_detail_transaksi',
+        'opname_detail_proses',
+        'opname_detail_scan_rs',
+        'opname_detail_ketemu',
+        'opname_detail_reff',
+        'opname_detail_scan_by',
+        'opname_detail_waktu',
+        'opname_detail_sync',
+    ]);
+
+    // Tanggal harus string 'Y-m-d H:i:s' seperti andalan, bukan ISO8601 UTC
+    expect($aliasRes->json('data.0.opname_detail_waktu'))->toMatch('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/')
+        ->and($aliasRes->json('data.0.opname_detail_updated_at'))->toMatch('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/');
+
+    // RFID yang sama dikirim dua kali tetap menghasilkan satu baris
+    $dupRes = $this->actingAs($this->admin, 'sanctum')->postJson('/api/opname', [
+        'opname_id' => $opname->opname_id,
+        'rfid' => ['OP_RFID_1', 'OP_RFID_1'],
+        'code' => 'SYNC-DUP',
+    ])->assertOk();
+
+    expect($dupRes->json('data'))->toHaveCount(1);
+});
+
+it('capture memetakan proses GUDANG ke QC (enum opname_detail_proses tidak punya GUDANG)', function () {
+    $opname = Opname::updateOrCreate(
+        ['opname_nama' => 'Opname Gudang', 'opname_id_rs' => $this->rs->rs_id],
+        [
+            'opname_mulai' => now()->format('Y-m-d'),
+            'opname_selesai' => now()->addDays(1)->format('Y-m-d'),
+            'opname_status' => 1,
+            'opname_capture' => null,
+            'opname_created_by' => $this->admin->id,
+        ]
+    );
+    OpnameDetail::where('opname_detail_id_opname', $opname->opname_id)->delete();
+
+    Outstanding::updateOrCreate(
+        ['outstanding_rfid' => 'OP_RFID_1'],
+        [
+            'outstanding_rs_scan' => $this->rs->rs_id,
+            'outstanding_status_transaksi' => 'KOTOR',
+            'outstanding_status_proses' => 'GUDANG',
+            'outstanding_status_hilang' => 'NORMAL',
+        ]
+    );
+
+    $this->actingAs($this->admin)->get("/opname/capture/{$opname->opname_id}")->assertRedirect();
+
+    $captured = OpnameDetail::where('opname_detail_id_opname', $opname->opname_id)
+        ->where('opname_detail_rfid', 'OP_RFID_1')
+        ->first();
+
+    expect($captured)->not->toBeNull()
+        ->and($captured->opname_detail_proses)->toBe('QC')
+        ->and($captured->opname_detail_transaksi)->toBe('KOTOR');
+});
+
+it('capture tidak menyertakan linen milik RS lain walau sedang berada di RS opname', function () {
+    $otherRs = Rs::updateOrCreate(['rs_code' => 'OPN2'], ['rs_nama' => 'RS Opname Lain', 'rs_status' => RsStatusEnum::DEDICATED]);
+
+    // OP_RFID_3 sedang di RS opname (detail_id_rs) tapi kepemilikannya (config_linen) RS lain
+    DB::table('config_linen')->where('detail_rfid', 'OP_RFID_3')->delete();
+    DB::table('config_linen')->insert(['detail_rfid' => 'OP_RFID_3', 'rs_id' => $otherRs->rs_id]);
+
+    $opname = Opname::updateOrCreate(
+        ['opname_nama' => 'Opname Join', 'opname_id_rs' => $this->rs->rs_id],
+        [
+            'opname_mulai' => now()->format('Y-m-d'),
+            'opname_selesai' => now()->addDays(1)->format('Y-m-d'),
+            'opname_status' => 1,
+            'opname_capture' => null,
+            'opname_created_by' => $this->admin->id,
+        ]
+    );
+    OpnameDetail::where('opname_detail_id_opname', $opname->opname_id)->delete();
+
+    $this->actingAs($this->admin)->get("/opname/capture/{$opname->opname_id}")->assertRedirect();
+
+    $rfids = OpnameDetail::where('opname_detail_id_opname', $opname->opname_id)->pluck('opname_detail_rfid');
+
+    expect($rfids)->toContain('OP_RFID_1')
+        ->and($rfids)->not->toContain('OP_RFID_3');
 });

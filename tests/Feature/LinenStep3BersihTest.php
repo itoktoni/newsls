@@ -101,6 +101,7 @@ beforeEach(function () {
 it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan pengiriman', function () {
     $initialCetak1 = DB::table('cetak')->where('cetak_type', 1)->count();
     $initialCetak2 = DB::table('cetak')->where('cetak_type', 2)->count();
+    $bersihMaxId = (int) (DB::table('bersih')->max('bersih_id') ?? 0);
     // 1) Packing per ruangan — ruangan A dulu (2 RFID), lalu ruangan B (1 RFID)
     // Sesuai PackingDeliveryController: packing butuh status_transaksi + ruangan_id
     $this->withToken($this->token)->postJson('/api/packing', [
@@ -116,6 +117,9 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
     ])->assertOk();
     expect(DB::table('outstanding')->where('outstanding_status_proses', 'PACKING')->count())->toBe(3);
     expect(DB::table('cetak')->where('cetak_type', 1)->count())->toBe($initialCetak1 + 2);
+    // packing sudah menulis riwayat bersih (+N per RFID, parity andalan) dan belum dikirim
+    expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->count())->toBe(count($this->allRfids));
+    expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->whereNull('bersih_delivery')->count())->toBe(count($this->allRfids));
 
     // Reprint packing per code harus balikin RFID sesuai ruangan — ambil 2 cetak terbaru (milik run ini)
     $codes = DB::table('cetak')->where('cetak_type', 1)->orderByDesc('cetak_id')->limit(2)->pluck('cetak_code')->values()->all();
@@ -124,7 +128,6 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
 
     // 2) Pengiriman bersih — POST /api/delivery kirim semua PACKING jadi BERSIH (hapus outstanding)
     $totalBersihBefore = [];
-    $bersihRowsBefore = DB::table('bersih')->whereIn('bersih_rfid', $this->allRfids)->count();
     foreach ($this->allRfids as $rfid) {
         $totalBersihBefore[$rfid] = (int) (DetailLinen::where('detail_rfid', $rfid)->value('detail_total_bersih') ?? 0);
     }
@@ -138,8 +141,10 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
         expect((int) DetailLinen::where('detail_rfid', $rfid)->value('detail_total_bersih'))->toBe($totalBersihBefore[$rfid] + 1);
     }
     expect(DB::table('cetak')->where('cetak_type', 2)->count())->toBe($initialCetak2 + 1);
-    // riwayat bersih = history append — naik +N per delivery run
-    expect(DB::table('bersih')->whereIn('bersih_rfid', $this->allRfids)->count())->toBe($bersihRowsBefore + count($this->allRfids));
+    // delivery tidak menambah baris bersih — hanya mengisi bersih_delivery + bersih_report
+    expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->count())->toBe(count($this->allRfids));
+    expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->whereNull('bersih_delivery')->count())->toBe(0);
+    expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->whereNull('bersih_report')->count())->toBe(0);
     expect(json_decode(DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_rfids'), true))->toHaveCount(count($this->allRfids));
     // barcode capital semua
     expect(DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_code'))->toBe(strtoupper(DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_code')));
@@ -160,7 +165,7 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
     $this->actingAs($this->admin)->get('/report-detail-pengiriman-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-summary-pengiriman-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-detail-kotor/table?rs_id='.$this->rs->rs_id)->assertOk();
-    $this->actingAs($this->admin)->get('/bersih/table?tab=riwayat')->assertOk();
+    $this->actingAs($this->admin)->get('/bersih/table?tab=delivery')->assertOk();
 
     // Totals via API (PackingDeliveryController totals)
     $this->withToken($this->token)->getJson("/api/total/delivery/{$this->rs->rs_id}/KOTOR")->assertOk()->assertJsonPath('data.total', 0); // sudah delivery, tidak ada PACKING sisa

@@ -36,7 +36,7 @@ class RsController extends Controller
     {
         $default = [
             'model' => $this->model,
-            'status' => RsStatusEnum::getOptions(),
+            'status' => RsStatusEnum::getOptions([RSStatusEnum::FREE, RSStatusEnum::DEDICATED]),
             'group' => GroupRs::getOptions(),
             'ruangan' => Ruangan::getOptions(),
             'jenis' => JenisLinen::getOptions(),
