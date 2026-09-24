@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\LinenStatusEnum;
+use App\Enums\LogType;
 use App\Enums\RegisterEnum;
 use App\Properties\DetailLinenEntity;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -105,6 +106,15 @@ class DetailLinen extends BaseModel
         ];
     }
 
+    /**
+     * Tipe log (activity_log.log_name) untuk event model yang sedang berjalan.
+     *
+     * Properti transient (bukan kolom DB): diisi di hook pre-event
+     * (creating/updating/deleting) yang selalu jalan SEBELUM handler
+     * created/updated/deleted milik spatie, lalu dibaca di getLogNameToUse().
+     */
+    public ?string $pendingLogType = null;
+
     protected static function booted(): void
     {
         static::creating(function (self $model) {
@@ -114,11 +124,29 @@ class DetailLinen extends BaseModel
             // NULL. Default-kan di sini supaya web form dan API konsisten.
             $model->detail_status_register ??= RegisterEnum::REGISTER;
             $model->detail_created_by ??= auth()->id();
+            $model->pendingLogType = $model->detail_status_register === RegisterEnum::GANTI_CHIP
+                ? LogType::GANTI_LINEN
+                : LogType::REGISTER;
         });
 
         static::updating(function (self $model) {
             $model->detail_updated_by = auth()->id();
+            // ponytail: RFID adalah PK — perubahannya berarti ganti chip.
+            $model->pendingLogType = $model->isDirty('detail_rfid')
+                ? LogType::GANTI_LINEN
+                : LogType::UPDATE;
         });
+
+        static::deleting(function (self $model) {
+            $model->pendingLogType = LogType::DELETE_DETAIL;
+        });
+    }
+
+    public function getLogNameToUse(): ?string
+    {
+        return $this->pendingLogType
+            ?? $this->activitylogOptions?->logName
+            ?? config('activitylog.default_log_name');
     }
 
     public function getActivitylogOptions(): LogOptions

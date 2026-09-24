@@ -18,7 +18,14 @@ class ActivityLogController extends Controller
     {
         $default = [
             'model' => $this->model,
-            'logNameOptions' => Activity::pluck('log_name')->filter()->unique()->values()->all(),
+            'logNameOptions' => Activity::query()
+                ->distinct()->pluck('log_name')->filter()->values()
+                ->mapWithKeys(fn ($v) => [$v => $v])->all(),
+            // ponytail: opsi Event untuk dropdown filter (created/updated/deleted + custom).
+            'eventOptions' => Activity::query()
+                ->distinct()->pluck('event')->filter()->values()
+                ->mapWithKeys(fn ($v) => [$v => $v])->all()
+                + ['created' => 'created', 'updated' => 'updated', 'deleted' => 'deleted'],
         ];
 
         return array_merge($default, $data);
@@ -36,6 +43,11 @@ class ActivityLogController extends Controller
 
         if (request('log_name')) {
             $query->where('log_name', request('log_name'));
+        }
+
+        // ponytail: default terbaru dulu bila user belum memilih sort.
+        if (! request('sort')) {
+            $query->orderByDesc('id');
         }
 
         return $query;

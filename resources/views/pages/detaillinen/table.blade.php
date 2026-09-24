@@ -13,8 +13,6 @@
                 <x-filter-item label="Jenis Linen" name="detail_id_jenis" :options="$jenis" />
                 <x-filter-item label="Bahan" name="detail_id_bahan" :options="$bahan" />
                 <x-filter-item label="Supplier" name="detail_id_supplier" :options="$supplier" />
-                <x-filter-item label="Status Cuci" name="detail_status_cuci" :options="$cuci" />
-                <x-filter-item label="Status Register" name="detail_status_register" :options="$register" />
                 <x-filter-item label="Status Linen" name="detail_status_linen" :options="$linen" />
                 <x-filter-item label="Total Bersih (Kotor)" name="detail_total_bersih" type="number" operator="$gte" placeholder="Min. dicuci..." />
                 <x-filter-item label="Total Reject (Retur)" name="detail_total_reject" type="number" operator="$gte" placeholder="Min. reject..." />
@@ -39,12 +37,8 @@
                 <x-table-sort field="detail_status_kepemilikan" label="Kepemilikan" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="ruangan_nama" label="Ruangan" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="jenis_nama" label="Jenis Linen" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="detail_status_cuci" label="Status Cuci" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="detail_status_linen" label="Status Linen" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="detail_total_bersih" label="Total Bersih" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="detail_total_reject" label="Total Reject" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="detail_total_rewash" label="Total Rewash" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="detail_created_at" label="Dibuat" :sortField="$sortField" :sortDir="$sortDir" />
+                <x-table-sort field="detail_total_bersih" label="Pemakaian" :sortField="$sortField" :sortDir="$sortDir" />
+                <x-table-sort field="detail_updated_at" label="Tgl Terakhir" :sortField="$sortField" :sortDir="$sortDir" />
             </x-slot:head>
 
             <x-slot:body>
@@ -55,35 +49,14 @@
                     <td class="whitespace-nowrap font-mono text-xs">{{ $table->detail_rfid }}</td>
                     <td>{{ $table->rs_nama ?? '-' }}</td>
                     <td>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $table->detail_status_kepemilikan === 'FREE' ? 'bg-green-100 text-green-800' : ($table->detail_status_kepemilikan === 'GROUP' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800') }}">
-                            {{ $table->detail_status_kepemilikan ?? '-' }}
-                        </span>
+                        {{ $table->detail_status_kepemilikan ?? '-' }}
                     </td>
                     <td>{{ $table->ruangan_nama ?? '-' }}</td>
                     <td>{{ $table->jenis_nama ?? '-' }}</td>
-                    <td>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $table->detail_status_cuci === 'CUCI' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800' }}">
-                            {{ $table->detail_status_cuci ?? '-' }}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ in_array($table->detail_status_linen, ['BERSIH', 'GUDANG']) ? 'bg-green-100 text-green-800' : ($table->detail_status_linen === 'KOTOR' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800') }}">
-                            {{ $table->detail_status_linen ?? '-' }}
-                        </span>
-                    </td>
+
                     <td class="text-center">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                             {{ $table->detail_total_bersih ?? 0 }}x
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                            {{ $table->detail_total_reject ?? 0 }}x
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                            {{ $table->detail_total_rewash ?? 0 }}x
                         </span>
                     </td>
                     <td class="whitespace-nowrap text-on-surface-variant">{{ formatDate($table->detail_created_at) ?? '-' }}</td>

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LogType;
 use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
 use App\Models\Transaksi;
@@ -40,6 +42,9 @@ class TransaksiApiController extends Controller
 
     public function transaction(Request $request, string $type)
     {
+        // ponytail: sync kotor desktop bisa 10rb+ RFID per request.
+        set_time_limit(0);
+
         $status = $this->resolveStatus($type);
         if ($status === null) {
             return Notes::validation('Tipe transaksi tidak valid.', ['type' => ['Tipe transaksi tidak valid.']]);
@@ -67,7 +72,7 @@ class TransaksiApiController extends Controller
             $this->persistOutstanding($rows['outstanding'], $ctx['outstandingExisting'], $ctx['now'], $ctx['userId']);
             $this->refreshExistingOutstanding($ctx, $statusTransaksi, $statusProcess);
             $this->markDetailsAsKotor($rows['toKotor'], $ctx['now']);
-            $this->logTransactions($rows['transaksi'], $request);
+            $this->logTransactions($rows['transaksi'], $request, $ctx['details']->all());
 
             DB::commit();
             DashboardCache::flush();
@@ -111,6 +116,8 @@ class TransaksiApiController extends Controller
     {
         $rfids = collect($request->input('rfid'))->filter()->unique()->values()->all();
 
+        // ponytail: 10rb+ RFID per sync — dilarang query di dalam loop.
+        // Semua state yang dibutuhkan buildRows diambil di muka (3 query).
         return [
             'rfids' => $rfids,
             'key' => $request->input('key'),
@@ -119,6 +126,11 @@ class TransaksiApiController extends Controller
             'userId' => auth()->id() ?? $request->user()?->id,
             'details' => DetailLinen::whereIn('detail_rfid', $rfids)->get()->keyBy('detail_rfid'),
             'outstandingExisting' => Outstanding::whereIn('outstanding_rfid', $rfids)->get()->keyBy('outstanding_rfid'),
+            'todayExisting' => Transaksi::whereDate('transaksi_created_at', today())
+                ->whereIn('transaksi_rfid', $rfids)
+                ->pluck('transaksi_rfid')
+                ->flip()
+                ->all(),
         ];
     }
 
@@ -152,7 +164,7 @@ class TransaksiApiController extends Controller
     {
         $bedaRs = $ctx['rsScan'] == $detail->detail_id_rs ? 'TIDAK' : 'YA';
 
-        if (! $this->existsToday($rfid)) {
+        if (! isset($ctx['todayExisting'][$rfid])) {
             $transaksi[] = [
                 'transaksi_key' => $ctx['key'],
                 'transaksi_rfid' => $rfid,
@@ -193,7 +205,7 @@ class TransaksiApiController extends Controller
 
     private function buildForUnregistered(string $rfid, $out, array $ctx, string $statusTransaksi, string $statusProcess, array &$transaksi, array &$outstanding): void
     {
-        if (! $this->existsToday($rfid)) {
+        if (! isset($ctx['todayExisting'][$rfid])) {
             $transaksi[] = [
                 'transaksi_key' => $ctx['key'],
                 'transaksi_rfid' => $rfid,
@@ -226,11 +238,6 @@ class TransaksiApiController extends Controller
                 'outstanding_updated_by' => $ctx['userId'],
             ];
         }
-    }
-
-    private function existsToday(string $rfid): bool
-    {
-        return Transaksi::where('transaksi_rfid', $rfid)->whereDate('transaksi_created_at', today())->exists();
     }
 
     // =========================================================================
@@ -277,26 +284,29 @@ class TransaksiApiController extends Controller
 
     private function refreshExistingOutstanding(array $ctx, string $statusTransaksi, string $statusProcess): void
     {
-        $outstandingUpdates = collect($ctx['outstandingExisting'])->keys();
+        // ponytail: 10rb+ sync — N update per-RFID diganti bulk per grup
+        // bedaRs (maks 3 grup: YA/TIDAK/BELUM_REGISTER). Idempoten, aman
+        // di-overwrite seperti sebelumnya.
+        $grouped = [];
         foreach ($ctx['rfids'] as $rfid) {
             if (! isset($ctx['outstandingExisting'][$rfid])) {
                 continue;
             }
-            // sudah di-handle di persistOutstanding jika masuk $outstanding array — skip agar tidak double update
-            $wasUpdated = false;
-            // cek apakah rfid ini sudah di-update via persistOutstanding: ada di outstandingExisting dan tidak ada di inserts
-            // Sederhananya: selalu refresh status ke transaksi terbaru agar stock = transaksi terakhir
             $detail = $ctx['details'][$rfid] ?? null;
             $bedaRs = $detail ? ($ctx['rsScan'] == $detail->detail_id_rs ? 'TIDAK' : 'YA') : 'BELUM_REGISTER';
-            // hanya refresh jika belum di-update barusan (tidak ada di outstanding yang baru)
-            // kita update idempoten — aman di-overwrite
-            Outstanding::where('outstanding_rfid', $rfid)->update([
-                'outstanding_status_transaksi' => $statusTransaksi,
-                'outstanding_status_proses' => $statusProcess,
-                'outstanding_updated_at' => $ctx['now'],
-                'outstanding_updated_by' => $ctx['userId'],
-                'outstanding_status_beda_rs' => $bedaRs,
-            ]);
+            $grouped[$bedaRs][] = $rfid;
+        }
+
+        foreach ($grouped as $bedaRs => $rfids) {
+            foreach (array_chunk(array_unique($rfids), 2000) as $chunk) {
+                Outstanding::whereIn('outstanding_rfid', $chunk)->update([
+                    'outstanding_status_transaksi' => $statusTransaksi,
+                    'outstanding_status_proses' => $statusProcess,
+                    'outstanding_updated_at' => $ctx['now'],
+                    'outstanding_updated_by' => $ctx['userId'],
+                    'outstanding_status_beda_rs' => $bedaRs,
+                ]);
+            }
         }
     }
 
@@ -305,32 +315,65 @@ class TransaksiApiController extends Controller
         if (empty($toKotor)) {
             return;
         }
-        DetailLinen::whereIn('detail_rfid', array_unique($toKotor))->update([
-            'detail_updated_at' => $now,
-            'detail_status_linen' => 'KOTOR',
-        ]);
+        foreach (array_chunk(array_unique($toKotor), 2000) as $chunk) {
+            DetailLinen::whereIn('detail_rfid', $chunk)->update([
+                'detail_updated_at' => $now,
+                'detail_status_linen' => 'KOTOR',
+            ]);
+        }
     }
 
     // =========================================================================
     // 6) RESPONSE — audit + json
     // =========================================================================
 
-    private function logTransactions(array $transaksi, Request $request): void
+    private function logTransactions(array $transaksi, Request $request, array $details = []): void
     {
         if (empty($transaksi)) {
             return;
         }
+
+        // ponytail: 10rb+ sync — N insert activity diganti bulk insert
+        // chunk 500 (kolom persis tiruan ActivityLogger manual: event null,
+        // attribute_changes '[]', causer dari auth). 1 log per RFID tetap
+        // dipertahankan (subject = DetailLinen bila terdaftar).
+        $causer = auth()->user() ?? $request->user();
+        $now = now()->format('Y-m-d H:i:s');
+        $rows = [];
+
         foreach ($transaksi as $row) {
-            activity('transaksi')
-                ->causedBy(auth()->user() ?? $request->user())
-                ->withProperties([
+            // ponytail: log_name = tipe operasi (LogType) agar sekali lihat
+            // mencerminkan event-nya, bukan 'transaksi' generik.
+            $logType = match ($row['transaksi_status']) {
+                TransactionType::KOTOR => LogType::KOTOR,
+                TransactionType::REJECT => LogType::RETUR,
+                TransactionType::REWASH => LogType::REWASH,
+                default => $row['transaksi_status'],
+            };
+            $subject = $details[$row['transaksi_rfid']] ?? null;
+            $rows[] = [
+                'log_name' => $logType,
+                'description' => 'Transaksi '.$row['transaksi_status'].' RFID '.$row['transaksi_rfid'],
+                'event' => null,
+                'subject_type' => $subject ? DetailLinen::class : null,
+                'subject_id' => $subject ? $row['transaksi_rfid'] : null,
+                'causer_type' => $causer ? $causer::class : null,
+                'causer_id' => $causer?->getKey(),
+                'attribute_changes' => '[]',
+                'properties' => json_encode([
                     'key' => $row['transaksi_key'],
                     'rfid' => $row['transaksi_rfid'],
                     'status' => $row['transaksi_status'],
                     'rs_scan' => $row['transaksi_rs_scan'],
                     'rs_ori' => $row['transaksi_rs_ori'],
-                ])
-                ->log('Transaksi '.$row['transaksi_status'].' RFID '.$row['transaksi_rfid']);
+                ]),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            Activity::insert($chunk);
         }
     }
 

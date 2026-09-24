@@ -13,10 +13,7 @@
                     helper="Current: RS yang sedang memegang linen ini (detail_linen)." />
                 <x-select col="6" name="detail_id_ruangan" label="Ruangan" :options="$ruangan" />
                 <x-select col="6" name="detail_id_jenis" label="Jenis Linen" :options="$jenis" />
-                <x-select col="6" name="detail_id_bahan" label="Bahan" :options="$bahan" />
-                <x-select col="6" name="detail_id_supplier" label="Supplier" :options="$supplier" />
                 <x-select col="6" name="detail_status_cuci" label="Status Cuci" :options="$cuci" />
-                <x-input col="6" name="detail_tgl_cek" label="Tanggal Cek" type="date" />
                 <x-textarea col="12" name="detail_deskripsi" label="Deskripsi" />
 
                 {{-- ponytail: MASTER pemilik (config_linen) —

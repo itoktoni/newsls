@@ -29,13 +29,16 @@ class Activity extends SpatieActivity
         ];
     }
 
+    // ponytail: id + subject_type/causer_type disembunyikan dari tabel —
+    // isinya FQCN (App\Models\...) yang membingungkan, bukan jenis aktivitas.
+    // Jenis aktivitas dibaca dari event (created/updated/deleted) + description.
+    // ponytail: log_name = tipe operasi (LogType::REGISTER/KOTOR/...) —
+    // ditampilkan paling depan agar sekali lihat mencerminkan event-nya.
     public static $sortColumns = [
-        'id',
+        'log_name',
         'description',
         'event',
-        'subject_type',
         'subject_id',
-        'causer_type',
         'causer_id',
         'created_at',
     ];
@@ -44,6 +47,9 @@ class Activity extends SpatieActivity
         'log_name' => 'Log Name',
         'event' => 'Event',
         'description' => 'Description',
+        'subject_id' => 'RFID / Subject ID',
+        'causer_id' => 'Causer ID',
+        'created_at' => 'Tanggal',
     ];
 
     public static function field_name(): string

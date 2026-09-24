@@ -4,11 +4,14 @@
     <x-breadcrumb :items="[['url' => '/dashboard', 'label' => 'Home'], ['url' => '', 'label' => moduleLabel()]]" />
     <div class="content mt-4 lg:mt-0">
         {{-- Filters --}}
-        <x-filter :per-page="25" :fields="$fields">
+        <x-filter :per-page="25" :fields="$fields" searchPlaceholder="Cari RFID / deskripsi...">
             <x-slot:advanced>
-                @foreach ($fields as $key => $advance)
-                <x-filter-item :label="$advance" :name="$key"/>
-                @endforeach
+                <x-filter-item label="RFID / Subject ID" name="subject_id" operator="$contains" placeholder="Sebagian RFID..." />
+                <x-filter-item label="Event" name="event" :options="$eventOptions ?? []" />
+                <x-filter-item label="Log Name" name="log_name" :options="$logNameOptions ?? []" />
+                <x-filter-item label="Description" name="description" operator="$contains" placeholder="Sebagian deskripsi..." />
+                <x-filter-item label="Causer ID" name="causer_id" placeholder="ID user..." />
+                <x-filter-item label="Tanggal" name="created_at" type="date" />
             </x-slot:advanced>
         </x-filter>
 
@@ -55,7 +58,7 @@
                             @endforeach
                         </div>
                         <div class="flex items-center justify-between pt-2 border-t border-outline-variant/50">
-                            <span class="text-[9px] font-mono text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ $table->field_primary }}</span>
+                            <span class="text-[9px] font-mono text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ $table->subject_id ?? $table->field_primary }}</span>
                             <div class="flex gap-1" onclick="event.stopPropagation()">
                                 <x-table-action :model="$model" :id="$table->field_primary" />
                             </div>

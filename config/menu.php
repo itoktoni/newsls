@@ -22,22 +22,29 @@ return [
             ],
         ],
         [
+            'label' => 'Pengguna & Audit',
+            'items' => [
+                ['route' => 'user.getTable', 'icon' => 'manage_accounts', 'label' => 'Users', 'match' => ['user.*']],
+                ['route' => 'activity-log.getTable', 'icon' => 'history', 'label' => 'Activity Log', 'match' => ['activity-log.*']],
+            ],
+        ],
+        [
             'label' => 'Master Data',
             'items' => [
-                ['route' => 'rs.getTable', 'icon' => 'local_hospital', 'label' => 'Rumah Sakit', 'match' => ['rs.*']],
-                ['route' => 'group-rs.getTable', 'icon' => 'corporate_fare', 'label' => 'Group RS', 'match' => ['group-rs.*']],
-                ['route' => 'ruangan.getTable', 'icon' => 'meeting_room', 'label' => 'Ruangan', 'match' => ['ruangan.*']],
-                ['route' => 'kategori.getTable', 'icon' => 'category', 'label' => 'Kategori', 'match' => ['kategori.*']],
-                ['route' => 'jenis-bahan.getTable', 'icon' => 'texture', 'label' => 'Bahan', 'match' => ['jenis-bahan.*']],
-                ['route' => 'supplier.getTable', 'icon' => 'local_shipping', 'label' => 'Supplier', 'match' => ['supplier.*']],
                 ['route' => 'jenis-linen.getTable', 'icon' => 'laundry', 'label' => 'Jenis Linen', 'match' => ['jenis-linen.*']],
+                ['route' => 'ruangan.getTable', 'icon' => 'meeting_room', 'label' => 'Ruangan', 'match' => ['ruangan.*']],
+                ['route' => 'group-rs.getTable', 'icon' => 'corporate_fare', 'label' => 'Group RS', 'match' => ['group-rs.*']],
+                ['route' => 'rs.getTable', 'icon' => 'local_hospital', 'label' => 'Rumah Sakit', 'match' => ['rs.*']],
+                // ['route' => 'kategori.getTable', 'icon' => 'category', 'label' => 'Kategori', 'match' => ['kategori.*']],
+                // ['route' => 'jenis-bahan.getTable', 'icon' => 'texture', 'label' => 'Bahan', 'match' => ['jenis-bahan.*']],
+                // ['route' => 'supplier.getTable', 'icon' => 'local_shipping', 'label' => 'Supplier', 'match' => ['supplier.*']],
             ],
         ],
         [
             'label' => 'Manajemen Linen',
             'items' => [
-                ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Data Linen', 'match' => ['detail-linen.*']],
                 ['route' => 'config-linen.getTable', 'icon' => 'settings_input_component', 'label' => 'Config Linen', 'match' => ['config-linen.*']],
+                ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Data Linen', 'match' => ['detail-linen.*']],
                 ['route' => 'transaksi.getTable', 'icon' => 'receipt_long', 'label' => 'Transaksi', 'match' => ['transaksi.*']],
                 ['route' => 'bersih.getTable', 'icon' => 'inventory_2', 'label' => 'Bersih', 'match' => ['bersih.*']],
                 ['route' => 'opname.getTable', 'icon' => 'fact_check', 'label' => 'Opname', 'match' => ['opname.*']],
@@ -102,13 +109,7 @@ return [
                 ['route' => 'report-invoice.getTable', 'icon' => 'receipt', 'label' => 'Invoice', 'match' => ['report-invoice.*']],
             ],
         ],
-        [
-            'label' => 'Pengguna & Audit',
-            'items' => [
-                ['route' => 'user.getTable', 'icon' => 'manage_accounts', 'label' => 'Users', 'match' => ['user.*']],
-                ['route' => 'activity-log.getTable', 'icon' => 'history', 'label' => 'Activity Log', 'match' => ['activity-log.*']],
-            ],
-        ],
+
         [
             'label' => 'CMS',
             'items' => [

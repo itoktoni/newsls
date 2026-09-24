@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CuciEnum;
+use App\Enums\LogType;
 use App\Enums\RsStatusEnum;
 use App\Models\ConfigLinen;
 use App\Models\DetailLinen;
@@ -53,7 +54,7 @@ it('mencatat aktivitas saat register linen baru', function () {
     $activity = Activity::forSubject($linen)->firstOrFail();
 
     expect($activity->event)->toBe('created')
-        ->and($activity->log_name)->toBe('linen')
+        ->and($activity->log_name)->toBe(LogType::REGISTER)
         ->and($activity->description)->toBe("Detail linen {$rfid} berhasil diregister.")
         ->and($activity->causer->id)->toBe($admin->id)
         ->and($activity->subject->getKey())->toBe($rfid)
@@ -88,7 +89,7 @@ it('mencatat aktivitas saat linen diubah (hanya kolom yang berubah yang terekam)
         ->firstOrFail();
 
     expect($updatedActivity->event)->toBe('updated')
-        ->and($updatedActivity->log_name)->toBe('linen')
+        ->and($updatedActivity->log_name)->toBe(LogType::UPDATE)
         ->and($updatedActivity->description)->toBe("Detail linen {$linen->detail_rfid} berhasil diperbarui.")
         ->and($updatedActivity->causer->id)->toBe($admin->id)
         ->and($updatedActivity->attribute_changes['attributes'])->toMatchArray([
@@ -144,7 +145,7 @@ it('mencatat aktivitas saat linen dihapus', function () {
         'detail_updated_by' => null,
     ];
 
-    expect($deletedActivity->log_name)->toBe('linen')
+    expect($deletedActivity->log_name)->toBe(LogType::DELETE_DETAIL)
         ->and($deletedActivity->description)->toBe("Detail linen {$linen->detail_rfid} berhasil dihapus.")
         ->and($deletedActivity->causer->id)->toBe($admin->id)
         ->and($deletedActivity->subject_type)->toBe(DetailLinen::class)

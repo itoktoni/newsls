@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LogType;
 use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
@@ -191,8 +192,19 @@ class PackingDeliveryController extends Controller
 
     private function logPacking(array $input, string $code): void
     {
+        // ponytail: 1 log per RFID (subject = DetailLinen) agar terlacak
+        // di filter RFID activity-log, bukan 1 log batch.
         try {
-            activity('packing')->causedBy(auth()->user())->withProperties(['rfid' => $input['rfids'], 'rs_id' => $input['rsId'], 'code' => $code])->log('Packing '.count($input['rfids'])." RFID ke RS {$input['rsId']}");
+            $subjects = DetailLinen::whereIn('detail_rfid', $input['rfids'])->get()->keyBy('detail_rfid');
+            foreach ($input['rfids'] as $rfid) {
+                $log = activity(LogType::PACKING)
+                    ->causedBy(auth()->user())
+                    ->withProperties(['rfid' => $rfid, 'rs_id' => $input['rsId'], 'code' => $code]);
+                if ($subjects->has($rfid)) {
+                    $log->performedOn($subjects->get($rfid));
+                }
+                $log->log("Packing RFID {$rfid} ke RS {$input['rsId']} ({$code})");
+            }
         } catch (\Throwable $e) {
         }
     }
@@ -452,8 +464,19 @@ class PackingDeliveryController extends Controller
 
     private function logDelivery(array $input, string $code, array $rfids): void
     {
+        // ponytail: 1 log per RFID (subject = DetailLinen) agar terlacak
+        // di filter RFID activity-log, bukan 1 log batch.
         try {
-            activity('delivery')->causedBy(auth()->user())->withProperties(['rfid' => $rfids, 'rs_id' => $input['rsId'], 'code' => $code])->log("Delivery $code ".count($rfids).' RFID');
+            $subjects = DetailLinen::whereIn('detail_rfid', $rfids)->get()->keyBy('detail_rfid');
+            foreach ($rfids as $rfid) {
+                $log = activity(LogType::DELIVERY)
+                    ->causedBy(auth()->user())
+                    ->withProperties(['rfid' => $rfid, 'rs_id' => $input['rsId'], 'code' => $code]);
+                if ($subjects->has($rfid)) {
+                    $log->performedOn($subjects->get($rfid));
+                }
+                $log->log("Delivery {$code} RFID {$rfid}");
+            }
         } catch (\Throwable $e) {
         }
     }

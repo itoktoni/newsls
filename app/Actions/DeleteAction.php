@@ -26,11 +26,20 @@ class DeleteAction
         $data = $request->validate($this->rules());
 
         try {
-
-            $model->whereIn($model->field_primary(), $data['ids'])->delete();
+            // ponytail: hapus per-model supaya Eloquent events (deleting/deleted)
+            // tetap fire — mass delete whereIn()->delete() bypass events sehingga
+            // spatie LogsActivity tidak mencatat event 'deleted' (mis. DetailLinen).
+            $deleted = [];
+            $model->whereIn($model->field_primary(), $data['ids'])
+                ->chunkById(200, function ($rows) use (&$deleted) {
+                    foreach ($rows as $row) {
+                        $row->delete();
+                        $deleted[] = $row->getKey();
+                    }
+                });
             DashboardCache::flush();
 
-            return $this->payload(TOAST_SUCCESS, $data['ids']);
+            return $this->payload(TOAST_SUCCESS, $deleted);
 
         } catch (\Throwable $th) {
             return $this->payload(TOAST_FAILED, $th->getMessage());

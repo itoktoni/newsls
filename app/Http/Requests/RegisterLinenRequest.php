@@ -38,8 +38,8 @@ class RegisterLinenRequest extends FormRequest
             'rfid.*' => 'required|string|max:255|distinct',
 
             'jenis_id' => 'required|integer|exists:jenis_linen,jenis_id',
-            'bahan_id' => 'required|integer|exists:jenis_bahan,bahan_id',
-            'supplier_id' => 'required|integer|exists:supplier,supplier_id',
+            // 'bahan_id' => 'required|integer|exists:jenis_bahan,bahan_id',
+            // 'supplier_id' => 'required|integer|exists:supplier,supplier_id',
             'status_cuci' => ['required', Rule::in(CuciEnum::getValues())],
 
             'status_register' => ['nullable', Rule::in(RegisterEnum::getValues())],
