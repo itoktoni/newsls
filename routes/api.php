@@ -73,19 +73,28 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
         ->name('api.download');
 
     Route::get('configuration', function () {
-        return Notes::data([
+        // Legacy andalan: mentah TANPA envelope Notes — desktop deserialize
+        // langsung ke {supplier, jenis_bahan, jenis_linen, status_*}.
+        // Status dikirim sebagai array [{status_id, status_name}] (bukan map).
+        $asList = fn (array $ids) => array_map(
+            fn ($id) => ['status_id' => $id, 'status_name' => $id],
+            $ids
+        );
+
+        // Urutan mengikuti kontrak legacy (lihat contoh respons desktop).
+        $statusProses = $asList(['REGISTER', 'KOTOR', 'SCAN', 'QC', 'PACKING', 'BERSIH']);
+        $statusTransaksi = $asList(['KOTOR', 'REJECT', 'REWASH', 'BERSIH', 'REGISTER']);
+        $statusCuci = $asList([CuciEnum::CUCI, CuciEnum::RENTAL]);
+        $statusRegister = $asList([RegisterEnum::REGISTER, RegisterEnum::GANTI_CHIP]);
+
+        return response()->json([
             'supplier' => Supplier::select('supplier_id', 'supplier_nama')->get(),
             'jenis_bahan' => JenisBahan::select('bahan_id', 'bahan_nama')->get(),
             'jenis_linen' => JenisLinen::select('jenis_id', 'jenis_nama')->get(),
-            'status_cuci' => CuciEnum::getOptions(),
-            'status_register' => RegisterEnum::getOptions(),
-            'status_transaksi' => TransactionType::getOptions(),
-            // Legacy mengirim status_proses dari ProcessType (bka belum punya enum
-            // itu) — disamakan dengan /rs supaya kedua endpoint konsisten.
-            'status_proses' => TransactionType::getOptions(),
-            'status_linen' => LinenStatusEnum::getOptions(),
-            'kepemilikan' => RsStatusEnum::getOptions(),
-            'allowed_rs_ids' => User::allowedRsIds(),
+            'status_proses' => $statusProses,
+            'status_transaksi' => $statusTransaksi,
+            'status_cuci' => $statusCuci,
+            'status_register' => $statusRegister,
         ]);
     })->name('api.configuration');
 

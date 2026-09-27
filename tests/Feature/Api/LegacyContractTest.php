@@ -115,10 +115,29 @@ it('GET /api/rs dan /api/rs/{id} menyertakan rs_ruangan & rs_jenis', function ()
         ->and($single->json('data.rs_jenis.0.jenis_nama'))->toBe('Seprai Legacy');
 });
 
-it('GET /api/configuration menyertakan status_proses', function () {
+it('GET /api/configuration mentah ala legacy (tanpa envelope)', function () {
     $res = $this->actingAs($this->admin, 'sanctum')->getJson('/api/configuration')->assertOk();
 
-    expect(array_keys($res->json('data')))->toContain('status_proses', 'status_transaksi', 'status_cuci', 'status_register');
+    // Raw: key di root, bukan di `data`; tanpa status/code/name/message.
+    expect($res->json())->not->toHaveKey('status')
+        ->and(array_keys($res->json()))->toContain('supplier', 'jenis_bahan', 'jenis_linen', 'status_proses', 'status_transaksi', 'status_cuci', 'status_register')
+        ->and($res->json('status_proses'))->toBe([
+            ['status_id' => 'REGISTER', 'status_name' => 'REGISTER'],
+            ['status_id' => 'KOTOR', 'status_name' => 'KOTOR'],
+            ['status_id' => 'SCAN', 'status_name' => 'SCAN'],
+            ['status_id' => 'QC', 'status_name' => 'QC'],
+            ['status_id' => 'PACKING', 'status_name' => 'PACKING'],
+            ['status_id' => 'BERSIH', 'status_name' => 'BERSIH'],
+        ])
+        ->and($res->json('status_transaksi.0'))->toBe(['status_id' => 'KOTOR', 'status_name' => 'KOTOR'])
+        ->and($res->json('status_cuci'))->toBe([
+            ['status_id' => 'CUCI', 'status_name' => 'CUCI'],
+            ['status_id' => 'RENTAL', 'status_name' => 'RENTAL'],
+        ])
+        ->and($res->json('status_register'))->toBe([
+            ['status_id' => 'REGISTER', 'status_name' => 'REGISTER'],
+            ['status_id' => 'GANTI_CHIP', 'status_name' => 'GANTI_CHIP'],
+        ]);
 });
 
 it('GET /api/total/bersih melaporkan 5 key seperti legacy', function () {
