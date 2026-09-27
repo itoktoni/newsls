@@ -58,6 +58,27 @@
                     })();
                 </script>
 
+                {{-- Form tampil mobile (pivot mobile_menu_dan_user) — kosongkan = semua menu. --}}
+                @php
+                    $selectedMenus = array_map('strval', (array) old('menu_ids', isset($selectedMenuIds) ? $selectedMenuIds : []));
+                @endphp
+                <div class="col-span-12">
+                    <label class="font-body-sm text-body-sm font-bold text-on-surface-variant block mb-1">
+                        Menu Mobile <span class="font-normal">({{ count($selectedMenus) }} dipilih, kosong = semua)</span>
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-1 max-h-64 overflow-y-auto border border-outline-variant rounded-lg p-3 bg-white">
+                        @foreach($allMobileMenus as $id => $nama)
+                        <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                            <input type="checkbox" name="menu_ids[]" value="{{ $id }}"
+                                class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary-container"
+                                {{ in_array((string) $id, $selectedMenus, true) ? 'checked' : '' }}>
+                            <span class="text-sm text-on-surface-variant">{{ $nama }}</span>
+                        </label>
+                        @endforeach
+                    </div>
+                    @error('menu_ids')<span class="font-label-caps text-label-caps text-error mt-1 block">{{ $message }}</span>@enderror
+                </div>
+
             @endbind
         </x-card>
 

@@ -39,6 +39,7 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
     Route::get('dashboard/laundry', LaundryDashboardController::class)->name('dashboard.laundry');
 
     Route::auto('/user', 'UsersController', ['name' => 'user']);
+    Route::auto('/mobile-menu', 'MobileMenuController', ['name' => 'mobile-menu']);
     Route::auto('/rs', 'RsController', ['name' => 'rs']);
     Route::auto('/group-rs', 'GroupRsController', ['name' => 'group-rs']);
     Route::auto('/transaksi', 'TransaksiController', ['name' => 'transaksi']);

@@ -7,6 +7,7 @@ use App\Actions\UpdateAction;
 use App\Concerns\ControllerTrait;
 use App\Enums\RoleEnum;
 use App\Http\Requests\GeneralRequest;
+use App\Models\MobileMenu;
 use App\Models\Rs;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
@@ -27,6 +28,10 @@ class UsersController extends Controller
             'role' => RoleEnum::getOptions(),
             // ponytail: daftar SEMUA RS untuk checkbox hak akses (jangan discope).
             'allRs' => Rs::orderBy('rs_nama')->pluck('rs_nama', 'rs_id')->all(),
+            // Daftar menu mobile aktif untuk checkbox form tampil (pivot kosong = semua).
+            'allMobileMenus' => MobileMenu::where('mobile_menu_aktif', true)
+                ->orderBy('mobile_menu_urut')->orderBy('mobile_menu_id')
+                ->pluck('mobile_menu_nama', 'mobile_menu_id')->all(),
         ];
 
         return array_merge($default, $data);
@@ -34,7 +39,7 @@ class UsersController extends Controller
 
     public function getCreate(GeneralRequest $request)
     {
-        return $this->views($this->template(), ['selectedRsIds' => []]);
+        return $this->views($this->template(), ['selectedRsIds' => [], 'selectedMenuIds' => []]);
     }
 
     public function getUpdate(GeneralRequest $request, $id)
@@ -44,6 +49,7 @@ class UsersController extends Controller
         return $this->views($this->template(), [
             'model' => $data,
             'selectedRsIds' => User::rsIdsFor((int) $id),
+            'selectedMenuIds' => User::menuIdsFor((int) $id),
         ]);
     }
 
@@ -103,6 +109,7 @@ class UsersController extends Controller
         $payload = CreateAction::run($request, $this->model);
         if (($payload['status'] ?? false) && isset($payload['data']->id)) {
             $this->syncRsGuarded((int) $payload['data']->id, (array) $request->input('rs_ids', []));
+            $this->syncMobileMenusGuarded((int) $payload['data']->id, (array) $request->input('menu_ids', []));
         }
 
         return $this->response($payload, null, 'create');
@@ -120,6 +127,7 @@ class UsersController extends Controller
         $payload = UpdateAction::run($request, $id, $this->model);
         if ($payload['status'] ?? false) {
             $this->syncRsGuarded((int) $id, (array) $request->input('rs_ids', []));
+            $this->syncMobileMenusGuarded((int) $id, (array) $request->input('menu_ids', []));
         }
 
         return $this->response($payload, null, 'update');
@@ -137,5 +145,19 @@ class UsersController extends Controller
         }
 
         User::syncRs($userId, $rsIds);
+    }
+
+    /**
+     * ponytail: form tampil mobile (pivot mobile_menu_dan_user) — sama
+     * seperti RS: hanya admin/developer yang boleh mengubah, kosong = semua.
+     */
+    private function syncMobileMenusGuarded(int $userId, array $menuIds): void
+    {
+        $me = auth()->user();
+        if (! $me || ! in_array($me->role ?? null, ['admin', 'developer'], true)) {
+            return;
+        }
+
+        User::syncMobileMenus($userId, $menuIds);
     }
 }

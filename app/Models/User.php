@@ -122,6 +122,62 @@ class User extends Authenticatable
         return $this->belongsToMany(Rs::class, 'rs_dan_user', 'user_id', 'rs_id');
     }
 
+    /**
+     * Menu mobile yang boleh dilihat user (pivot mobile_menu_dan_user).
+     * Pivot kosong = semua menu aktif.
+     */
+    public function mobileMenus()
+    {
+        return $this->belongsToMany(MobileMenu::class, 'mobile_menu_dan_user', 'user_id', 'mobile_menu_id');
+    }
+
+    public static function menuIdsFor(int $userId): array
+    {
+        return DB::table('mobile_menu_dan_user')
+            ->where('user_id', $userId)
+            ->pluck('mobile_menu_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+    }
+
+    /**
+     * Nama menu mobile untuk user (urut mobile_menu_urut). Pivot kosong =
+     * semua menu aktif. Dipakai respons login desktop/mobile: `menu[]`.
+     */
+    public static function menuNamesFor(int $userId): array
+    {
+        $ids = static::menuIdsFor($userId);
+        $query = MobileMenu::where('mobile_menu_aktif', true)->orderBy('mobile_menu_urut')->orderBy('mobile_menu_id');
+        if ($ids !== []) {
+            $query->whereIn('mobile_menu_id', $ids);
+        }
+
+        return $query->pluck('mobile_menu_nama')->all();
+    }
+
+    /**
+     * Ganti daftar menu mobile user (checkbox form user). Kosong = semua menu.
+     * ID yang tidak ada di master diabaikan.
+     */
+    public static function syncMobileMenus(int $userId, array $menuIds): void
+    {
+        $menuIds = array_values(array_unique(array_filter(array_map(
+            fn ($v) => is_numeric($v) ? (int) $v : null,
+            $menuIds
+        ))));
+        $valid = MobileMenu::whereIn('mobile_menu_id', $menuIds)->pluck('mobile_menu_id')->map(fn ($v) => (int) $v)->all();
+
+        DB::transaction(function () use ($userId, $valid) {
+            DB::table('mobile_menu_dan_user')->where('user_id', $userId)->delete();
+            foreach ($valid as $menuId) {
+                DB::table('mobile_menu_dan_user')->insert([
+                    'mobile_menu_id' => $menuId,
+                    'user_id' => $userId,
+                ]);
+            }
+        });
+    }
+
     public static function rsIdsFor(int $userId): array
     {
         return DB::table('rs_dan_user')

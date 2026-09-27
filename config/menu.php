@@ -25,6 +25,7 @@ return [
             'label' => 'Pengguna & Audit',
             'items' => [
                 ['route' => 'user.getTable', 'icon' => 'manage_accounts', 'label' => 'Users', 'match' => ['user.*']],
+                ['route' => 'mobile-menu.getTable', 'icon' => 'phone_android', 'label' => 'Menu Mobile', 'match' => ['mobile-menu.*']],
                 ['route' => 'activity-log.getTable', 'icon' => 'history', 'label' => 'Activity Log', 'match' => ['activity-log.*']],
             ],
         ],
