@@ -13,7 +13,7 @@
 | **Master Data** | `rs`, `group_rs`, `ruangan`, `jenis_linen`, `jenis_bahan`, `supplier`, `kategori`, `config_linen`, `detail_linen` | `routes/web.php` `Route::auto()` + `*Controller.php` | CRUD via `ControllerTrait` — lihat §4 |
 | **Bersih (web, viewer)** | Packing + Delivery + Riwayat Cetak — tab `packing` (antrean SCAN/QC), `delivery` (PACKING), `riwayat` (`cetak`) | `BersihController::getTable` saja + `pages/bersih/table.blade.php` | Web read-only; semua PROSES hanya via desktop → API `PackingDeliveryController`; menu `bersih.getTable` |
 | **Transaksi Viewer** | `transaksi` (history) + `outstanding` (stok di laundry) + `detail_linen` status `KOTOR` | `TransaksiController` | Read-only viewer; data ditulis oleh API desktop |
-| **API (untuk desktop)** | `POST /api/login`, `/register`, `/transaksi/{kotor|retur|rewash}`, `GET /api/rs`, `/configuration` | `routes/api.php` + `app/Http/Controllers/Api/` + `AuthController` | Sanctum Bearer, kontrak field = kolom DB |
+| **API (untuk desktop)** | `POST /api/login`, `/register`, `/kotor`, `/retur`, `/rewash`, `GET /api/rs`, `/configuration` | `routes/api.php` + `app/Http/Controllers/Api/` + `AuthController` | Sanctum Bearer, kontrak field = kolom DB |
 | **Report** | Laporan per RS / per jenis / outstanding / stok — PDF via `barryvdh/laravel-dompdf`, grafik via `larapex-charts` | `resources/views/pdf/` + `app/Charts/` | Barcode `milon/barcode` untuk label RFID |
 
 > **Jangan menambah sumber data lain.** Semua validasi status (`CuciEnum`, `LinenStatusEnum`, `RegisterEnum`, `TransactionType`, `RsStatusEnum`) hidup di `app/Enums/` — desktop hanya push, validasi final di sini.
@@ -115,10 +115,8 @@ Logic di `RegisterLinenAction`, controller hanya `Notes::create()` envelope `{st
 ### 5.3 Transaksi RFID — Kotor / Retur / Rewash
 
 ```
-POST /api/transaksi/{kotor|retur|rewash} (Bearer)
+POST /api/{kotor|retur|rewash} (Bearer)
 Body: rfid[] (required array), rs_id (required int exists:rs), key (required string, transaksi_key)
-
-Legacy alias: POST /api/kotor, /api/retur, /api/rewash  (ponytail: device lama)
 
 -> 201 { message, data: { key, status, rfid_count, inserted } }
 ```
@@ -219,8 +217,9 @@ Kolom: selalu `{module}_{field}` (mis. `rs_nama`, `detail_id_jenis`). FK: `{modu
 
 ## 8. Keamanan & Config
 
-- Auth web: `Fortify` + `auth` + `verified` + `access` middleware (lihat `routes/web.php`).
-- Policy wajib — `GeneralRequest::authorize()` cek `$user->can($action, $model)` -> `BasePolicy` -> `config/permision.php`.
+- Auth web: `Fortify` (registrasi publik MATI) + `auth` + `verified` + `access` middleware (lihat `routes/web.php`).
+- Policy wajib — `GeneralRequest::authorize()` cek `$user->can($action, $model)` -> `BasePolicy::before()` -> `config/permision.php` (allowlist `modul => [role]`; modul tak terdaftar = perilaku lama). Modul `user`/`users` hanya `admin`/`developer` — role lain 403 di web; endpoint API users tidak didaftarkan sama sekali (404 envelope).
+- Jangan tambah route user (web/API, eksplisit/auto) tanpa mendaftarkan modulnya di `config/permision.php` bila harus terkunci role.
 - `APP_URL` di `.env` harus sesuai domain; `SANCTUM_STATEFUL_DOMAINS` untuk SPA bila ada.
 - Jangan commit `.env`, `storage/`, `vendor/`. Upload via `uploadFile()` -> `storage/app/public/{folder}/` + `fileUrl()`.
 

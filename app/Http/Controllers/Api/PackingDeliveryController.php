@@ -215,7 +215,6 @@ class PackingDeliveryController extends Controller
             'cetak_type' => 1,
             'cetak_barcode' => $code,
             'cetak_delivery' => null,
-            'cetak_rfids' => json_encode(array_values($input['rfids'])),
         ]);
     }
 
@@ -444,7 +443,6 @@ class PackingDeliveryController extends Controller
             'cetak_type' => 2,
             'cetak_barcode' => null,
             'cetak_delivery' => $code,
-            'cetak_rfids' => json_encode(array_values($rfids)),
         ]);
     }
 

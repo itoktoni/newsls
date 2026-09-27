@@ -70,7 +70,7 @@ it('menyimpan 1 log KOTOR untuk tiap RFID scan kotor di detik yang sama', functi
     DetailLinen::whereIn('detail_rfid', ['PRF-1', 'PRF-2', 'PRF-3'])
         ->update(['detail_updated_at' => now()->subDays(2)]);
 
-    $this->withToken($this->token)->postJson('/api/transaksi/kotor', [
+    $this->withToken($this->token)->postJson('/api/kotor', [
         'rfid' => ['PRF-1', 'PRF-2', 'PRF-3'],
         'rs_id' => $this->rs->rs_id,
         'key' => 'PRF-KOTOR-1',

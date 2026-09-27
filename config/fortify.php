@@ -144,7 +144,9 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // ponytail: registrasi publik DIMATIKAN — user baru hanya dibuat via
+        // menu user oleh admin (web /user/*). Aktifkan lagi hanya bila
+        // butuh self sign-up: Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

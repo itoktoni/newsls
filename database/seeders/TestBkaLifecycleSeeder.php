@@ -160,7 +160,6 @@ class TestBkaLifecycleSeeder extends Seeder
             'cetak_id_ruangan' => $ruangan->ruangan_id,
             'cetak_type' => 1,
             'cetak_barcode' => $packCode,
-            'cetak_rfids' => json_encode($rfids),
         ]);
 
         // Delivery: PACKING -> BERSIH, hapus outstanding, cetak type 2, transaksi tidak ada BERSIH (legacy)
@@ -182,7 +181,6 @@ class TestBkaLifecycleSeeder extends Seeder
             'cetak_id_rs' => $rs->rs_id,
             'cetak_type' => 2,
             'cetak_delivery' => $deliveryCode,
-            'cetak_rfids' => json_encode($rfids),
         ]);
         // Legacy bersih — report lama baca dari sini juga (BuildsDeliveryReport). Isi biar report bener.
         foreach ($rfids as $rfid) {

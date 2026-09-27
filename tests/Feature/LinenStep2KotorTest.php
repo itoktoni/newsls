@@ -78,9 +78,9 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
     // TRANSACTION_HOURS_ALLOWED jam. Kolomnya tidak fillable → set lewat query builder.
     DetailLinen::whereIn('detail_rfid', $rfids)->update(['detail_updated_at' => now()->subDays(2)]);
 
-    // 1) Scan KOTOR via API — POST /api/transaksi/kotor
+    // 1) Scan KOTOR via API — POST /api/kotor
     $kotorKey = 'KTR-STEP2-'.strtoupper(uniqid());
-    $this->withToken($this->token)->postJson('/api/transaksi/kotor', [
+    $this->withToken($this->token)->postJson('/api/kotor', [
         'rfid' => $rfids, 'rs_id' => $this->rs->rs_id, 'key' => $kotorKey,
     ])->assertOk()->assertJson(['status' => true])->assertJsonPath('data.status', 'KOTOR');
 
@@ -141,7 +141,7 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
 
     // dedup: scan kotor lagi hari sama tidak nambah transaksi (existing today skip)
     $dupKey = 'KTR-DUP-'.strtoupper(uniqid());
-    $this->withToken($this->token)->postJson('/api/transaksi/kotor', [
+    $this->withToken($this->token)->postJson('/api/kotor', [
         'rfid' => $rfids, 'rs_id' => $this->rs->rs_id, 'key' => $dupKey,
     ])->assertOk()->assertJson(['status' => true]);
     expect(DB::table('transaksi')->whereDate('transaksi_created_at', today())->count())->toBe(3);

@@ -117,11 +117,11 @@ class TestBkaFlowsSeeder extends Seeder
         }
         DB::table('cetak')->insert([
             'cetak_code' => $packCode, 'cetak_date' => now()->format('Y-m-d'), 'cetak_user' => $admin->name,
-            'cetak_id_rs' => $rs->rs_id, 'cetak_id_ruangan' => $ruangan->ruangan_id, 'cetak_type' => 1, 'cetak_barcode' => $packCode, 'cetak_rfids' => json_encode($bersihRfids),
+            'cetak_id_rs' => $rs->rs_id, 'cetak_id_ruangan' => $ruangan->ruangan_id, 'cetak_type' => 1, 'cetak_barcode' => $packCode,
         ]);
         DB::table('cetak')->insert([
             'cetak_code' => $deliveryCode, 'cetak_date' => now()->format('Y-m-d'), 'cetak_user' => $admin->name,
-            'cetak_id_rs' => $rs->rs_id, 'cetak_type' => 2, 'cetak_delivery' => $deliveryCode, 'cetak_rfids' => json_encode($bersihRfids),
+            'cetak_id_rs' => $rs->rs_id, 'cetak_type' => 2, 'cetak_delivery' => $deliveryCode,
         ]);
         // transaksi history KOTOR untuk yang bersih juga (pernah kotor sebelum dicuci)
         $histKey = strtoupper('KTR-BERSIH-'.uniqid());

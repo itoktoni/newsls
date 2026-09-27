@@ -50,7 +50,7 @@ it('totals dan report konsisten per flow', function () {
     expect(DB::table('transaksi')->where('transaksi_status', 'KOTOR')->count())->toBe(9);
 
     // API totals (packaged in PackingDeliveryController) — hit via transaksi/outstanding
-    // cetak delivery = 1 batch berisi 3 RFID bersih
+    // cetak delivery = 1 batch; isinya = 3 baris bersih dengan DO tsb
     $cetak = DB::table('cetak')->where('cetak_type', 2)->first();
-    expect(json_decode($cetak->cetak_rfids, true))->toHaveCount(3);
+    expect(DB::table('bersih')->where('bersih_delivery', $cetak->cetak_delivery)->count())->toBe(3);
 });

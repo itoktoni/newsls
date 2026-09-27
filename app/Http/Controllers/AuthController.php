@@ -88,10 +88,6 @@ class AuthController extends Controller
             'api_token' => $user->createToken('api_token')->plainTextToken,
             // ponytail: RS yang boleh dipakai user ini (pivot rs_dan_user) —
             // desktop batasi dropdown transaksi ke daftar ini. null = semua.
-            'allowed_rs_ids' => User::rsIdsFor((int) $user->id) ?: null,
-            // Form yang boleh tampil di aplikasi mobile (pivot
-            // mobile_menu_dan_user). Pivot kosong = semua menu aktif.
-            'menu' => User::menuNamesFor((int) $user->id),
             // Kolom legacy andalan yang dibaca LoginDAO desktop (id/name/phone/email/
             // email_verified_at/role/level/active/created_at/updated_at/vendor/rs_id/
             // api_token). bka tidak menyimpan username/level/active/vendor/rs_id,
@@ -103,6 +99,10 @@ class AuthController extends Controller
             'rs_id' => null,
             'email_verified_at' => $user->email_verified_at?->format('Y-m-d H:i:s'),
             'updated_at' => $user->updated_at?->format('Y-m-d H:i:s'),
+            'allowed_rs_ids' => User::rsIdsFor((int) $user->id) ?: null,
+            // Form yang boleh tampil di aplikasi mobile (pivot
+            // mobile_menu_dan_user). Pivot kosong = semua menu aktif.
+            'menu' => User::menuNamesFor((int) $user->id),
         ], $this->userResponse($user)));
     }
 

@@ -17,6 +17,35 @@ class BasePolicy
         $this->restrict = config('permision');
     }
 
+    /**
+     * ponytail: central gate — jalan SEBELUM method ability mana pun.
+     * Modul yang terdaftar di config/permision.php (allowlist role) dikunci
+     * di sini: role di luar daftar = deny untuk SEMUA ability modul itu
+     * (termasuk ability tanpa method policy seperti print/exportexcel).
+     * Modul tak terdaftar = null = perilaku lama (logika per-method).
+     */
+    public function before(?User $user, string $ability): ?Response
+    {
+        $name = request()->route()?->getName();
+
+        if (! is_string($name) || $name === '') {
+            return null;
+        }
+
+        $module = explode('.', $name, 2)[0];
+        $allowed = config('permision.'.$module);
+
+        if ($allowed === null) {
+            return null;
+        }
+
+        if ($user && in_array($user->role ?? 'guest', (array) $allowed, true)) {
+            return Response::allow();
+        }
+
+        return Response::deny('Modul '.$module.' khusus role: '.implode(', ', (array) $allowed).'.');
+    }
+
     private function accessProtected($user, $permision)
     {
         $role = $user->role ?? 'guest';

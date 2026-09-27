@@ -23,7 +23,8 @@ use Plugins\Notes;
 class TransaksiApiController extends Controller
 {
     // =========================================================================
-    // 1) ENTRY — dari Route::post('/transaksi/{type}') dan alias legacy
+    // 1) ENTRY — satu method eksplisit per tipe (Route::post kotor/retur/rewash).
+    //    transaction() hanya dipanggil internal dari ketiganya.
     // =========================================================================
 
     public function kotor(Request $request)

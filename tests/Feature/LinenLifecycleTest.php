@@ -212,15 +212,13 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
         expect(Outstanding::where('outstanding_rfid', $rfid)->value('outstanding_status_proses'))->toBe('PACKING');
     }
 
-    // Cetak legacy type 1 (Barcode) harus ada 1 baris dengan rfids JSON TEST1-3
+    // Cetak type 1 (Barcode) harus ada 1 baris; isinya = baris bersih per RFID dengan barcode tsb
     $cetakPacking = DB::table('cetak')->where('cetak_type', 1)->where('cetak_id_rs', $this->rs->rs_id)->latest('cetak_id')->first();
     expect($cetakPacking)->not->toBeNull();
-    $decoded = json_decode($cetakPacking->cetak_rfids, true);
-    sort($decoded);
     $expectedSorted = $rfids;
     sort($expectedSorted);
-    expect($decoded)->toBe($expectedSorted);
     $packingCode = $cetakPacking->cetak_code;
+    expect(DB::table('bersih')->where('bersih_barcode', $packingCode)->pluck('bersih_rfid')->sort()->values()->all())->toBe($expectedSorted);
 
     // Reprint = baris laporan (grup jenis#ruangan) seperti legacy, bukan model DetailLinen
     $this->withToken($this->token)
@@ -265,13 +263,11 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
         expect(DetailLinen::where('detail_rfid', $rfid)->value('detail_report'))->not->toBeNull();
     }
 
-    // Cetak type 2 (Delivery) harus ada 1 baris dengan rfids JSON TEST1-3
+    // Cetak type 2 (Delivery) harus ada 1 baris; isinya = baris bersih per RFID dengan DO tsb
     $cetakDelivery1 = DB::table('cetak')->where('cetak_type', 2)->where('cetak_id_rs', $this->rs->rs_id)->latest('cetak_id')->first();
     expect($cetakDelivery1)->not->toBeNull();
-    $decodedD1 = json_decode($cetakDelivery1->cetak_rfids, true);
-    sort($decodedD1);
-    expect($decodedD1)->toBe($expectedSorted);
     $deliveryCode1 = $cetakDelivery1->cetak_code;
+    expect(DB::table('bersih')->where('bersih_delivery', $deliveryCode1)->pluck('bersih_rfid')->sort()->values()->all())->toBe($expectedSorted);
 
     // Reprint delivery = baris laporan (grup jenis#ruangan), totalnya 3 RFID
     $this->withToken($this->token)
@@ -296,7 +292,7 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     expect(DetailLinen::where('detail_status_linen', 'BERSIH')->whereDate('detail_updated_at', today())->count())->toBeGreaterThanOrEqual(3);
 
     // ------------------------------------------------------------------
-    // 6) SCAN KOTOR lagi via web API — POST /api/transaksi/kotor untuk TEST1-3 (siklus kedua)
+    // 6) SCAN KOTOR lagi via web API — POST /api/kotor untuk TEST1-3 (siklus kedua)
     //    Setelah bersih, linen dipakai lagi → kotor → perlu dicuci ulang.
     //    Menggunakan endpoint transaksi (bukan andalan BersihController) — sesuai routes/api.php
     // ------------------------------------------------------------------
@@ -306,7 +302,7 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
 
     $kotorKey = 'KTR-TEST-'.now()->format('YmdHis').'-'.uniqid();
     $kotorRes = $this->withToken($this->token)
-        ->postJson('/api/transaksi/kotor', [
+        ->postJson('/api/kotor', [
             'rfid' => $rfids,
             'rs_id' => $this->rs->rs_id,
             'key' => $kotorKey,
@@ -371,10 +367,8 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     // Cetak type 1 kedua harus ada, code berbeda dari packing pertama
     $cetakPacking2 = DB::table('cetak')->where('cetak_type', 1)->where('cetak_id_rs', $this->rs->rs_id)->latest('cetak_id')->first();
     expect($cetakPacking2->cetak_code)->not->toBe($packingCode);
-    $decoded2 = json_decode($cetakPacking2->cetak_rfids, true);
-    sort($decoded2);
-    expect($decoded2)->toBe($expectedSorted);
     $packingCode2 = $cetakPacking2->cetak_code;
+    expect(DB::table('bersih')->where('bersih_barcode', $packingCode2)->pluck('bersih_rfid')->sort()->values()->all())->toBe($expectedSorted);
 
     // Reprint packing kedua juga konsisten (baris laporan, total 3 RFID)
     $this->withToken($this->token)
@@ -405,9 +399,7 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     // Cetak type 2 kedua harus ada, code berbeda dari delivery pertama
     $cetakDelivery2 = DB::table('cetak')->where('cetak_type', 2)->where('cetak_id_rs', $this->rs->rs_id)->latest('cetak_id')->first();
     expect($cetakDelivery2->cetak_code)->not->toBe($deliveryCode1);
-    $decodedD2 = json_decode($cetakDelivery2->cetak_rfids, true);
-    sort($decodedD2);
-    expect($decodedD2)->toBe($expectedSorted);
+    expect(DB::table('bersih')->where('bersih_delivery', $cetakDelivery2->cetak_delivery)->pluck('bersih_rfid')->sort()->values()->all())->toBe($expectedSorted);
 
     // Total cetak: 2 packing + 2 delivery = 4
     expect(DB::table('cetak')->where('cetak_type', 1)->where('cetak_id_rs', $this->rs->rs_id)->count())->toBe(2);
@@ -427,7 +419,7 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     // tapi transaksi hari ini tidak duplikat (TransaksiApiController skip if existsToday)
     $kotorKeyDedup = 'KTR-DEDUP-'.uniqid();
     $this->withToken($this->token)
-        ->postJson('/api/transaksi/kotor', [
+        ->postJson('/api/kotor', [
             'rfid' => $rfids,
             'rs_id' => $this->rs->rs_id,
             'key' => $kotorKeyDedup,
@@ -528,7 +520,7 @@ it('mencegah akses RS di luar hak user dan menolak RFID duplikat saat registrasi
 
     // Transaksi kotor dengan rs_id di luar hak juga 403
     $this->withToken($this->token)
-        ->postJson('/api/transaksi/kotor', [
+        ->postJson('/api/kotor', [
             'rfid' => ['DUPE_001'],
             'rs_id' => $otherRs->rs_id,
             'key' => 'KTR-FORBIDDEN-'.uniqid(),

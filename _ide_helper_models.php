@@ -453,6 +453,41 @@ namespace App\Models{
 
 namespace App\Models{
 /**
+ * @property int $mobile_menu_id
+ * @property string $mobile_menu_nama
+ * @property string|null $mobile_menu_code
+ * @property int $mobile_menu_urut
+ * @property bool $mobile_menu_aktif
+ * @property string|null $mobile_menu_deskripsi
+ * @property-read mixed $field_code
+ * @property-read mixed $field_description
+ * @property-read mixed $field_key
+ * @property-read mixed $field_name
+ * @property-read mixed|null $field_primary
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $hasUsers
+ * @property-read int|null $has_users_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu filter(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu filterBy(array|string $filters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu filterFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu renamedFilterFields(array $renamedFilterFields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu restrictedFilters(array|string $restrictedFilters)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu sort(?array $params = null)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu sortFields(array|string $fields)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu whereMobileMenuAktif($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu whereMobileMenuCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu whereMobileMenuDeskripsi($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu whereMobileMenuId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu whereMobileMenuNama($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|MobileMenu whereMobileMenuUrut($value)
+ */
+	class MobileMenu extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
  * @property int $id
  * @property int $user_id
  * @property string $icon
@@ -678,6 +713,8 @@ namespace App\Models{
  * @property-read mixed $field_name
  * @property-read mixed|null $field_primary
  * @property-read mixed $field_status
+ * @property-read array $rs_jenis
+ * @property-read array $rs_ruangan
  * @property-read \App\Models\GroupRs|null $hasGroup
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\JenisLinen> $hasJenis
  * @property-read int|null $has_jenis_count
@@ -850,6 +887,8 @@ namespace App\Models{
  * @property-read mixed $field_key
  * @property-read mixed $field_name
  * @property-read mixed $field_primary
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\MobileMenu> $mobileMenus
+ * @property-read int|null $mobile_menus_count
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Rs> $rsList

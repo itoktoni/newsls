@@ -7,6 +7,7 @@ use App\Actions\UpdateAction;
 use App\Concerns\ControllerTrait;
 use App\Enums\CuciEnum;
 use App\Enums\LinenStatusEnum;
+use App\Enums\LogType;
 use App\Enums\RegisterEnum;
 use App\Enums\RsStatusEnum;
 use App\Http\Requests\GeneralRequest;
@@ -19,7 +20,9 @@ use App\Models\Rs;
 use App\Models\Ruangan;
 use App\Models\Supplier;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class DetailLinenController extends Controller
@@ -141,8 +144,10 @@ class DetailLinenController extends Controller
 
             if ($isRfidChange) {
                 // ponytail: RFID adalah PK — UpdateAction sudah memindahkannya.
-                // Pindahkan baris master config + catat histori (rantai A→B→C).
-                DB::table('config_linen')->where('detail_rfid', $id)->update(['detail_rfid' => $newRfid]);
+                // Rambatkan ke SEMUA tabel yang menyimpan RFID + catat histori
+                // (rantai A→B→C) + manifest activity log. Satu transaksi:
+                // gagal di satu tabel = rollback total (circuit breaker).
+                $counts = $this->cascadeRfid((string) $id, $newRfid);
 
                 GantiChip::create([
                     'ganti_rfid_lama' => (string) $id,
@@ -150,6 +155,8 @@ class DetailLinenController extends Controller
                     'ganti_tanggal' => now(),
                     'ganti_by' => auth()->id(),
                 ]);
+
+                $this->logGantiChip((string) $id, $newRfid, $counts, $payload['data'] ?? null);
             }
 
             ConfigLinen::syncRs($payload['data']->detail_rfid, $rsIds);
@@ -180,6 +187,100 @@ class DetailLinenController extends Controller
         }
 
         return $this->traitPostDelete($request);
+    }
+
+    /**
+     * ponytail: rambatkan ganti RFID (PK detail_linen) ke semua tabel anak.
+     * Dipanggil SETELAH UpdateAction memindahkan PK, di dalam transaksi yang
+     * sama — exception di sini me-rollback semuanya termasuk PK.
+     *
+     * Tabel yang disentuh:
+     * - config_linen.detail_rfid (komposit PK; final state ditimpa syncRs)
+     * - transaksi.transaksi_rfid (history — ikut pindah agar join tetap nyambung)
+     * - outstanding.outstanding_rfid (PK stok laundry)
+     * - bersih.bersih_rfid (packing/delivery — sumber laporan pengiriman)
+     * - opname_detail.opname_detail_rfid (hasil stock opname)
+     *
+     * ganti_chip + activity_log TIDAK di-rewrite (itu histori rantai A→B→C).
+     * Tabel cetak hanya registry kode (tanpa RFID) — tidak ikut cascade.
+     *
+     * @return array<string,int> jumlah baris per tabel
+     */
+    private function cascadeRfid(string $old, string $new): array
+    {
+        $counts = [
+            'config_linen' => 0,
+            'transaksi' => 0,
+            'outstanding' => 0,
+            'bersih' => 0,
+            'opname_detail' => 0,
+        ];
+
+        // ponytail: outstanding PK = RFID — bila RFID baru sudah punya baris
+        // (orphan tanpa detail_linen), update langsung akan tabrakan PK.
+        // Batalkan dengan pesan validasi supaya tidak ada data yatim.
+        if (Schema::hasTable('outstanding')
+            && DB::table('outstanding')->where('outstanding_rfid', $new)->exists()) {
+            throw ValidationException::withMessages([
+                'detail_rfid' => 'RFID baru sudah dipakai di outstanding (stok laundry). Gabungkan manual dulu sebelum ganti chip.',
+            ]);
+        }
+
+        if (Schema::hasTable('config_linen')) {
+            $counts['config_linen'] = DB::table('config_linen')
+                ->where('detail_rfid', $old)->update(['detail_rfid' => $new]);
+        }
+
+        if (Schema::hasTable('transaksi')) {
+            $counts['transaksi'] = DB::table('transaksi')
+                ->where('transaksi_rfid', $old)->update(['transaksi_rfid' => $new]);
+        }
+
+        if (Schema::hasTable('outstanding')) {
+            $counts['outstanding'] = DB::table('outstanding')
+                ->where('outstanding_rfid', $old)->update(['outstanding_rfid' => $new]);
+        }
+
+        if (Schema::hasTable('bersih')) {
+            $counts['bersih'] = DB::table('bersih')
+                ->where('bersih_rfid', $old)->update(['bersih_rfid' => $new]);
+        }
+
+        if (Schema::hasTable('opname_detail')) {
+            $counts['opname_detail'] = DB::table('opname_detail')
+                ->where('opname_detail_rfid', $old)->update(['opname_detail_rfid' => $new]);
+        }
+
+        return $counts;
+    }
+
+    /**
+     * ponytail: manifest GANTI_LINEN — satu baris activity log yang membuktikan
+     * RFID lama→baru sudah merambat ke semua tabel beserta hitungannya.
+     * Model DetailLinen sendiri sudah menulis log GANTI_LINEN via LogsActivity;
+     * ini baris kedua sebagai bukti cascade (subject = linen baru).
+     */
+    private function logGantiChip(string $old, string $new, array $counts, mixed $subject = null): void
+    {
+        try {
+            $log = activity(LogType::GANTI_LINEN)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'rfid_lama' => $old,
+                    'rfid_baru' => $new,
+                    'counts' => $counts,
+                ]);
+
+            if ($subject instanceof Model && $subject->exists) {
+                $log->performedOn($subject);
+            }
+
+            $total = array_sum($counts);
+            $log->log("Ganti chip {$old} → {$new} ({$total} baris: ".http_build_query($counts, '', ', ').')');
+        } catch (\Throwable $e) {
+            // ponytail: log manifest tidak boleh membatalkan cascade yang
+            // sudah benar — kegagalan log cukup ditelan ( saturasi 3am pager).
+        }
     }
 
     // ponytail: dua input terpisah —

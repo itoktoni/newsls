@@ -14,7 +14,8 @@ it('exposes exactly the expected API route surface', function () {
 
     // ponytail: kontrak diperbarui — surface API mencakup CMS, transaksi RFID
     // (kotor/retur/rewash/register/packing/delivery), master data rs, opname,
-    // totals, dan users. `api/users/boot` sudah hilang karena UsersController::boot() dihapus.
+    // dan totals. CRUD user via API SENGAJA tidak ada (keputusan keamanan —
+    // lihat komentar di routes/api.php); kelola user hanya via web /user/*.
     expect($apiUris)->toBe([
         'api/cms/content-type/{slug}',
         'api/cms/content-type/{slug}/blueprint',
@@ -53,15 +54,6 @@ it('exposes exactly the expected API route surface', function () {
         'api/total/bersih/{rsid}/{ruangan}/{jenis}/{transaksi}',
         'api/total/delivery/{rsid}/{status}',
         'api/total/outstanding/{rsid}/{ruangan}/{jenis}/{transaksi}',
-        'api/transaksi/{type}',
-        'api/users',
-        'api/users/create',
-        'api/users/delete',
-        'api/users/delete/{id}',
-        'api/users/export-excel',
-        'api/users/show/{id}',
-        'api/users/table',
-        'api/users/update/{id}',
     ]);
 });
 

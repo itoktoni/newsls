@@ -151,7 +151,8 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
     expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->count())->toBe(count($this->allRfids));
     expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->whereNull('bersih_delivery')->count())->toBe(0);
     expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->whereNull('bersih_report')->count())->toBe(0);
-    expect(json_decode(DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_rfids'), true))->toHaveCount(count($this->allRfids));
+    $deliveryCode = DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_delivery');
+    expect(DB::table('bersih')->where('bersih_delivery', $deliveryCode)->count())->toBe(count($this->allRfids));
     // barcode capital semua
     expect(DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_code'))->toBe(strtoupper(DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_code')));
 

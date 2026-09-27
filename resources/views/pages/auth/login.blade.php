@@ -24,11 +24,5 @@
             </div>
         </x-form>
 
-        @if (Route::has('password.request'))
-            <div class="text-center text-sm text-base-content/60">
-                <span>{{ __("Don't have an account?") }}</span>
-                <a href="{{ route('register') }}" class="link link-primary">{{ __('Sign up') }}</a>
-            </div>
-        @endif
     </div>
 </x-layouts::auth>
