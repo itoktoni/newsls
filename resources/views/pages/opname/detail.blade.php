@@ -36,7 +36,7 @@
             </div>
         </x-card>
 
-        <x-card label="List RFID (capture dari config + join detail_linen)" icon="list_alt">
+        <x-card label="List RFID" icon="list_alt">
             @if ($data->isEmpty())
                 <div class="col-span-12 py-8 text-center text-sm text-on-surface-variant">
                     @if (empty($opname->opname_capture))
@@ -53,7 +53,6 @@
                                 <th class="py-2 pr-3">No.</th>
                                 <th class="py-2 pr-3">RFID</th>
                                 <th class="py-2 pr-3">Jenis Linen</th>
-                                <th class="py-2 pr-3">Bahan</th>
                                 <th class="py-2 pr-3">Ruangan</th>
                                 <th class="py-2 pr-3">RS</th>
                                 <th class="py-2 pr-3">Pemakaian</th>
@@ -72,7 +71,6 @@
                                 <td class="py-2 pr-3 text-on-surface-variant">{{ $data->firstItem() + $loop->index }}</td>
                                 <td class="py-2 pr-3 font-mono text-xs font-semibold">{{ $row->opname_detail_rfid }}</td>
                                 <td class="py-2 pr-3">{{ $view?->hasJenis?->jenis_nama ?? '-' }}</td>
-                                <td class="py-2 pr-3">{{ $view?->hasBahan?->bahan_nama ?? '-' }}</td>
                                 <td class="py-2 pr-3">{{ $view?->hasRuangan?->ruangan_nama ?? '-' }}</td>
                                 <td class="py-2 pr-3">{{ $view?->hasRs?->rs_nama ?? $view?->detail_id_rs ?? '-' }}</td>
                                 <td class="py-2 pr-3">{{ $view?->detail_total_bersih ?? 0 }}</td>

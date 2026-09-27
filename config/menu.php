@@ -59,6 +59,7 @@ return [
                 ['route' => 'report-opname-summary.getTable', 'icon' => 'summarize', 'label' => 'Summary Opname', 'match' => ['report-opname-summary.*']],
                 ['route' => 'report-opname-hilang.getTable', 'icon' => 'search_off', 'label' => 'Hilang Opname', 'match' => ['report-opname-hilang.*']],
                 ['route' => 'report-opname-hilang-warehouse.getTable', 'icon' => 'warehouse', 'label' => 'Hilang Warehouse', 'match' => ['report-opname-hilang-warehouse.*']],
+                ['route' => 'report-opname-mutasi.getTable', 'icon' => 'swap_horiz', 'label' => 'Opname Mutasi', 'match' => ['report-opname-mutasi.*']],
             ],
         ],
         [
@@ -69,6 +70,7 @@ return [
                 ['route' => 'report-rekap-retur.getTable', 'icon' => 'summarize', 'label' => 'Rekap Retur', 'match' => ['report-rekap-retur.*']],
                 ['route' => 'report-rekap-rewash.getTable', 'icon' => 'summarize', 'label' => 'Rekap Rewash', 'match' => ['report-rekap-rewash.*']],
                 ['route' => 'report-kotor-vs-bersih.getTable', 'icon' => 'compare_arrows', 'label' => 'Kotor vs Bersih', 'match' => ['report-kotor-vs-bersih.*']],
+                ['route' => 'report-in-vs-out.getTable', 'icon' => 'compare_arrows', 'label' => 'In vs Out', 'match' => ['report-in-vs-out.*']],
             ],
         ],
         [

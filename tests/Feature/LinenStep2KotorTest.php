@@ -99,6 +99,7 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
     $this->actingAs($this->admin)->get('/report-rekap-kotor/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-detail-kotor/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-kotor-vs-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
+    $this->actingAs($this->admin)->get('/report-in-vs-out/table?rs_id='.$this->rs->rs_id)->assertOk();
     expect(DB::table('outstanding')->where('outstanding_status_transaksi', 'KOTOR')->count())->toBe(3);
     expect(DB::table('transaksi')->where('transaksi_status', 'KOTOR')->count())->toBe(3);
     // bersih masih 3 (detail BERSIH sebelumnya) tapi detail sekarang KOTOR, jadi bersih vs kotor terpisah

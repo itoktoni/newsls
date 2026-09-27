@@ -9,7 +9,6 @@ use App\Models\Opname;
 use App\Models\OpnameDetail;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Plugins\Notes;
 
 class OpnameApiController extends Controller
@@ -35,37 +34,23 @@ class OpnameApiController extends Controller
             'rs_nama' => $opname->hasRs?->rs_nama ?? '',
         ]);
 
-        // Key tambahan diambil dari opname aktif PERTAMA: RS-nya, daftar ruangan RS
-        // itu, dan RFID yang sudah ketemu di opname tersebut.
-        $first = $opnames->first();
-        $rsId = $first?->opname_id_rs;
-
-        return Notes::data($data, [
-            'rs' => $rsId === null ? [] : [
-                'rs_id' => (int) $rsId,
-                'rs_nama' => $first->hasRs?->rs_nama ?? '',
-            ],
-            'ruangan' => $rsId === null ? [] : $this->ruanganList((int) $rsId),
-            'opname' => $first === null ? [] : OpnameDetail::where('opname_detail_id_opname', $first->opname_id)
-                ->where('opname_detail_ketemu', 1)
-                ->pluck('opname_detail_rfid')
-                ->all(),
-        ]);
+        // Respons legacy andalan: hanya envelope + data (tanpa key rs/ruangan/opname).
+        return Notes::data($data);
     }
 
-    /** Ruangan milik RS (pivot rs_dan_ruangan) — dipakai desktop untuk dropdown lokasi. */
-    private function ruanganList(int $rsId): array
+    // GET /api/opname/{id} — satu opname (kontrak legacy andalan)
+    public function show($id)
     {
-        return DB::table('ruangan')
-            ->join('rs_dan_ruangan', 'rs_dan_ruangan.ruangan_id', '=', 'ruangan.ruangan_id')
-            ->where('rs_dan_ruangan.rs_id', $rsId)
-            ->orderBy('ruangan.ruangan_nama')
-            ->get(['ruangan.ruangan_id', 'ruangan.ruangan_nama'])
-            ->map(fn ($row) => [
-                'ruangan_id' => (int) $row->ruangan_id,
-                'ruangan_nama' => $row->ruangan_nama,
-            ])
-            ->all();
+        $opname = Opname::with('hasRs')->findOrFail($id);
+        User::ensureRsAccess((int) $opname->opname_id_rs);
+
+        return Notes::data([
+            'opname_id' => (int) $opname->opname_id,
+            'opname_start' => $opname->opname_mulai?->format('Y-m-d'),
+            'opname_end' => $opname->opname_selesai?->format('Y-m-d'),
+            'rs_id' => $opname->hasRs?->rs_id ?? '',
+            'rs_nama' => $opname->hasRs?->rs_nama ?? '',
+        ]);
     }
 
     // GET /api/opname/{id}/detail — detail per opname

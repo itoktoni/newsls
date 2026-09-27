@@ -78,4 +78,31 @@ class Rs extends BaseModel
     {
         return $this->belongsToMany(JenisLinen::class, 'rs_dan_jenis', 'rs_id', 'jenis_id')->withPivot(['parstock']);
     }
+
+    /**
+     * Ruangan milik RS dalam bentuk yang dibaca desktop (RsAllDAO/RsSingleDAO:
+     * rs_ruangan[{ruangan_id, ruangan_nama}]) — legacy lewat RsSingleResource.
+     */
+    public function getRsRuanganAttribute(): array
+    {
+        return $this->hasRuangan
+            ->map(fn ($ruangan) => [
+                'ruangan_id' => (int) $ruangan->ruangan_id,
+                'ruangan_nama' => $ruangan->ruangan_nama,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /** Jenis linen milik RS — rs_jenis[{jenis_id, jenis_nama}]. */
+    public function getRsJenisAttribute(): array
+    {
+        return $this->hasJenis
+            ->map(fn ($jenis) => [
+                'jenis_id' => (int) $jenis->jenis_id,
+                'jenis_nama' => $jenis->jenis_nama,
+            ])
+            ->values()
+            ->all();
+    }
 }

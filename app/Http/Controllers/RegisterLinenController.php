@@ -60,9 +60,10 @@ class RegisterLinenController extends Controller
         $desktopData = $this->linenResponsesForDesktop($linen);
         $detailedData = $this->linenResponses($linen);
 
-        // Notes::create akan set data = $desktopData (array) → desktop deserialize Datum[] sukses
-        // Tambahan raw detail di key `detail` dan `total`/`rfid` di additional agar klien baru tetap dapat
-        return Notes::create($desktopData, [
+        // Notes::data (name=List, sama dengan andalan) + key tambahan `detail`/`total`/`rfid`
+        // di root. Sebelumnya Notes::create() dipanggil dengan 2 argumen padahal helper itu
+        // hanya menerima satu, sehingga detail/total/rfid terbuang diam-diam.
+        return Notes::data($desktopData, [
             'detail' => $detailedData,
             'total' => $linen->count(),
             'rfid' => $linen->pluck(DetailLinen::field_primary())->all(),

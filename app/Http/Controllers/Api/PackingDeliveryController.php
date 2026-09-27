@@ -9,7 +9,6 @@ use App\Models\DetailLinen;
 use App\Models\Outstanding;
 use App\Models\Rs;
 use App\Models\Ruangan;
-use App\Models\Transaksi;
 use App\Models\User;
 use App\Support\DashboardCache;
 use Carbon\Carbon;
@@ -566,42 +565,60 @@ class PackingDeliveryController extends Controller
 
     public function printPacking($code)
     {
-        $rfids = $this->rfidsFromCetak($code);
-        if (empty($rfids)) {
-            $rfids = Outstanding::where('outstanding_key', $code)->pluck('outstanding_rfid')->all();
-        }
-        if (empty($rfids)) {
-            $rfids = Transaksi::where('transaksi_key', $code)->pluck('transaksi_rfid')->all();
-        }
-        $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $rfids ?: ['__none__'])->get();
-
-        return Notes::data($details);
+        return Notes::data($this->printReport($code, 'bersih_barcode'));
     }
 
     public function printDelivery($code)
     {
-        $rfids = $this->rfidsFromCetak($code);
-        if (empty($rfids)) {
-            $rfids = Transaksi::where('transaksi_key', $code)->pluck('transaksi_rfid')->all();
-        }
-        $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $rfids ?: ['__none__'])->get();
-
-        return Notes::data($details);
+        return Notes::data($this->printReport($code, 'bersih_delivery'));
     }
 
-    private function rfidsFromCetak(string $code): array
+    /**
+     * Baris laporan cetak/reprint — kontrak legacy DeliveryController yang dipakai
+     * RDLC desktop (PackingDAO/DeliveryDAO): satu baris per grup jenis#ruangan dengan
+     * {id, code, tgl, rs, nama, lokasi, status, user, total} — bukan model DetailLinen
+     * mentah (form field di report tidak akan terisi).
+     */
+    private function printReport(string $code, string $column): array
     {
-        try {
-            $row = DB::table('cetak')->where('cetak_code', $code)->first();
-            if (! $row || empty($row->cetak_rfids)) {
-                return [];
-            }
-            $decoded = json_decode($row->cetak_rfids, true);
+        $rows = DB::table('bersih')
+            ->join('detail_linen', 'detail_linen.detail_rfid', '=', 'bersih.bersih_rfid')
+            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->leftJoin('rs', 'rs.rs_id', '=', 'bersih.bersih_id_rs')
+            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'bersih.bersih_id_ruangan')
+            ->where('bersih.'.$column, $code)
+            ->get([
+                'bersih.bersih_status',
+                'bersih.bersih_id_ruangan',
+                'detail_linen.detail_id_jenis',
+                'jenis_linen.jenis_nama',
+                'rs.rs_nama',
+                'ruangan.ruangan_nama',
+            ]);
 
-            return is_array($decoded) ? array_values(array_filter($decoded)) : [];
-        } catch (\Throwable $e) {
-            return [];
+        $cetak = DB::table('cetak')->where('cetak_code', $code)->first();
+        $tanggal = $cetak?->cetak_date ? Carbon::parse($cetak->cetak_date)->format('d/M/Y') : null;
+        $userName = auth()->user()->name ?? null;
+
+        $report = [];
+        $no = 1;
+        foreach ($rows->groupBy(fn ($row) => $row->detail_id_jenis.'#'.$row->bersih_id_ruangan) as $items) {
+            $first = $items->first();
+            $report[] = [
+                'id' => $no,
+                'code' => $code,
+                'tgl' => $tanggal,
+                'rs' => $first->rs_nama ?? '',
+                'nama' => $first->jenis_nama ?? '',
+                'lokasi' => $first->ruangan_nama ?? '',
+                'status' => $first->bersih_status,
+                'user' => $userName,
+                'total' => $items->count(),
+            ];
+            $no++;
         }
+
+        return $report;
     }
 
     // =========================================================================
@@ -641,6 +658,13 @@ class PackingDeliveryController extends Controller
         }
         $count = $q->count();
 
-        return Notes::data(['view_total' => $count]);
+        // Kontrak legacy: 5 key, bukan hanya view_total.
+        return Notes::data([
+            'view_jenis_id' => (int) $jenis,
+            'view_ruangan_id' => (int) $ruangan,
+            'view_rs_id' => (int) $rsid,
+            'view_total' => $count,
+            'view_status' => $transaksi,
+        ]);
     }
 }

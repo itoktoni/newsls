@@ -222,12 +222,13 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     expect($decoded)->toBe($expectedSorted);
     $packingCode = $cetakPacking->cetak_code;
 
-    // Reprint packing harus mengembalikan DetailLinen yang sama persis
+    // Reprint = baris laporan (grup jenis#ruangan) seperti legacy, bukan model DetailLinen
     $this->withToken($this->token)
         ->getJson("/api/packing/{$packingCode}")
         ->assertOk()
         ->assertJson(['status' => true])
-        ->assertJsonCount(3, 'data');
+        ->assertJsonStructure(['data' => [['id', 'code', 'tgl', 'rs', 'nama', 'lokasi', 'status', 'user', 'total']]])
+        ->assertJsonPath('data.0.total', 3);
 
     // Total delivery (Outstanding PACKING) harus 3
     $this->withToken($this->token)
@@ -272,11 +273,12 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     expect($decodedD1)->toBe($expectedSorted);
     $deliveryCode1 = $cetakDelivery1->cetak_code;
 
-    // Reprint delivery harus mengembalikan 3 DetailLinen
+    // Reprint delivery = baris laporan (grup jenis#ruangan), totalnya 3 RFID
     $this->withToken($this->token)
         ->getJson("/api/delivery/{$deliveryCode1}")
         ->assertOk()
-        ->assertJsonCount(3, 'data');
+        ->assertJsonStructure(['data' => [['id', 'code', 'tgl', 'rs', 'nama', 'lokasi', 'status', 'user', 'total']]])
+        ->assertJsonPath('data.0.total', 3);
 
     // Tab packing = baris bersih hari ini (hasil packing hari itu)
     $this->actingAs($this->admin)
@@ -374,11 +376,11 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     expect($decoded2)->toBe($expectedSorted);
     $packingCode2 = $cetakPacking2->cetak_code;
 
-    // Reprint packing kedua juga harus konsisten
+    // Reprint packing kedua juga konsisten (baris laporan, total 3 RFID)
     $this->withToken($this->token)
         ->getJson("/api/packing/{$packingCode2}")
         ->assertOk()
-        ->assertJsonCount(3, 'data');
+        ->assertJsonPath('data.0.total', 3);
 
     // ------------------------------------------------------------------
     // 9) DELIVERY BERSIH lagi (siklus kedua) via web

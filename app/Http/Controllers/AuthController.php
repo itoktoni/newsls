@@ -18,29 +18,44 @@ class AuthController extends Controller
             'email' => $user->email,
             'phone' => $user->phone,
             'role' => $user->role,
-            'created_at' => $user->created_at?->toIso8601String(),
+            'created_at' => $user->created_at?->format('Y-m-d H:i:s'),
         ];
     }
 
     public function login(Request $request)
     {
-        // Desktop kirim `username`, web lama validate `email` → 422 format tidak baku.
-        // Sekarang terima `username` | `email` | `login` dan SELALU kembalikan envelope Notes (HTTP 200).
+        // Desktop kirim `username` (+ `email` isi yang sama untuk compat), web lama
+        // validate `email|email` → username non-email ("admin") selalu 422.
+        // Sekarang terima `username` | `email` | `login` sebagai string biasa dan
+        // SELALU kembalikan SATU envelope gabungan:
+        //   {status, code, name, message, data}  (format Notes, desktop baca ini)
+        // + {message, errors:{username:[...]}}   (format validasi Laravel)
+        // sehingga kedua format yang beredar sebelumnya menyatu di satu respons (HTTP 200).
         $validator = Validator::make($request->all(), [
             'password' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
+            'email' => 'nullable|string|max:255',
             'username' => 'nullable|string|max:255',
             'login' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
-            return Notes::validation($validator->errors()->first(), $validator->errors()->toArray());
+            $errors = $validator->errors()->toArray();
+            // Samakan key ke `username` supaya desktop cukup cek errors.username
+            // (legacy kadang kirim nilai via field `email`/`login`).
+            if (! isset($errors['username'])) {
+                $first = $validator->errors()->first();
+                $errors = array_merge(['username' => [$first]], $errors);
+            }
+
+            return Notes::validation($validator->errors()->first(), $errors);
         }
 
         $login = trim((string) ($request->input('username') ?? $request->input('email') ?? $request->input('login') ?? ''));
 
         if ($login === '') {
-            return Notes::validation('Kolom username wajib diisi.', ['login' => ['Kolom username wajib diisi.']]);
+            $msg = 'username yang dipilih tidak valid.';
+
+            return Notes::validation($msg, ['username' => [$msg]]);
         }
 
         // Cari user: jika format email → by email, else by email|name|phone (name dipakai sebagai username)
@@ -59,7 +74,14 @@ class AuthController extends Controller
         }
 
         if (! $user || ! Hash::check($request->input('password'), $user->password)) {
-            return Notes::failed(401, 'Username atau password salah.');
+            // Satu-satunya format error kredensial: envelope Notes (code 400,
+            // message "Login Gagal" dibaca desktop) + errors.username ala Laravel
+            // (message detail "username yang dipilih tidak valid.").
+            $detail = 'username yang dipilih tidak valid.';
+
+            return Notes::failed(400, 'Login Gagal', null, Notes::error, [
+                'errors' => ['username' => [$detail]],
+            ]);
         }
 
         return Notes::token(array_merge([
@@ -67,6 +89,17 @@ class AuthController extends Controller
             // ponytail: RS yang boleh dipakai user ini (pivot rs_dan_user) —
             // desktop batasi dropdown transaksi ke daftar ini. null = semua.
             'allowed_rs_ids' => User::rsIdsFor((int) $user->id) ?: null,
+            // Kolom legacy andalan yang dibaca LoginDAO desktop (id/name/phone/email/
+            // email_verified_at/role/level/active/created_at/updated_at/vendor/rs_id/
+            // api_token). bka tidak menyimpan username/level/active/vendor/rs_id,
+            // jadi dikirim null supaya bentuk JSON-nya tetap sama.
+            'username' => null,
+            'level' => null,
+            'active' => null,
+            'vendor' => null,
+            'rs_id' => null,
+            'email_verified_at' => $user->email_verified_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $user->updated_at?->format('Y-m-d H:i:s'),
         ], $this->userResponse($user)));
     }
 

@@ -121,10 +121,16 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
     expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->count())->toBe(count($this->allRfids));
     expect(DB::table('bersih')->where('bersih_id', '>', $bersihMaxId)->whereNull('bersih_delivery')->count())->toBe(count($this->allRfids));
 
-    // Reprint packing per code harus balikin RFID sesuai ruangan — ambil 2 cetak terbaru (milik run ini)
+    // Reprint packing per code = baris laporan per ruangan (1 baris per grup jenis#ruangan),
+    // dengan total = jumlah RFID grup itu.
     $codes = DB::table('cetak')->where('cetak_type', 1)->orderByDesc('cetak_id')->limit(2)->pluck('cetak_code')->values()->all();
-    $this->withToken($this->token)->getJson("/api/packing/{$codes[1]}")->assertOk()->assertJsonCount(count($this->rfidsA), 'data');
-    $this->withToken($this->token)->getJson("/api/packing/{$codes[0]}")->assertOk()->assertJsonCount(count($this->rfidsB), 'data');
+    $this->withToken($this->token)->getJson("/api/packing/{$codes[1]}")
+        ->assertOk()
+        ->assertJsonStructure(['data' => [['id', 'code', 'tgl', 'rs', 'nama', 'lokasi', 'status', 'user', 'total']]])
+        ->assertJsonPath('data.0.total', count($this->rfidsA));
+    $this->withToken($this->token)->getJson("/api/packing/{$codes[0]}")
+        ->assertOk()
+        ->assertJsonPath('data.0.total', count($this->rfidsB));
 
     // 2) Pengiriman bersih — POST /api/delivery kirim semua PACKING jadi BERSIH (hapus outstanding)
     $totalBersihBefore = [];
@@ -160,6 +166,7 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
 
     // Web report endpoints (harus 200, data terisi)
     $this->actingAs($this->admin)->get('/report-kotor-vs-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
+    $this->actingAs($this->admin)->get('/report-in-vs-out/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-rekap-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-rekap-kotor/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-detail-pengiriman-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
@@ -175,5 +182,7 @@ it('step3 packing per ruangan, pengiriman bersih, cek report bersih vs kotor dan
     // 4) List & reprint delivery
     $list = DB::table('cetak')->where('cetak_type', 2)->orderByDesc('cetak_id')->value('cetak_code');
     $this->withToken($this->token)->getJson("/api/list/delivery/{$this->rs->rs_id}")->assertOk()->assertJsonPath('data.0.cetak_code', $list);
-    $this->withToken($this->token)->getJson("/api/delivery/{$list}")->assertOk()->assertJsonCount(count($this->allRfids), 'data');
+    // Reprint delivery juga baris laporan — jumlah `total` semua baris = jumlah RFID
+    $deliveryPrint = $this->withToken($this->token)->getJson("/api/delivery/{$list}")->assertOk();
+    expect(array_sum(array_column($deliveryPrint->json('data'), 'total')))->toBe(count($this->allRfids));
 });

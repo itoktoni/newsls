@@ -52,6 +52,7 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
         Route::auto('/report-opname-summary', 'ReportOpnameSummaryController', ['name' => 'report-opname-summary', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-opname-hilang', 'ReportOpnameHilangController', ['name' => 'report-opname-hilang', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-opname-hilang-warehouse', 'ReportOpnameHilangWarehouseController', ['name' => 'report-opname-hilang-warehouse', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-opname-mutasi', 'ReportOpnameMutasiController', ['name' => 'report-opname-mutasi', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-data-linen', 'ReportDataLinenController', ['name' => 'report-data-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-rekap-kotor', 'ReportRekapKotorController', ['name' => 'report-rekap-kotor', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-rekap-bersih', 'ReportRekapBersihController', ['name' => 'report-rekap-bersih', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
@@ -72,6 +73,7 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
         Route::auto('/report-hilang-linen', 'ReportHilangLinenController', ['name' => 'report-hilang-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-penggantian-linen', 'ReportPenggantianLinenController', ['name' => 'report-penggantian-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-kotor-vs-bersih', 'ReportKotorVsBersihController', ['name' => 'report-kotor-vs-bersih', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-in-vs-out', 'ReportInVsOutController', ['name' => 'report-in-vs-out', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-invoice', 'ReportInvoiceController', ['name' => 'report-invoice', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-pending-linen', 'ReportPendingLinenController', ['name' => 'report-pending-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-detail-pending-linen', 'ReportDetailPendingLinenController', ['name' => 'report-detail-pending-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);

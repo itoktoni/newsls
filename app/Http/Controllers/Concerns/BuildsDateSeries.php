@@ -44,6 +44,28 @@ trait BuildsDateSeries
     }
 
     /**
+     * Seri barang masuk gudang per tanggal grouping, jenis linen, dan RS.
+     *
+     * Hanya transaksi yang sudah memiliki tanggal grouping yang dihitung;
+     * tanggal dibuat transaksi tidak digunakan sebagai fallback.
+     */
+    protected function groupingSeries(int $rsId, string $start, string $end): array
+    {
+        $rows = DB::table('transaksi')
+            ->join('detail_linen', 'detail_linen.detail_rfid', '=', 'transaksi.transaksi_rfid')
+            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->where('transaksi.transaksi_rs_scan', $rsId)
+            ->whereNotNull('transaksi.transaksi_grouping_date')
+            ->whereDate('transaksi.transaksi_grouping_date', '>=', $start)
+            ->whereDate('transaksi.transaksi_grouping_date', '<=', $end)
+            ->groupBy('transaksi.transaksi_grouping_date', 'detail_linen.detail_id_jenis', 'jenis_linen.jenis_nama', 'jenis_linen.jenis_berat')
+            ->selectRaw('transaksi.transaksi_grouping_date as tgl, detail_linen.detail_id_jenis as jenis_id, jenis_linen.jenis_nama as jenis_nama, jenis_linen.jenis_berat as jenis_berat, COUNT(*) as qty')
+            ->get();
+
+        return $this->assembleSeries($rows);
+    }
+
+    /**
      * Seri bersih per tanggal report — dari tabel `bersih` (kolom
      * bersih_report, status BERSIH), BUKAN detail_linen. Kotor tetap dari
      * transaksi_created_at (lihat kotorSeries()).

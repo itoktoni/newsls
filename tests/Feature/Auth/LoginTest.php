@@ -29,13 +29,15 @@ it('returns an access token on successful login', function () {
         ->assertJsonPath('data.email', 'test@example.com');
 });
 
-it('returns 401 body code on wrong credentials', function () {
+it('returns 400 body code on wrong credentials', function () {
     $this->postJson('/api/login', [
         'email' => 'test@example.com',
         'password' => 'wrongpassword',
     ])->assertOk()
         ->assertJsonPath('status', false)
-        ->assertJsonPath('code', 401);
+        ->assertJsonPath('code', 400)
+        ->assertJsonPath('message', 'Login Gagal')
+        ->assertJsonPath('errors.username.0', 'username yang dipilih tidak valid.');
 });
 
 it('returns 422 body code on missing fields', function () {

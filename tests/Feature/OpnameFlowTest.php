@@ -100,6 +100,7 @@ it('opname capture, sync, dan semua report opname', function () {
     $this->actingAs($this->admin)->get('/report-opname-summary/table?opname_id='.$opname->opname_id)->assertOk()->assertSee('Report Opname Summary');
     $this->actingAs($this->admin)->get('/report-opname-hilang/table?opname_id='.$opname->opname_id)->assertOk()->assertSee('Report Opname Belum Terbaca');
     $this->actingAs($this->admin)->get('/report-opname-hilang-warehouse/table?opname_id='.$opname->opname_id)->assertOk()->assertSee('Hilang Warehouse');
+    $this->actingAs($this->admin)->get('/report-opname-mutasi/table?opname_id='.$opname->opname_id)->assertOk()->assertSee('Report Opname Mutasi')->assertSee('Ringkasan Mutasi Harian');
 
     $print = fn (string $path) => $this->actingAs($this->admin)->get($path.'?opname_id='.$opname->opname_id)->assertOk();
     $print('/report-rekap-opname/print')->assertSee('REKAP OPNAME')->assertSee('Seprai Opname');
@@ -107,11 +108,13 @@ it('opname capture, sync, dan semua report opname', function () {
     $print('/report-opname-summary/print')->assertSee('REPORT OPNAME SUMMARY')->assertSee('Total Snapshot');
     $print('/report-opname-hilang/print')->assertSee('BELUM TERBACA');
     $print('/report-opname-hilang-warehouse/print')->assertSee('WAREHOUSE');
+    $print('/report-opname-mutasi/print')->assertSee('REPORT OPNAME MUTASI')->assertSee('BELUM')->assertSee('TOTAL OPNAME');
     $this->actingAs($this->admin)->get('/report-rekap-opname/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
     $this->actingAs($this->admin)->get('/report-opname-detail/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
     $this->actingAs($this->admin)->get('/report-opname-summary/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
     $this->actingAs($this->admin)->get('/report-opname-hilang/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
     $this->actingAs($this->admin)->get('/report-opname-hilang-warehouse/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
+    $this->actingAs($this->admin)->get('/report-opname-mutasi/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
 
     // 6) API opname list/detail + record tetap ada
     $listRes = $this->actingAs($this->admin, 'sanctum')->getJson('/api/opname')->assertOk();
@@ -129,11 +132,8 @@ it('opname capture, sync, dan semua report opname', function () {
         'rs_nama' => 'RS Opname',
     ])->and(array_keys($row))->toBe(['opname_id', 'opname_start', 'opname_end', 'rs_id', 'rs_nama']);
 
-    // Key tambahan top-level (diambil dari opname aktif pertama) — isinya
-    // tergantung opname aktif yang ada, jadi cukup dipastikan ada.
-    expect($listRes->json('rs'))->toHaveKeys(['rs_id', 'rs_nama'])
-        ->and($listRes->json('ruangan'))->toBeArray()
-        ->and($listRes->json('opname'))->toBeArray();
+    // Legacy andalan: hanya envelope + data, tanpa key rs/ruangan/opname
+    expect(array_keys($listRes->json()))->toBe(['status', 'code', 'name', 'message', 'data']);
 
     $this->actingAs($this->admin, 'sanctum')->getJson("/api/opname/{$opname->opname_id}/detail")->assertOk();
 
@@ -246,4 +246,54 @@ it('capture tidak menyertakan linen milik RS lain walau sedang berada di RS opna
 
     expect($rfids)->toContain('OP_RFID_1')
         ->and($rfids)->not->toContain('OP_RFID_3');
+});
+
+it('report opname mutasi menghitung kolom harian dan saldo belum terbaca', function () {
+    $opname = Opname::updateOrCreate(
+        ['opname_nama' => 'Opname Mutasi', 'opname_id_rs' => $this->rs->rs_id],
+        [
+            'opname_mulai' => now()->format('Y-m-d'),
+            'opname_selesai' => now()->addDays(2)->format('Y-m-d'),
+            'opname_status' => 1,
+            'opname_created_by' => $this->admin->id,
+        ]
+    );
+    OpnameDetail::where('opname_detail_id_opname', $opname->opname_id)->delete();
+
+    $hari1 = now()->format('Y-m-d').' 08:00:00';
+    $hari2 = now()->addDay()->format('Y-m-d').' 08:00:00';
+
+    $insert = function (string $rfid, ?string $waktu, ?string $transaksi, ?string $proses, int $ketemu) use ($opname) {
+        DB::table('opname_detail')->insert([
+            'opname_detail_id_opname' => $opname->opname_id,
+            'opname_detail_rfid' => $rfid,
+            'opname_detail_waktu' => $waktu,
+            'opname_detail_transaksi' => $transaksi,
+            'opname_detail_proses' => $proses,
+            'opname_detail_ketemu' => $ketemu,
+        ]);
+    };
+
+    // 5 linen terdaftar: 2 terbaca hari-1, 1 terbaca hari-2 (masih proses QC),
+    // 2 tidak pernah terbaca dan tercatat pada hari-1.
+    $insert('MUT_1', $hari1, 'BERSIH', 'BERSIH', 1);
+    $insert('MUT_2', $hari1, 'BERSIH', 'BERSIH', 1);
+    $insert('MUT_3', $hari2, 'KOTOR', 'QC', 1);
+    $insert('MUT_4', $hari1, 'BERSIH', 'BERSIH', 0);
+    $insert('MUT_5', $hari1, 'BERSIH', 'BERSIH', 0);
+
+    $res = $this->actingAs($this->admin)->get('/report-opname-mutasi/table?opname_id='.$opname->opname_id)->assertOk();
+    $rows = $res->viewData('rows');
+
+    expect($rows)->toHaveCount(3)
+        // hari-1: register 5, scan 2, belum = 5-2-0, masih proses 0,
+        // total 4 (2 terbaca + 2 belum terbaca yang tercatat di hari-1)
+        ->and($rows[0])->toMatchArray(['register' => 5, 'scan' => 2, 'belum' => 3, 'proses' => 0, 'total' => 4])
+        // hari-2: scan 1 (QC masih proses), belum = 3-1
+        ->and($rows[1])->toMatchArray(['scan' => 1, 'belum' => 2, 'proses' => 1, 'total' => 1])
+        // hari-3: tidak ada aktivitas, saldo tetap
+        ->and($rows[2])->toMatchArray(['scan' => 0, 'belum' => 2, 'proses' => 0, 'total' => 0]);
+
+    // Total kolom TOTAL OPNAME = REGISTER (semua linen terdaftar terbagi habis ke hari-hari)
+    expect($res->viewData('sum'))->toMatchArray(['register' => 5, 'scan' => 3, 'belum' => 2, 'proses' => 1, 'total' => 5]);
 });

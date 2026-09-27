@@ -6,6 +6,7 @@ use App\Enums\LogType;
 use App\Enums\RegisterEnum;
 use App\Enums\RsStatusEnum;
 use App\Enums\TransactionType;
+use App\Http\Controllers\Api\DetailApiController;
 use App\Http\Controllers\Api\DownloadApiController;
 use App\Http\Controllers\Api\OpnameApiController;
 use App\Http\Controllers\Api\PackingDeliveryController;
@@ -32,6 +33,17 @@ use Plugins\Notes;
 
 Route::post('/login', [AuthController::class, 'login']);
 
+// Legacy andalan: klien mendaftarkan langganan push (tanpa auth).
+Route::post('push-subscribe', function (Request $request) {
+    DB::table('push_subscriptions')->insert([
+        'data' => $request->getContent(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return Notes::data();
+});
+
 Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -42,6 +54,8 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
     // Opsi dropdown form register. Query opsional ?rs_id=75 untuk menyaring jenis & ruangan.
     Route::get('/register/config', [RegisterLinenController::class, 'config'])->name('register.config');
+
+    Route::post('detail/rfid', [DetailApiController::class, 'rfid'])->name('api.detail.rfid');
 
     Route::auto('/users', UsersController::class, ['name' => 'users']);
 
@@ -66,6 +80,9 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             'status_cuci' => CuciEnum::getOptions(),
             'status_register' => RegisterEnum::getOptions(),
             'status_transaksi' => TransactionType::getOptions(),
+            // Legacy mengirim status_proses dari ProcessType (bka belum punya enum
+            // itu) — disamakan dengan /rs supaya kedua endpoint konsisten.
+            'status_proses' => TransactionType::getOptions(),
             'status_linen' => LinenStatusEnum::getOptions(),
             'kepemilikan' => RsStatusEnum::getOptions(),
             'allowed_rs_ids' => User::allowedRsIds(),
@@ -88,6 +105,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             // no filter
         }
 
+        // rs_ruangan & rs_jenis per RS — dibaca RsAllDAO desktop (kontrak legacy).
         $rs = $query->with(['hasRuangan', 'hasJenis'])->get();
         $allowed = User::allowedRsIds();
 
@@ -150,7 +168,17 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
             ->when($allowed !== null, fn ($q) => $q->whereIn('rs_id', $allowed))
             ->get();
 
-        return Notes::data($rs, [
+        // Item RS mengikuti andalan: rs_id/rs_nama/rs_status + rs_ruangan/rs_jenis
+        // (yang dibaca RsAllDAO desktop) — kolom RS lain tidak dikirim lagi.
+        $rsPayload = $rs->map(fn ($item) => [
+            'rs_id' => (int) $item->rs_id,
+            'rs_nama' => $item->rs_nama,
+            'rs_status' => $item->rs_status,
+            'rs_ruangan' => $item->rs_ruangan,
+            'rs_jenis' => $item->rs_jenis,
+        ])->values();
+
+        return Notes::data($rsPayload, [
             'ruangan' => $ruangan,
             'jenis' => $jenis,
             'jenis_rs' => $jenisRs,
@@ -175,7 +203,15 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     Route::get('rs/{rsid}', function ($rsid) {
         $rs = Rs::with(['hasRuangan', 'hasJenis'])->findOrFail($rsid);
 
-        return Notes::single($rs);
+        // Notes::data (bukan single) + item 5 key — sama dengan legacy andalan
+        // (RsSingleDAO desktop).
+        return Notes::data([
+            'rs_id' => (int) $rs->rs_id,
+            'rs_nama' => $rs->rs_nama,
+            'rs_status' => $rs->rs_status,
+            'rs_ruangan' => $rs->rs_ruangan,
+            'rs_jenis' => $rs->rs_jenis,
+        ]);
     })->name('api.rs_detail');
 
     // Packing & Delivery — sesuai desktop andalan (BersihController)
@@ -193,6 +229,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     Route::get('opname', [OpnameApiController::class, 'index'])->name('api.opname.index');
     // Alias legacy andalan: POST /opname (opname_id, code, rfid[]) = POST /opname/sync.
     Route::post('opname', [OpnameApiController::class, 'sync'])->name('api.opname.store');
+    Route::get('opname/{id}', [OpnameApiController::class, 'show'])->name('api.opname.show');
     Route::get('opname/{id}/detail', [OpnameApiController::class, 'detail'])->name('api.opname.detail');
     Route::post('opname/sync', [OpnameApiController::class, 'sync'])->name('api.opname.sync');
     Route::post('opname/capture/{id}', [OpnameApiController::class, 'capture'])->name('api.opname.capture');
@@ -390,11 +427,13 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
                 ->whereNull('transaksi_grouping_date')
                 ->update(['transaksi_grouping_date' => date('Y-m-d')]);
 
-            // Build collection untuk desktop GroupingDAO — andalan: linen_id = RFID (bukan jenis_id), biar konsisten dengan register
+            // Build collection untuk desktop GroupingDAO — bentuknya mengikuti andalan
+            // (objek mentah tanpa envelope, linen_id/linen_nama = jenis linen).
             $outstandingFresh = Outstanding::where('outstanding_rfid', $rfid)->first();
             $collection = [
                 'rfid' => $rfid,
-                'linen_id' => (string) $rfid,
+                // Legacy andalan: linen_id/linen_nama = jenis linen (view_linen_id), bukan RFID.
+                'linen_id' => (string) ($viewLinenId ?? ''),
                 'linen_nama' => $viewLinenNama ?? '',
                 'rs_id' => (string) ($viewRsId ?? ''),
                 'rs_nama' => $viewRsNama ?? '',

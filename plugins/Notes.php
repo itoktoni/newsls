@@ -198,8 +198,11 @@ class Notes
      * Kode selain 400/404/422 — dipakai handler global untuk 401, 405, 429, 500.
      *
      * @param  string  $name  label jenis respons; default 'Error' (sama seperti legacy).
+     * @param  array  $additional  key tambahan (mis. ['errors' => ['username' => [...]]])
+     *                             supaya format Laravel {message, errors} tetap terbaca
+     *                             klien yang cek envelope {status, code, name, message, data}.
      */
-    public static function failed($code, $message = null, $data = null, $name = self::error)
+    public static function failed($code, $message = null, $data = null, $name = self::error, $additional = [])
     {
         $log['status'] = false;
         $log['code'] = $code;
@@ -210,7 +213,7 @@ class Notes
             Log::error($name, $log);
         }
 
-        return self::sentJson($log, $code);
+        return self::sentJson($log, $code, $additional);
     }
 
     /**
