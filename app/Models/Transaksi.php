@@ -24,6 +24,8 @@ class Transaksi extends BaseModel
         'transaksi_beda_rs',
         'transaksi_id_ruangan',
         'transaksi_status',
+        'transaksi_grouping',
+        'transaksi_grouping_date',
         'transaksi_created_at',
         'transaksi_created_by',
         'transaksi_updated_at',

@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Report Pending Linen — adopsi andalan ReportPendingLinenController.
+ * Report Pending Dedicated — adopsi andalan ReportPendingLinenController.
  *
  * Sumber tabel `pending` (kotor → bersih tracking) + join master.
  * Status: Pending = bersih_at NULL, Bersih = bersih_at NOT NULL,
@@ -70,12 +70,12 @@ class ReportPendingLinenController extends Controller
         $periode = (formatDate($validated['start_pending'] ?? null) ?? '-')
             .' - '.(formatDate($validated['end_pending'] ?? null) ?? '-');
 
-        $filename = 'pending-linen-'.now()->format('Ymd-His').'.xls';
+        $filename = 'pending-dedicated-'.now()->format('Ymd-His').'.xls';
 
         return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode) {
             echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
             echo '<head><meta charset="UTF-8"></head><body>';
-            echo '<table><tr><td colspan="7"><b>REKAP PENDING LINEN</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
+            echo '<table><tr><td colspan="7"><b>REKAP PENDING DEDICATED</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
             echo '<td colspan="2" style="text-align:right;">';
             if ($logoAbs) {
                 echo '<img src="'.e($logoAbs).'" alt="Logo" height="60" width="90">';

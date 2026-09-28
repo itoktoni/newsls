@@ -98,7 +98,7 @@ return [
                 ['route' => 'report-register-linen.getTable', 'icon' => 'app_registration', 'label' => 'Register Linen', 'match' => ['report-register-linen.*']],
                 ['route' => 'report-hilang-linen.getTable', 'icon' => 'search_off', 'label' => 'Linen Hilang', 'match' => ['report-hilang-linen.*']],
                 ['route' => 'report-penggantian-linen.getTable', 'icon' => 'autorenew', 'label' => 'Ganti Chip', 'match' => ['report-penggantian-linen.*']],
-                ['route' => 'report-pending-linen.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pending Linen', 'match' => ['report-pending-linen.*']],
+                ['route' => 'report-pending-linen.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pending Dedicated', 'match' => ['report-pending-linen.*']],
                 ['route' => 'report-detail-pending-linen.getTable', 'icon' => 'hourglass_empty', 'label' => 'Detail Pending', 'match' => ['report-detail-pending-linen.*']],
             ],
         ],

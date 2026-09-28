@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>REKAP PENDING LINEN - {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</title>
+    <title>REKAP PENDING DEDICATED - {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</title>
     <style>
         body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; margin: 20px; }
         .header { width: 100%; border: 0; margin-bottom: 10px; }
@@ -29,7 +29,7 @@
 <table class="header">
     <tr>
         <td style="vertical-align:middle;">
-            <h3><b>REKAP PENDING LINEN</b></h3>
+            <h3><b>REKAP PENDING DEDICATED</b></h3>
             <h3>RUMAH SAKIT : {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</h3>
             <h3>Periode Kotor : {{ formatDate($start) ?? '-' }} - {{ formatDate($end) ?? '-' }}</h3>
         </td>

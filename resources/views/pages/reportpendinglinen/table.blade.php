@@ -4,7 +4,7 @@
 
         {{-- Form filter saja. Tampilkan -> buka halaman print + Export Excel. --}}
         <form method="GET" action="{{ moduleRoute('getPrint') }}" target="_blank">
-            <x-card :label="'Filter Pending Linen'" :icon="'filter_alt'">
+            <x-card :label="'Filter Pending Dedicated'" :icon="'filter_alt'">
                 <x-select name="rs_id" label="Rumah Sakit" col="4" :options="$rsOptions" :default="request('rs_id')" placeholder="-- Semua RS --" />
                 <x-select name="status" label="Status" col="4" :options="$statusOptions" :default="request('status')" placeholder="-- Semua Status --" />
                 <div class="col-span-12 md:col-span-4">

@@ -24,9 +24,14 @@ use Throwable;
  * (rfid, linen_id/linen_nama = jenis linen, status_*, tanggal_*, user_nama,
  * status_linen) + 1 baris activity GROUPING per scan bila RFID ketemu.
  *
- * Aturan main (dipertahankan dari legacy):
+ * Aturan main:
  * - Grouping = QC lolos = linen masuk gudang utama (GUDANG), simpan/refresh
- *   baris outstanding; buat baris transaksi hanya bila report lama & beda hari.
+ *   baris outstanding; tandai semua baris transaksi yang belum di-grouping
+ *   (transaksi_grouping = 'YA', transaksi_grouping_date = hari ini).
+ * - Asumsi operasional: grouping = linen kotor tiba di gudang (mungkin tak
+ *   terscan di RS). Selain linen fresh-register, selalu pastikan ada baris
+ *   transaksi KOTOR hari ini — buat baru dengan key prefix GRP bila belum
+ *   ada (idempoten per hari, anti dobel-scan).
  * - FREE ownership → rs_ori & ruangan outstanding = null.
  * - RFID tak dikenal → Notes::error (bukan 404 mentah).
  */
@@ -93,7 +98,8 @@ class GroupingController extends Controller
         $this->log("Grouping QC RFID {$rfid}", $detail, $rfid);
 
         $statusLinen = $detail->detail_status_linen;
-        $key = $this->uniqueKey($this->codePrefix($statusLinen));
+        // Key prefix GRP = penanda baris lahir dari grouping (bukan scan kotor).
+        $key = $this->uniqueKey((string) env('CODE_GROUPING', 'GRP'));
 
         $outstanding = Outstanding::where('outstanding_rfid', $rfid)->first();
 
@@ -108,6 +114,13 @@ class GroupingController extends Controller
             [$outstanding, $flag] = $this->storeNewOutstanding($detail, $rfid, $key, $date, $today, $userId, $statusLinen);
         }
 
+        // Asumsi operasional: grouping = linen kotor tiba di gudang. Kecuali
+        // linen fresh-register (baru didaftar, belum pernah keluar), pastikan
+        // selalu ada baris transaksi KOTOR — buat bila hari ini belum ada.
+        if (! $this->isFreshRegister($detail, $statusLinen, $today)) {
+            $flag = $this->ensureGroupingTransaction($detail, $rfid, $key, $date, $today, $userId, $flag);
+        }
+
         // Posisi linen = gudang utama (QC lolos = masuk gudang). Satu-satunya
         // tulis ke detail_linen di flow ini (tanpa dead-store status perantara).
         $detail->update(['detail_status_linen' => LinenStatusEnum::GUDANG]);
@@ -116,7 +129,7 @@ class GroupingController extends Controller
         // masih kosong (termasuk transaksi hari sebelumnya). 1 query.
         Transaksi::where('transaksi_rfid', $rfid)
             ->whereNull('transaksi_grouping_date')
-            ->update(['transaksi_grouping_date' => $today]);
+            ->update(['transaksi_grouping_date' => $today, 'transaksi_grouping' => 'YA']);
 
         $this->touchOpnameScan($rfid, $outstanding->outstanding_key ?? $key, $date);
 
@@ -124,16 +137,71 @@ class GroupingController extends Controller
     }
 
     /**
-     * Prefix auto-number dari status linen saat ini.
+     * Linen fresh-register = status REGISTER dan belum pernah keluar
+     * (report null atau hari ini). Ini satu-satunya kasus grouping yang
+     * TIDAK boleh dipaksa jadi transaksi KOTOR — linennya memang belum
+     * pernah kotor. Cabang REGISTER lama di storeNewOutstanding tetap jalan.
      */
-    private function codePrefix(?string $statusLinen): string
+    private function isFreshRegister(DetailLinen $detail, ?string $statusLinen, string $today): bool
     {
-        return match (true) {
-            $statusLinen === LinenStatusEnum::REGISTER || $statusLinen === 'REGISTER' => (string) env('CODE_REGISTER', 'REG'),
-            $statusLinen === TransactionType::REJECT || $statusLinen === 'REJECT' || $statusLinen === TransactionType::RETUR => (string) env('CODE_REJECT', 'RJK'),
-            $statusLinen === TransactionType::REWASH => (string) env('CODE_REWASH', 'WSH'),
-            default => (string) env('CODE_KOTOR', 'KTR'),
-        };
+        $isRegister = $statusLinen === LinenStatusEnum::REGISTER || $statusLinen === 'REGISTER';
+
+        if (! $isRegister) {
+            return false;
+        }
+
+        $report = ! empty($detail->detail_report)
+            ? Carbon::parse($detail->detail_report)->format('Y-m-d')
+            : null;
+
+        return $report === null || $report === $today;
+    }
+
+    /**
+     * Pastikan ada baris transaksi KOTOR hari ini untuk RFID ini.
+     * Idempoten per hari: bila sudah ada (mis. scan kotor pagi), tidak buat
+     * lagi — penandaan grouped dilakukan pemanggil. Kembalikan flag respons.
+     *
+     * @return string flag status_linen untuk resource desktop
+     */
+    private function ensureGroupingTransaction(
+        DetailLinen $detail,
+        string $rfid,
+        string $key,
+        string $date,
+        string $today,
+        int $userId,
+        string $flag,
+    ): string {
+        $existsToday = Transaksi::where('transaksi_rfid', $rfid)
+            ->whereDate('transaksi_created_at', $today)
+            ->exists();
+
+        if ($existsToday) {
+            return $flag;
+        }
+
+        $this->log("Grouping QC_TRANSACTION RFID {$rfid}", $detail, $rfid);
+
+        Transaksi::create([
+            'transaksi_key' => $key,
+            'transaksi_rfid' => $rfid,
+            'transaksi_rs_ori' => $detail->detail_id_rs,
+            'transaksi_rs_scan' => $detail->detail_id_rs,
+            'transaksi_beda_rs' => 'TIDAK',
+            'transaksi_id_ruangan' => $detail->detail_id_ruangan,
+            'transaksi_status' => TransactionType::KOTOR,
+            'transaksi_grouping' => 'YA',
+            'transaksi_grouping_date' => $today,
+            'transaksi_created_at' => $date,
+            'transaksi_created_by' => $userId,
+            'transaksi_updated_at' => $date,
+            'transaksi_updated_by' => $userId,
+        ]);
+
+        $this->touchPending($rfid, TransactionType::KOTOR, $date);
+
+        return 'KOTOR';
     }
 
     /**
