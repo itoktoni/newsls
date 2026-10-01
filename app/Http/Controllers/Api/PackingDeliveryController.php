@@ -156,8 +156,9 @@ class PackingDeliveryController extends Controller
             return Notes::data($report);
         } catch (\Throwable $th) {
             DB::rollBack();
+            report($th);
 
-            return Notes::error($th->getMessage());
+            return Notes::error(config('app.debug') ? $th->getMessage() : 'Terjadi kesalahan pada server.');
         }
     }
 
@@ -364,8 +365,9 @@ class PackingDeliveryController extends Controller
             return Notes::data($report);
         } catch (\Throwable $th) {
             DB::rollBack();
+            report($th);
 
-            return Notes::error($th->getMessage());
+            return Notes::error(config('app.debug') ? $th->getMessage() : 'Terjadi kesalahan pada server.');
         }
     }
 

@@ -96,10 +96,12 @@ return [
             'items' => [
                 ['route' => 'report-data-linen.getTable', 'icon' => 'print', 'label' => 'Data Linen', 'match' => ['report-data-linen.*']],
                 ['route' => 'report-register-linen.getTable', 'icon' => 'app_registration', 'label' => 'Register Linen', 'match' => ['report-register-linen.*']],
-                ['route' => 'report-hilang-linen.getTable', 'icon' => 'search_off', 'label' => 'Linen Hilang', 'match' => ['report-hilang-linen.*']],
+                ['route' => 'report-hilang-linen.getTable', 'icon' => 'schedule', 'label' => 'Stagnan di RS', 'match' => ['report-hilang-linen.*']],
                 ['route' => 'report-penggantian-linen.getTable', 'icon' => 'autorenew', 'label' => 'Ganti Chip', 'match' => ['report-penggantian-linen.*']],
                 ['route' => 'report-pending-linen.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pending Dedicated', 'match' => ['report-pending-linen.*']],
-                ['route' => 'report-detail-pending-linen.getTable', 'icon' => 'hourglass_empty', 'label' => 'Detail Pending', 'match' => ['report-detail-pending-linen.*']],
+                ['route' => 'report-detail-pending-linen.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pending Outstanding', 'match' => ['report-detail-pending-linen.*']],
+                ['route' => 'report-pending-jenis.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pending per Jenis', 'match' => ['report-pending-jenis.*']],
+                ['route' => 'report-pelunasan-pending.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pelunasan Pending', 'match' => ['report-pelunasan-pending.*']],
             ],
         ],
         [
@@ -109,6 +111,7 @@ return [
                 ['route' => 'report-summary-pengiriman-retur.getTable', 'icon' => 'summarize', 'label' => 'Summary Retur', 'match' => ['report-summary-pengiriman-retur.*']],
                 ['route' => 'report-summary-pengiriman-rewash.getTable', 'icon' => 'summarize', 'label' => 'Summary Rewash', 'match' => ['report-summary-pengiriman-rewash.*']],
                 ['route' => 'report-summary-pengiriman-linen-baru.getTable', 'icon' => 'summarize', 'label' => 'Summary Baru', 'match' => ['report-summary-pengiriman-linen-baru.*']],
+                ['route' => 'report-summary-pelunasan.getTable', 'icon' => 'summarize', 'label' => 'Summary Pelunasan', 'match' => ['report-summary-pelunasan.*']],
                 ['route' => 'report-invoice.getTable', 'icon' => 'receipt', 'label' => 'Invoice', 'match' => ['report-invoice.*']],
             ],
         ],

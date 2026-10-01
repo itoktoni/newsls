@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Concerns\ControllerTrait;
+use App\Enums\LinenStatusEnum;
 use App\Http\Requests\GeneralRequest;
 use App\Models\Rs;
 use App\Models\User;
@@ -10,11 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Report Hilang Linen — adopsi andalan ReportHilangLinenController.
+ * Report Linen Stagnan di RS — alih fungsi dari Linen Hilang (status HILANG
+ * tidak dipakai lagi karena linen disimpan di warehouse).
  *
- * Sumber `outstanding` status_hilang = HILANG + tanggal hilang.
- * Kolom: RFID, linen, RS, ruangan, jumlah pemakaian, tgl kotor,
- * lama hilang (hari), status, proses terakhir.
+ * Sumber `detail_linen` berstatus BERSIH (= fisik di rumah sakit) yang tidak
+ * bergerak sejak cutoff: preset 1/2/3 bulan atau tanggal eksplisit
+ * (default 1 bulan supaya tidak menumpahkan seluruh linen bersih).
+ * Kolom: RFID, linen, RS, ruangan, jumlah pemakaian, update terakhir,
+ * lama diam (hari).
  * Proteksi data besar: count dulu, > REPORT_CHUNK otomatis streaming Excel.
  *
  * Tanpa $this->model sehingga lolos authorize.
@@ -41,7 +45,7 @@ class ReportHilangLinenController extends Controller
             return $this->getExportExcel($request);
         }
 
-        $data = (clone $query)->orderBy('outstanding.outstanding_hilang_created_at')->get();
+        $data = (clone $query)->orderBy('detail_linen.detail_updated_at')->get();
         $rs = ! empty($validated['rs_id'])
             ? Rs::where('rs_id', $validated['rs_id'])->first()
             : null;
@@ -49,8 +53,9 @@ class ReportHilangLinenController extends Controller
         return $this->views($this->template(), array_merge($this->share(), [
             'data' => $data,
             'rs' => $rs,
-            'start' => $validated['start_hilang'] ?? null,
-            'end' => $validated['end_hilang'] ?? null,
+            'start' => null,
+            'end' => null,
+            'stagnanLabel' => $this->stagnanLabel($validated),
         ]));
     }
 
@@ -66,13 +71,14 @@ class ReportHilangLinenController extends Controller
             ->orderBy('outstanding.outstanding_hilang_created_at')
             ->get();
 
-        $filename = 'hilang-linen-'.now()->format('Ymd-His').'.xls';
+        $filename = 'stagnan-rs-'.now()->format('Ymd-His').'.xls';
 
         return [$filename, [
             'data' => $data,
             'rs' => $rs,
-            'start' => $validated['start_hilang'] ?? null,
-            'end' => $validated['end_hilang'] ?? null,
+            'start' => null,
+            'end' => null,
+            'stagnanLabel' => $this->stagnanLabel($validated),
         ]];
     }
 
@@ -80,6 +86,7 @@ class ReportHilangLinenController extends Controller
     {
         $default = [
             'rsOptions' => \App\Models\User::rsOptions(),
+            'stagnanOptions' => ['1bulan' => '1 Bulan', '3bulan' => '3 Bulan', '6bulan' => '6 Bulan', '1tahun' => '> 1 Tahun'],
         ];
 
         return array_merge($default, $data);
@@ -87,38 +94,81 @@ class ReportHilangLinenController extends Controller
 
     private function validateHilang(Request $request): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'rs_id' => 'nullable|integer|exists:rs,rs_id',
-            'start_hilang' => 'nullable|date',
-            'end_hilang' => 'nullable|date|after_or_equal:start_hilang',
+            'stagnan' => 'nullable|string|in:1bulan,3bulan,6bulan,1tahun',
+            'stagnan_sejak' => 'nullable|date',
         ]);
+
+        // Default 1 bulan supaya bukaan pertama tidak menumpahkan seluruh linen bersih.
+        $validated['stagnan'] ??= empty($validated['stagnan_sejak']) ? '1bulan' : null;
+
+        return $validated;
+    }
+
+    /**
+     * Cutoff "tidak bergerak sejak": tanggal eksplisit menang atas preset.
+     */
+    private function stagnanCutoff(array $filter): string
+    {
+        if (! empty($filter['stagnan_sejak'])) {
+            return $filter['stagnan_sejak'];
+        }
+
+        return match ($filter['stagnan'] ?? '1bulan') {
+            '3bulan' => now()->subMonths(3)->format('Y-m-d'),
+            '6bulan' => now()->subMonths(6)->format('Y-m-d'),
+            '1tahun' => now()->subYear()->format('Y-m-d'),
+            default => now()->subMonth()->format('Y-m-d'),
+        };
+    }
+
+    private function stagnanLabel(array $filter): string
+    {
+        if (! empty($filter['stagnan_sejak'])) {
+            return 'Tidak bergerak sejak '.formatDate($filter['stagnan_sejak']);
+        }
+
+        return match ($filter['stagnan'] ?? '1bulan') {
+            '3bulan' => 'Tidak bergerak > 3 bulan',
+            '6bulan' => 'Tidak bergerak > 6 bulan',
+            '1tahun' => 'Tidak bergerak > 1 tahun',
+            default => 'Tidak bergerak > 1 bulan',
+        };
     }
 
     private function hilangBaseQuery(array $filter)
     {
-        $query = DB::table('outstanding')
-            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
+        $query = DB::table('detail_linen')
             ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
-            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'outstanding.outstanding_id_ruangan')
-            ->leftJoin('rs', 'rs.rs_id', '=', 'outstanding.outstanding_rs_ori')
-            ->where('outstanding.outstanding_status_hilang', 'HILANG');
+            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
+            ->leftJoin('rs', 'rs.rs_id', '=', 'detail_linen.detail_id_rs')
+            ->where('detail_linen.detail_status_linen', LinenStatusEnum::BERSIH)
+            ->whereDate('detail_linen.detail_updated_at', '<=', $this->stagnanCutoff($filter));
 
         // ponytail: isi = guard akses + where; kosong = batasi ke RS milik user.
-        $query = User::applyRsFilter($query, 'outstanding.outstanding_rs_ori', $filter['rs_id'] ?? null);
+        $query = User::applyRsFilter($query, 'detail_linen.detail_id_rs', $filter['rs_id'] ?? null);
 
-        return $query
-            ->when(! empty($filter['start_hilang']), fn ($q) => $q->whereDate('outstanding.outstanding_hilang_created_at', '>=', $filter['start_hilang']))
-            ->when(! empty($filter['end_hilang']), fn ($q) => $q->whereDate('outstanding.outstanding_hilang_created_at', '<=', $filter['end_hilang']))
-            ->select([
-                'outstanding.outstanding_rfid',
-                'outstanding.outstanding_created_at',
-                'outstanding.outstanding_hilang_created_at',
-                'outstanding.outstanding_status_transaksi',
-                'outstanding.outstanding_status_proses',
-                'detail_linen.detail_total_bersih',
-                'jenis_linen.jenis_nama as jenis_nama',
-                'rs.rs_nama as rs_nama',
-                'ruangan.ruangan_nama as ruangan_nama',
-            ]);
+        return $query->select([
+            'detail_linen.detail_rfid',
+            'detail_linen.detail_updated_at',
+            'detail_linen.detail_total_bersih',
+            'jenis_linen.jenis_nama as jenis_nama',
+            'rs.rs_nama as rs_nama',
+            'ruangan.ruangan_nama as ruangan_nama',
+        ]);
+    }
+
+    private function lamaDiam($value): string
+    {
+        if (empty($value)) {
+            return '0 Hari';
+        }
+
+        try {
+            return (int) floor(Carbon::parse($value)->diffInDays(now())).' Hari';
+        } catch (\Throwable $e) {
+            return '0 Hari';
+        }
     }
 }

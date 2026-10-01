@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>DETAIL PENDING LINEN - {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</title>
+    <title>PENDING OUTSTANDING - {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</title>
     <style>
         body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; margin: 20px; }
         .header { width: 100%; border: 0; margin-bottom: 10px; }
@@ -29,9 +29,12 @@
 <table class="header">
     <tr>
         <td style="vertical-align:middle;">
-            <h3><b>DETAIL PENDING LINEN</b></h3>
+            <h3><b>PENDING OUTSTANDING</b></h3>
             <h3>RUMAH SAKIT : {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</h3>
             <h3>Periode : {{ formatDate($start) ?? '-' }} - {{ formatDate($end) ?? '-' }}</h3>
+            @if(!empty($stagnanLabel))
+            <h3>{{ $stagnanLabel }}</h3>
+            @endif
         </td>
         <td style="width:100px;min-width:100px;text-align:right;vertical-align:middle;">
             @if($logoUrl)
@@ -54,6 +57,7 @@
                 <th>RUANGAN</th>
                 <th>JUMLAH PEMAKAIAN</th>
                 <th>TANGGAL KOTOR</th>
+                <th>TANGGAL UPDATE</th>
                 <th>LAMA PENDING</th>
                 <th>STATUS</th>
                 <th>PROSES TERAKHIR</th>
@@ -69,12 +73,13 @@
                 <td>{{ $table->ruangan_nama ?? '-' }}</td>
                 <td class="num">{{ $table->detail_total_bersih ?? 0 }}</td>
                 <td>{{ formatDate($table->outstanding_created_at) ?? '-' }}</td>
-                <td>{{ $table->outstanding_pending_created_at ? \Illuminate\Support\Carbon::parse($table->outstanding_pending_created_at)->diffInDays(now()).' Hari' : '0 Hari' }}</td>
+                <td>{{ formatDate($table->outstanding_updated_at) ?? '-' }}</td>
+                <td>{{ ($table->outstanding_pending_created_at ?? $table->outstanding_updated_at) ? (int) floor(\Illuminate\Support\Carbon::parse($table->outstanding_pending_created_at ?? $table->outstanding_updated_at)->diffInDays(now())).' Hari' : '0 Hari' }}</td>
                 <td>{{ \App\Enums\TransactionType::getDescription($table->outstanding_status_transaksi ?? '') ?: ($table->outstanding_status_transaksi ?? '-') }}</td>
                 <td>{{ $table->outstanding_status_proses ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="10" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="11" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
     </table>

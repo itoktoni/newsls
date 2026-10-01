@@ -82,8 +82,9 @@ class TransaksiApiController extends Controller
             return $this->successResponse($ctx, $statusTransaksi, $rows['transaksi']);
         } catch (\Throwable $th) {
             DB::rollBack();
+            report($th);
 
-            return Notes::failed(500, $th->getMessage());
+            return Notes::failed(500, config('app.debug') ? $th->getMessage() : 'Terjadi kesalahan pada server.');
         }
     }
 

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Http\Controllers\Api\ConfigurationController;
 use App\Http\Controllers\Api\DetailApiController;
@@ -15,18 +15,31 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Plugins\Notes;
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
-// Legacy andalan: klien mendaftarkan langganan push (tanpa auth).
+// Legacy andalan: klien mendaftarkan langganan push.
+// Dibatas throttle + validasi ketat agar tidak jadi tempat spam DB anonim:
+// max 4KB, wajib JSON valid dengan key `endpoint` (standar Web Push).
 Route::post('push-subscribe', function (Request $request) {
+    $raw = $request->getContent();
+
+    if (strlen($raw) === 0 || strlen($raw) > 4096) {
+        return Notes::validation('Payload tidak valid.', ['data' => ['Payload melebihi batas 4KB.']]);
+    }
+
+    $json = json_decode($raw, true);
+    if (! is_array($json) || empty($json['endpoint']) || ! is_string($json['endpoint'])) {
+        return Notes::validation('Payload tidak valid.', ['data' => ['Field endpoint wajib diisi.']]);
+    }
+
     DB::table('push_subscriptions')->insert([
-        'data' => $request->getContent(),
+        'data' => $raw,
         'created_at' => now(),
         'updated_at' => now(),
     ]);
 
     return Notes::data();
-});
+})->middleware('throttle:10,1');
 
 Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
@@ -75,6 +88,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
 
     // =====================================================================
     // 4. KOTOR — linen kotor/retur/rewash masuk laundry (1 endpoint per tipe).
+    // Throttle bulk sebagai pengaman DoS.
     // =====================================================================
     Route::post('kotor', [TransaksiApiController::class, 'kotor'])->name('transaksi.kotor');
     Route::post('retur', [TransaksiApiController::class, 'retur'])->name('transaksi.retur');

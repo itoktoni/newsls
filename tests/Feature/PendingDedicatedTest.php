@@ -114,3 +114,27 @@ it('delivery menutup pending RFID yang terkirim', function () {
     expect($pending->pending_delivery)->not->toBeNull();
     expect((int) $pending->pending_bersih_by)->toBe($this->admin->id);
 });
+
+/**
+ * Mode stagnan: outstanding GUDANG tak bergerak >1 bulan muncul,
+ * yang kemarin bergerak tidak ikut.
+ */
+it('report pending outstanding mode stagnan menampilkan gudang tak bergerak', function () {
+    $uniq = strtoupper(uniqid());
+    ($this->makeLinen)('STG-OLD-'.$uniq, RsStatusEnum::DEDICATED, 'GUDANG', 24 * 40);
+    ($this->makeLinen)('STG-FRESH-'.$uniq, RsStatusEnum::DEDICATED, 'GUDANG', 1);
+
+    // Tanpa filter stagnan: bukan PENDING → tidak muncul
+    $this->actingAs($this->admin)->get('/report-detail-pending-linen/print')
+        ->assertOk()->assertDontSee('STG-OLD-'.$uniq);
+
+    // Mode stagnan 1 bulan: yang tua muncul, yang segar tidak
+    $this->actingAs($this->admin)->get('/report-detail-pending-linen/print?stagnan=1bulan&proses=GUDANG')
+        ->assertOk()->assertSee('STG-OLD-'.$uniq)->assertDontSee('STG-FRESH-'.$uniq)
+        ->assertSee('Tidak bergerak', false)->assertSee('40 Hari');
+
+    // Tanggal eksplisit juga bisa
+    $sejak = now()->subDays(10)->format('Y-m-d');
+    $this->actingAs($this->admin)->get("/report-detail-pending-linen/print?stagnan_sejak={$sejak}")
+        ->assertOk()->assertSee('STG-OLD-'.$uniq)->assertDontSee('STG-FRESH-'.$uniq);
+});

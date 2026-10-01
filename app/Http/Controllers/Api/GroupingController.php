@@ -56,14 +56,19 @@ class GroupingController extends Controller
         } catch (ModelNotFoundException $e) {
             return Notes::error($rfid, 'RFID '.$rfid.' tidak ditemukan');
         } catch (Throwable $e) {
+            report($e);
             if ((int) $e->getCode() === 23000) {
-                $message = explode('for key', $e->getMessage());
-                $clean = str_replace('SQLSTATE[23000]: Integrity constraint violation: 1062', 'RFID', $message[0] ?? $e->getMessage());
+                if (config('app.debug')) {
+                    $message = explode('for key', $e->getMessage());
+                    $clean = str_replace('SQLSTATE[23000]: Integrity constraint violation: 1062', 'RFID', $message[0] ?? $e->getMessage());
 
-                return Notes::error($clean);
+                    return Notes::error($clean);
+                }
+
+                return Notes::error($rfid, 'RFID sudah terdaftar.');
             }
 
-            return Notes::error($rfid, $e->getMessage());
+            return Notes::error($rfid, config('app.debug') ? $e->getMessage() : 'Terjadi kesalahan pada server.');
         }
 
         // Desktop GroupingDAO expects raw object (bukan envelope Notes).

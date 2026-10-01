@@ -4,8 +4,10 @@
 
         {{-- Form filter saja. Tampilkan -> buka halaman print + Export Excel. --}}
         <form method="GET" action="{{ moduleRoute('getPrint') }}" target="_blank">
-            <x-card :label="'Filter Detail Pending'" :icon="'filter_alt'">
+            <x-card :label="'Filter Pending Outstanding'" :icon="'filter_alt'">
                 <x-select name="rs_id" label="Rumah Sakit" col="4" :options="$rsOptions" :default="request('rs_id')" placeholder="-- Semua RS --" />
+                <x-select name="proses" label="Proses Terakhir" col="4" :options="$prosesOptions" :default="request('proses')" placeholder="-- Semua Proses --" />
+                <x-select name="stagnan" label="Tidak Bergerak" col="4" :options="$stagnanOptions" :default="request('stagnan')" placeholder="-- Mode Pending --" />
                 <div class="col-span-12 md:col-span-4">
                     <label class="font-body-sm text-body-sm font-bold text-on-surface-variant block mb-1">Tanggal Pending Awal</label>
                     <input type="date" name="start_pending" value="{{ request('start_pending') }}"
@@ -16,7 +18,13 @@
                     <input type="date" name="end_pending" value="{{ request('end_pending') }}"
                         class="w-full h-12 px-4 bg-white border border-outline-variant rounded-lg font-body-sm focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all" />
                 </div>
+                <div class="col-span-12 md:col-span-4">
+                    <label class="font-body-sm text-body-sm font-bold text-on-surface-variant block mb-1">Tidak Bergerak Sejak (tanggal)</label>
+                    <input type="date" name="stagnan_sejak" value="{{ request('stagnan_sejak') }}"
+                        class="w-full h-12 px-4 bg-white border border-outline-variant rounded-lg font-body-sm focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none transition-all" />
+                </div>
             </x-card>
+            <p class="text-xs text-gray-500 mt-2">Isi "Tidak Bergerak" (preset/tanggal) untuk mode stagnan gudang: menampilkan semua outstanding yang tak bergerak sejak cutoff, tanpa syarat status pending.</p>
 
             {{-- Action bar standar bottom-fixed, hilang saat print --}}
             <div class="no-print print:hidden">

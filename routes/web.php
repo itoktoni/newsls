@@ -78,6 +78,9 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
         Route::auto('/report-invoice', 'ReportInvoiceController', ['name' => 'report-invoice', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-pending-linen', 'ReportPendingLinenController', ['name' => 'report-pending-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-detail-pending-linen', 'ReportDetailPendingLinenController', ['name' => 'report-detail-pending-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-pending-jenis', 'ReportPendingJenisController', ['name' => 'report-pending-jenis', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-pelunasan-pending', 'ReportPelunasanPendingController', ['name' => 'report-pelunasan-pending', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-summary-pelunasan', 'ReportSummaryPelunasanController', ['name' => 'report-summary-pelunasan', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
     });
     Route::auto('/ruangan', 'RuanganController', ['name' => 'ruangan']);
     Route::auto('/kategori', 'KategoriController', ['name' => 'kategori']);
