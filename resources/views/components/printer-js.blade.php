@@ -1,6 +1,11 @@
-<script>
+<script data-navigate-once>
 /**
  * BluetoothPrinter — JavaScript API untuk koneksi Bluetooth printer
+ *
+ * Catatan: didaftar idempoten (window.BluetoothPrinter || ...) + data-navigate-once
+ * agar evaluasi ulang script saat Livewire wire:navigate tidak melempar
+ * "Identifier 'BluetoothPrinter' has already been declared" yang menggagalkan
+ * swap halaman (Livewire swapCurrentPageWithNewHtml).
  *
  * Callbacks:
  *   window.onPrintersFound(printersJSON)
@@ -9,7 +14,7 @@
  *   window.onPrintResult(dataJSON)
  *   window.onPrinterRemoved(dataJSON)
  */
-const BluetoothPrinter = {
+window.BluetoothPrinter = window.BluetoothPrinter || {
 
     isNative() {
         return typeof NativeBridge !== 'undefined' && typeof NativeBridge.getPairedPrinters === 'function';

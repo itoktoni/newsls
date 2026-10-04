@@ -8,16 +8,15 @@ use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\JenisLinen;
-use App\Models\Notification;
 use App\Models\Opname;
 use App\Models\Outstanding;
 use App\Models\Rs;
+use App\Models\Ruangan;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Support\DashboardCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class AdminDashboardController extends Controller
@@ -32,7 +31,7 @@ class AdminDashboardController extends Controller
 
         $scope = DashboardCache::userScope();
 
-        $payload = DashboardCache::remember($scope, 'admin:stats', function () {
+        $payload = DashboardCache::remember($scope, 'admin:stats:v2', function () {
             $gudangId = Warehouse::utamaId();
 
             $kpi = [
@@ -66,9 +65,7 @@ class AdminDashboardController extends Controller
             $health = [
                 'rs' => Rs::count(),
                 'jenis_linen' => JenisLinen::count(),
-                'config_linen' => DB::table('config_linen')->count(),
-                'outstanding' => Outstanding::count(),
-                'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
+                'ruangan' => Ruangan::count(),
             ];
 
             $opname = [
@@ -80,12 +77,7 @@ class AdminDashboardController extends Controller
                     ->count(),
             ];
 
-            // System overview — data lama dari DashboardController.
-            $stats = [
-                'total_users' => User::count(),
-                'total_notifications' => Notification::count(),
-                'unread_notifications' => Notification::where('read', false)->count(),
-            ];
+            // Dashboard overview — recent users untuk tabel bawah.
             $recentUsers = User::latest()->limit(5)->get()
                 ->map(fn ($user) => [
                     'name' => $user->name,
@@ -95,7 +87,7 @@ class AdminDashboardController extends Controller
                 ])
                 ->all();
 
-            return compact('kpi', 'sebaran', 'health', 'opname', 'stats', 'recentUsers');
+            return compact('kpi', 'sebaran', 'health', 'opname', 'recentUsers');
         });
 
         return view('dashboard.admin', [
@@ -104,7 +96,6 @@ class AdminDashboardController extends Controller
             'sebaran' => collect($payload['sebaran']),
             'health' => $payload['health'],
             'opname' => $payload['opname'],
-            'stats' => $payload['stats'],
             'recentUsers' => collect($payload['recentUsers']),
             'userChart' => $chart->kotorVsBersih((int) config('dashboard.chart_days', 7)),
             'notifChart' => $chart->statusLinenDonut(),

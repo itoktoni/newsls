@@ -3,7 +3,6 @@
 /** @var \Illuminate\Support\Collection $sebaran */
 /** @var array $health */
 /** @var array $opname */
-/** @var array $stats */
 /** @var array $recentUsers */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $userChart */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $notifChart */
@@ -17,23 +16,18 @@ $badgeClass = fn (string $level) => match ($level) {
 
 <x-layouts::app :title="$title">
     <div class="content mt-4 lg:mt-0 space-y-4">
-        <div class="mb-2">
-            <h2 class="text-2xl font-bold text-on-surface">{{ $title }}</h2>
-        </div>
-
         <x-breadcrumb :items="[
-            ['url' => route('dashboard.admin'), 'label' => 'Dashboard Admin'],
+            ['url' => '/dashboard', 'label' => 'Home'],
+            ['url' => '', 'label' => 'Dashboard Admin'],
         ]" />
 
         <div>
             <p class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest mb-2">KPI Global</p>
             <x-stat-widget :items="[
-                ['value' => number_format($kpi['register']), 'label' => 'Register', 'icon_name' => 'app_registration', 'bg_color' => 'bg-primary/10', 'icon_color' => 'text-primary'],
                 ['value' => number_format($kpi['kotor']), 'label' => 'Kotor', 'icon_name' => 'local_laundry_service', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
-                ['value' => number_format($kpi['pending']), 'label' => 'Pending', 'icon_name' => 'pending_actions', 'bg_color' => 'bg-info/10', 'icon_color' => 'text-info'],
-                ['value' => number_format($kpi['bersih']), 'label' => 'Bersih', 'icon_name' => 'task_alt', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success'],
-                ['value' => number_format($kpi['outstanding']), 'label' => 'Outstanding', 'icon_name' => 'inventory', 'bg_color' => 'bg-primary/10', 'icon_color' => 'text-primary'],
                 ['value' => number_format($kpi['warehouse']), 'label' => 'Gudang', 'icon_name' => 'warehouse', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
+                ['value' => number_format($kpi['bersih']), 'label' => 'Bersih', 'icon_name' => 'task_alt', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success'],
+                ['value' => number_format($kpi['pending']), 'label' => 'Pending', 'icon_name' => 'pending_actions', 'bg_color' => 'bg-info/10', 'icon_color' => 'text-info'],
             ]" />
         </div>
 
@@ -62,16 +56,14 @@ $badgeClass = fn (string $level) => match ($level) {
             </x-card>
 
             <div class="space-y-4">
-                <x-card label="Data Kesehatan" icon="health_and_safety" :noGrid="true">
-                    <div class="grid grid-cols-2 gap-3">
+                <x-card label="Detail Linen" icon="inventory_2" :noGrid="true">
+                    <div class="grid grid-cols-3 gap-3">
                         @foreach ([
                             'rs' => 'Rumah Sakit',
-                            'jenis_linen' => 'Jenis Linen',
-                            'config_linen' => 'Config Linen',
-                            'outstanding' => 'Outstanding',
-                            'pending' => 'Pending',
+                            'jenis_linen' => 'Jenis',
+                            'ruangan' => 'Ruangan',
                         ] as $key => $label)
-                            <div class="border border-outline-variant rounded-xl p-3 bg-surface-container">
+                            <div class="border border-outline-variant rounded-xl p-3 bg-surface-container text-center">
                                 <p class="text-[10px] text-on-surface-variant uppercase tracking-wide">{{ $label }}</p>
                                 <p class="text-xl font-bold text-on-surface">{{ number_format($health[$key] ?? 0) }}</p>
                             </div>
@@ -101,44 +93,12 @@ $badgeClass = fn (string $level) => match ($level) {
             </div>
         </div>
 
-        <x-card label="System Overview" icon="analytics" :noGrid="true">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div class="bg-surface-container rounded-xl p-4">
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-primary">people</span>
-                        </div>
-                        <span class="text-xs font-semibold text-on-surface-variant uppercase">Total Users</span>
-                    </div>
-                    <span class="text-2xl font-bold text-primary">{{ $stats['total_users'] }}</span>
-                </div>
-                <div class="bg-surface-container rounded-xl p-4">
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-info">notifications</span>
-                        </div>
-                        <span class="text-xs font-semibold text-on-surface-variant uppercase">Notifications</span>
-                    </div>
-                    <span class="text-2xl font-bold text-info">{{ $stats['total_notifications'] }}</span>
-                </div>
-                <div class="bg-surface-container rounded-xl p-4">
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-warning">mark_email_unread</span>
-                        </div>
-                        <span class="text-xs font-semibold text-on-surface-variant uppercase">Unread</span>
-                    </div>
-                    <span class="text-2xl font-bold text-warning">{{ $stats['unread_notifications'] }}</span>
-                </div>
-            </div>
-
+        <x-card label="Dashboard Overview" icon="analytics" :noGrid="true">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
                 <div class="lg:col-span-2 min-w-0 overflow-hidden">
-                    <h4 class="font-semibold text-on-surface mb-2">Kotor vs Bersih (7 hari)</h4>
                     <div class="min-w-0">{!! $userChart->container() !!}</div>
                 </div>
                 <div class="min-w-0 overflow-hidden">
-                    <h4 class="font-semibold text-on-surface mb-2">Status Linen</h4>
                     <div class="min-w-0">{!! $notifChart->container() !!}</div>
                 </div>
             </div>
