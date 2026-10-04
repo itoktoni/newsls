@@ -286,14 +286,15 @@ it('report opname mutasi menghitung kolom harian dan saldo belum terbaca', funct
     $rows = $res->viewData('rows');
 
     expect($rows)->toHaveCount(3)
-        // hari-1: register 5, scan 2, belum = 5-2-0, masih proses 0,
-        // total 4 (2 terbaca + 2 belum terbaca yang tercatat di hari-1)
+        // hari-1: register 5, scan 2 (hanya BERSIH+ketemu), belum = 5-2,
+        // masih proses 0, total 4 (2 terbaca + 2 belum terbaca yang tercatat di hari-1)
         ->and($rows[0])->toMatchArray(['register' => 5, 'scan' => 2, 'belum' => 3, 'proses' => 0, 'total' => 4])
-        // hari-2: scan 1 (QC masih proses), belum = 3-1
-        ->and($rows[1])->toMatchArray(['scan' => 1, 'belum' => 2, 'proses' => 1, 'total' => 1])
+        // hari-2: MUT_3 KOTOR+QC+ketemu bukan scan (transaksi != BERSIH) tapi
+        // masih dihitung proses; belum = 3-0, total 1
+        ->and($rows[1])->toMatchArray(['scan' => 0, 'belum' => 3, 'proses' => 1, 'total' => 1])
         // hari-3: tidak ada aktivitas, saldo tetap
-        ->and($rows[2])->toMatchArray(['scan' => 0, 'belum' => 2, 'proses' => 0, 'total' => 0]);
+        ->and($rows[2])->toMatchArray(['scan' => 0, 'belum' => 3, 'proses' => 0, 'total' => 0]);
 
     // Total kolom TOTAL OPNAME = REGISTER (semua linen terdaftar terbagi habis ke hari-hari)
-    expect($res->viewData('sum'))->toMatchArray(['register' => 5, 'scan' => 3, 'belum' => 2, 'proses' => 1, 'total' => 5]);
+    expect($res->viewData('sum'))->toMatchArray(['register' => 5, 'scan' => 2, 'belum' => 3, 'proses' => 1, 'total' => 5]);
 });

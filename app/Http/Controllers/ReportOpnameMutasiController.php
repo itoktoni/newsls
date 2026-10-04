@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\BuildsOpnameReports;
 use App\Models\DetailLinen;
 use App\Models\OpnameDetail;
 use App\Models\Transaksi;
+use App\Enums\LinenStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -16,10 +17,13 @@ use Illuminate\Http\Request;
  * Definisi tiap kolom:
  * - REGISTER SAAT SO          : jumlah linen terdaftar di opname ini (kolom konstan,
  *                               sama untuk semua baris).
- * - SCAN LINEN TERBACA DI RS  : opname_detail ketemu = 1 yang opname_detail_waktu
- *                               (waktu scan) jatuh pada hari itu.
- * - BELUM TERBACA DI LAUNDRY  : saldo berjalan. Hari pertama = REGISTER - SCAN - PROSES,
- *                               hari berikutnya = saldo hari sebelumnya - SCAN hari itu.
+ * - TERBACA SAAT SO DI RS     : pivot opname_detail_waktu per hari — hanya yang
+ *                               opname_detail_transaksi = BERSIH dan
+ *                               opname_detail_ketemu = 1 pada hari itu.
+ * - BELUM TERBACA DI LAUNDRY  : saldo berjalan = REGISTER - kumulatif TERBACA.
+ *                               Setiap ada yang terbaca otomatis mengurangi kolom ini
+ *                               (mis. 100 -> 80 -> ... -> 0). Status selain BERSIH
+ *                               tetap tampil di sini sebagai yang belum di laundry.
  * - LINEN MASIH DALAM PROSES  : sudah ketemu tapi prosesnya belum selesai
  *                               (opname_detail_proses masih SCAN/QC/PACKING/PENDING).
  * - TOTAL OPNAME              : baris opname yang sudah terdaftar (transaksi tidak null)
@@ -90,13 +94,15 @@ class ReportOpnameMutasiController extends Controller
             $key = $hari->format('Y-m-d');
             $harian = $perHari->get($key) ?? collect();
 
-            $scan = $harian->where('opname_detail_ketemu', 1)->count();
+            $scan = $harian->where('opname_detail_ketemu', 1)
+                ->where('opname_detail_transaksi', LinenStatusEnum::BERSIH)
+                ->count();
             $proses = $harian->where('opname_detail_ketemu', 1)
                 ->whereIn('opname_detail_proses', self::PROSES_BERJALAN)
                 ->count();
             $total = $harian->whereNotNull('opname_detail_transaksi')->count();
 
-            $saldo = $saldo === null ? $register - $scan - $proses : $saldo - $scan;
+            $saldo = $saldo === null ? $register - $scan : $saldo - $scan;
 
             $rows[] = [
                 'no' => $no++,
