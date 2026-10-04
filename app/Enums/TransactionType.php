@@ -11,23 +11,21 @@ final class TransactionType extends Enum
 
     const KOTOR = 'KOTOR';
 
-    const REJECT = 'REJECT';
-
-    const REWASH = 'REWASH';
+    // const REJECT = 'REJECT';
+    // const REWASH = 'REWASH';
+    // const RETUR = self::REJECT;
 
     const BERSIH = 'BERSIH';
 
     const REGISTER = 'REGISTER';
 
-    // Alias UI: RETUR = REJECT (legacy nama)
-    const RETUR = self::REJECT;
 
     public static function getDescription(mixed $value): string
     {
         return match ($value) {
+            // self::REJECT, self::RETUR => 'Retur',
+            // self::REWASH => 'Rewash',
             self::KOTOR => 'Kotor',
-            self::REJECT, self::RETUR => 'Retur',
-            self::REWASH => 'Rewash',
             self::BERSIH => 'Bersih',
             self::REGISTER => 'Register',
             default => parent::getDescription($value),

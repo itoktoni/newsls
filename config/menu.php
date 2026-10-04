@@ -68,8 +68,8 @@ return [
             'items' => [
                 ['route' => 'report-rekap-kotor.getTable', 'icon' => 'summarize', 'label' => 'Rekap Kotor', 'match' => ['report-rekap-kotor.*']],
                 ['route' => 'report-rekap-bersih.getTable', 'icon' => 'summarize', 'label' => 'Rekap Bersih', 'match' => ['report-rekap-bersih.*']],
-                ['route' => 'report-rekap-retur.getTable', 'icon' => 'summarize', 'label' => 'Rekap Retur', 'match' => ['report-rekap-retur.*']],
-                ['route' => 'report-rekap-rewash.getTable', 'icon' => 'summarize', 'label' => 'Rekap Rewash', 'match' => ['report-rekap-rewash.*']],
+                //['route' => 'report-rekap-retur.getTable', 'icon' => 'summarize', 'label' => 'Rekap Retur', 'match' => ['report-rekap-retur.*']],
+                //['route' => 'report-rekap-rewash.getTable', 'icon' => 'summarize', 'label' => 'Rekap Rewash', 'match' => ['report-rekap-rewash.*']],
                 ['route' => 'report-kotor-vs-bersih.getTable', 'icon' => 'compare_arrows', 'label' => 'Kotor vs Bersih', 'match' => ['report-kotor-vs-bersih.*']],
                 ['route' => 'report-in-vs-out.getTable', 'icon' => 'compare_arrows', 'label' => 'In vs Out', 'match' => ['report-in-vs-out.*']],
             ],
@@ -78,8 +78,8 @@ return [
             'label' => 'Report Detail',
             'items' => [
                 ['route' => 'report-detail-kotor.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Kotor', 'match' => ['report-detail-kotor.*']],
-                ['route' => 'report-detail-retur.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Retur', 'match' => ['report-detail-retur.*']],
-                ['route' => 'report-detail-rewash.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Rewash', 'match' => ['report-detail-rewash.*']],
+                //['route' => 'report-detail-retur.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Retur', 'match' => ['report-detail-retur.*']],
+                //['route' => 'report-detail-rewash.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Rewash', 'match' => ['report-detail-rewash.*']],
             ],
         ],
         [
@@ -87,8 +87,8 @@ return [
             'items' => [
                 ['route' => 'report-detail-pengiriman-bersih.getTable', 'icon' => 'local_shipping', 'label' => 'Kirim Bersih', 'match' => ['report-detail-pengiriman-bersih.*']],
                 ['route' => 'report-detail-pengiriman-retur.getTable', 'icon' => 'local_shipping', 'label' => 'Kirim Retur', 'match' => ['report-detail-pengiriman-retur.*']],
-                ['route' => 'report-detail-pengiriman-rewash.getTable', 'icon' => 'local_shipping', 'label' => 'Kirim Rewash', 'match' => ['report-detail-pengiriman-rewash.*']],
-                ['route' => 'report-detail-pengiriman-linen-baru.getTable', 'icon' => 'local_shipping', 'label' => 'Kirim Baru', 'match' => ['report-detail-pengiriman-linen-baru.*']],
+                //['route' => 'report-detail-pengiriman-rewash.getTable', 'icon' => 'local_shipping', 'label' => 'Kirim Rewash', 'match' => ['report-detail-pengiriman-rewash.*']],
+                //['route' => 'report-detail-pengiriman-linen-baru.getTable', 'icon' => 'local_shipping', 'label' => 'Kirim Baru', 'match' => ['report-detail-pengiriman-linen-baru.*']],
             ],
         ],
         [
@@ -108,8 +108,8 @@ return [
             'label' => 'Report Summary',
             'items' => [
                 ['route' => 'report-summary-pengiriman-bersih.getTable', 'icon' => 'summarize', 'label' => 'Summary Bersih', 'match' => ['report-summary-pengiriman-bersih.*']],
-                ['route' => 'report-summary-pengiriman-retur.getTable', 'icon' => 'summarize', 'label' => 'Summary Retur', 'match' => ['report-summary-pengiriman-retur.*']],
-                ['route' => 'report-summary-pengiriman-rewash.getTable', 'icon' => 'summarize', 'label' => 'Summary Rewash', 'match' => ['report-summary-pengiriman-rewash.*']],
+                //['route' => 'report-summary-pengiriman-retur.getTable', 'icon' => 'summarize', 'label' => 'Summary Retur', 'match' => ['report-summary-pengiriman-retur.*']],
+                //['route' => 'report-summary-pengiriman-rewash.getTable', 'icon' => 'summarize', 'label' => 'Summary Rewash', 'match' => ['report-summary-pengiriman-rewash.*']],
                 ['route' => 'report-summary-pengiriman-linen-baru.getTable', 'icon' => 'summarize', 'label' => 'Summary Baru', 'match' => ['report-summary-pengiriman-linen-baru.*']],
                 ['route' => 'report-summary-pelunasan.getTable', 'icon' => 'summarize', 'label' => 'Summary Pelunasan', 'match' => ['report-summary-pelunasan.*']],
                 ['route' => 'report-invoice.getTable', 'icon' => 'receipt', 'label' => 'Invoice', 'match' => ['report-invoice.*']],
