@@ -108,7 +108,7 @@ it('opname capture, sync, dan semua report opname', function () {
     $print('/report-opname-summary/print')->assertSee('REPORT OPNAME SUMMARY')->assertSee('Total Snapshot');
     $print('/report-opname-hilang/print')->assertSee('BELUM TERBACA');
     $print('/report-opname-hilang-warehouse/print')->assertSee('WAREHOUSE');
-    $print('/report-opname-mutasi/print')->assertSee('REPORT OPNAME MUTASI')->assertSee('BELUM')->assertSee('TOTAL OPNAME');
+    $print('/report-opname-mutasi/print')->assertSee('REPORT OPNAME MUTASI')->assertSee('TERBACA')->assertSee('TOTAL OPNAME');
     $this->actingAs($this->admin)->get('/report-rekap-opname/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
     $this->actingAs($this->admin)->get('/report-opname-detail/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
     $this->actingAs($this->admin)->get('/report-opname-summary/export-excel?opname_id='.$opname->opname_id)->assertOk()->assertHeader('Content-Disposition');
@@ -286,15 +286,14 @@ it('report opname mutasi menghitung kolom harian dan saldo belum terbaca', funct
     $rows = $res->viewData('rows');
 
     expect($rows)->toHaveCount(3)
-        // hari-1: register 5, scan 2 (hanya BERSIH+ketemu), belum = 5-2,
+        // hari-1: register 5, scan 2 (hanya BERSIH+ketemu), laundry 0,
         // masih proses 0, total 4 (2 terbaca + 2 belum terbaca yang tercatat di hari-1)
-        ->and($rows[0])->toMatchArray(['register' => 5, 'scan' => 2, 'belum' => 3, 'proses' => 0, 'total' => 4])
-        // hari-2: MUT_3 KOTOR+QC+ketemu bukan scan (transaksi != BERSIH) tapi
-        // masih dihitung proses; belum = 3-0, total 1
-        ->and($rows[1])->toMatchArray(['scan' => 0, 'belum' => 3, 'proses' => 1, 'total' => 1])
-        // hari-3: tidak ada aktivitas, saldo tetap
-        ->and($rows[2])->toMatchArray(['scan' => 0, 'belum' => 3, 'proses' => 0, 'total' => 0]);
+        ->and($rows[0])->toMatchArray(['register' => 5, 'scan' => 2, 'laundry' => 0, 'proses' => 0, 'total' => 4])
+        // hari-2: MUT_3 KOTOR+QC+ketemu bukan scan tapi masuk laundry + proses
+        ->and($rows[1])->toMatchArray(['scan' => 0, 'laundry' => 1, 'proses' => 1, 'total' => 1])
+        // hari-3: tidak ada aktivitas
+        ->and($rows[2])->toMatchArray(['scan' => 0, 'laundry' => 0, 'proses' => 0, 'total' => 0]);
 
     // Total kolom TOTAL OPNAME = REGISTER (semua linen terdaftar terbagi habis ke hari-hari)
-    expect($res->viewData('sum'))->toMatchArray(['register' => 5, 'scan' => 2, 'belum' => 3, 'proses' => 1, 'total' => 5]);
+    expect($res->viewData('sum'))->toMatchArray(['register' => 5, 'scan' => 2, 'laundry' => 1, 'proses' => 1, 'total' => 5]);
 });

@@ -20,10 +20,10 @@ use Illuminate\Http\Request;
  * - TERBACA SAAT SO DI RS     : pivot opname_detail_waktu per hari — hanya yang
  *                               opname_detail_transaksi = BERSIH dan
  *                               opname_detail_ketemu = 1 pada hari itu.
- * - BELUM TERBACA DI LAUNDRY  : saldo berjalan = REGISTER - kumulatif TERBACA.
- *                               Setiap ada yang terbaca otomatis mengurangi kolom ini
- *                               (mis. 100 -> 80 -> ... -> 0). Status selain BERSIH
- *                               tetap tampil di sini sebagai yang belum di laundry.
+ * - TERBACA DI LAUNDRY          : pivot opname_detail_waktu per hari — hanya yang
+ *                               opname_detail_transaksi != BERSIH (KOTOR/REJECT/
+ *                               REWASH, masih dalam proses laundry) dan
+ *                               opname_detail_ketemu = 1 pada hari itu.
  * - LINEN MASIH DALAM PROSES  : sudah ketemu tapi prosesnya belum selesai
  *                               (opname_detail_proses masih SCAN/QC/PACKING/PENDING).
  * - TOTAL OPNAME              : baris opname yang sudah terdaftar (transaksi tidak null)
@@ -88,28 +88,27 @@ class ReportOpnameMutasiController extends Controller
 
         $rows = [];
         $no = 1;
-        $saldo = null;
 
         for ($hari = $mulai->copy(); $hari->lte($selesai); $hari->addDay()) {
             $key = $hari->format('Y-m-d');
             $harian = $perHari->get($key) ?? collect();
 
-            $scan = $harian->where('opname_detail_ketemu', 1)
-                ->where('opname_detail_transaksi', LinenStatusEnum::BERSIH)
+            $ketemu = $harian->where('opname_detail_ketemu', 1);
+            $scan = $ketemu->where('opname_detail_transaksi', LinenStatusEnum::BERSIH)->count();
+            $laundry = $ketemu->whereNotNull('opname_detail_transaksi')
+                ->where('opname_detail_transaksi', '<>', LinenStatusEnum::BERSIH)
                 ->count();
-            $proses = $harian->where('opname_detail_ketemu', 1)
+            $proses = $ketemu
                 ->whereIn('opname_detail_proses', self::PROSES_BERJALAN)
                 ->count();
             $total = $harian->whereNotNull('opname_detail_transaksi')->count();
-
-            $saldo = $saldo === null ? $register - $scan : $saldo - $scan;
 
             $rows[] = [
                 'no' => $no++,
                 'tanggal' => $hari->format('d/m/Y'),
                 'register' => $register,
                 'scan' => $scan,
-                'belum' => $saldo,
+                'laundry' => $laundry,
                 'proses' => $proses,
                 'total' => $total,
                 'berchip' => (int) ($berchip[$key] ?? 0),
@@ -122,7 +121,7 @@ class ReportOpnameMutasiController extends Controller
             'sum' => [
                 'register' => $register,
                 'scan' => array_sum(array_column($rows, 'scan')),
-                'belum' => $saldo,
+                'laundry' => array_sum(array_column($rows, 'laundry')),
                 'proses' => array_sum(array_column($rows, 'proses')),
                 'total' => array_sum(array_column($rows, 'total')),
                 'berchip' => array_sum(array_column($rows, 'berchip')),

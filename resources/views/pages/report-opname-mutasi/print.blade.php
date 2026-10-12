@@ -51,19 +51,16 @@
     <table class="data">
         <thead>
             <tr>
-                <th rowspan="3" width="1">No.</th>
-                <th rowspan="3">TANGGAL</th>
-                <th rowspan="3">REGISTER<br>SAAT SO</th>
+                <th rowspan="2" width="1">No.</th>
+                <th rowspan="2">TANGGAL</th>
+                <th rowspan="2">REGISTER<br>SAAT SO</th>
                 <th colspan="2">SCAN LINEN</th>
-                <th rowspan="3">LINEN MASIH<br>DALAM PROSES</th>
-                <th rowspan="3">TOTAL OPNAME</th>
-                <th rowspan="3">LINEN BERCHIP<br>YANG TIDAK<br>TERINDENTIFIKASI</th>
+                <th rowspan="2">LINEN MASIH<br>DALAM PROSES</th>
+                <th rowspan="2">TOTAL OPNAME</th>
+                <th rowspan="2">LINEN BERCHIP<br>YANG TIDAK<br>TERINDENTIFIKASI</th>
             </tr>
             <tr>
-                <th rowspan="2">TERBACA<br>SAAT SO DI RS</th>
-                <th>BELUM</th>
-            </tr>
-            <tr>
+                <th>TERBACA<br>SAAT SO DI RS</th>
                 <th>TERBACA<br>DI LAUNDRY</th>
             </tr>
         </thead>
@@ -74,7 +71,7 @@
                 <td>{{ $row['tanggal'] }}</td>
                 <td class="num">{{ number_format($row['register']) }}</td>
                 <td class="num">{{ number_format($row['scan']) }}</td>
-                <td class="num">{{ number_format($row['belum']) }}</td>
+                <td class="num">{{ number_format($row['laundry']) }}</td>
                 <td class="num">{{ number_format($row['proses']) }}</td>
                 <td class="num">{{ number_format($row['total']) }}</td>
                 <td class="num">{{ number_format($row['berchip']) }}</td>
@@ -87,7 +84,7 @@
                 <td colspan="2">Total</td>
                 <td class="num">{{ number_format($sum['register']) }}</td>
                 <td class="num">{{ number_format($sum['scan']) }}</td>
-                <td class="num">{{ number_format($sum['belum']) }}</td>
+                <td class="num">{{ number_format($sum['laundry']) }}</td>
                 <td class="num">{{ number_format($sum['proses']) }}</td>
                 <td class="num">{{ number_format($sum['total']) }}</td>
                 <td class="num">{{ number_format($sum['berchip']) }}</td>

@@ -16,7 +16,7 @@
                                 <th class="py-2 pr-3">Tanggal</th>
                                 <th class="py-2 pr-3 text-right">Register Saat SO</th>
                                 <th class="py-2 pr-3 text-right">Scan Linen Terbaca</th>
-                                <th class="py-2 pr-3 text-right">Belum Terbaca di Laundry</th>
+                                <th class="py-2 pr-3 text-right">Terbaca di Laundry</th>
                                 <th class="py-2 pr-3 text-right">Linen Masih Dalam Proses</th>
                                 <th class="py-2 pr-3 text-right">Total Opname</th>
                                 <th class="py-2 pr-3 text-right">Linen Berchip Tidak Teridentifikasi</th>
@@ -29,7 +29,7 @@
                                     <td class="py-2 pr-3 whitespace-nowrap">{{ $row['tanggal'] }}</td>
                                     <td class="py-2 pr-3 text-right">{{ number_format($row['register']) }}</td>
                                     <td class="py-2 pr-3 text-right">{{ number_format($row['scan']) }}</td>
-                                    <td class="py-2 pr-3 text-right font-semibold">{{ number_format($row['belum']) }}</td>
+                                    <td class="py-2 pr-3 text-right font-semibold">{{ number_format($row['laundry']) }}</td>
                                     <td class="py-2 pr-3 text-right">{{ number_format($row['proses']) }}</td>
                                     <td class="py-2 pr-3 text-right">{{ number_format($row['total']) }}</td>
                                     <td class="py-2 pr-3 text-right">{{ number_format($row['berchip']) }}</td>
@@ -39,7 +39,7 @@
                                 <td class="py-2 pr-3" colspan="2">Total</td>
                                 <td class="py-2 pr-3 text-right">{{ number_format($sum['register']) }}</td>
                                 <td class="py-2 pr-3 text-right">{{ number_format($sum['scan']) }}</td>
-                                <td class="py-2 pr-3 text-right">{{ number_format($sum['belum']) }}</td>
+                                <td class="py-2 pr-3 text-right">{{ number_format($sum['laundry']) }}</td>
                                 <td class="py-2 pr-3 text-right">{{ number_format($sum['proses']) }}</td>
                                 <td class="py-2 pr-3 text-right">{{ number_format($sum['total']) }}</td>
                                 <td class="py-2 pr-3 text-right">{{ number_format($sum['berchip']) }}</td>
