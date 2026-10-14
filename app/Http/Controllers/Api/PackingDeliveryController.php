@@ -146,9 +146,12 @@ class PackingDeliveryController extends Controller
             $this->updateOutstandingToPacking($input, $date, $userId);
             $this->insertBersihPacking($input, $code, $date, $userId);
             $this->insertCetakPacking($input, $code, $userName);
-            $this->logPacking($input, $code);
 
-            $report = $this->buildPackingReport($input, $code, $date, $userName);
+            // ponytail: SATU fetch detail dipakai log + report (dulu 2 query).
+            $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $input['rfids'])->get();
+            $this->logPacking($input, $code, $details->keyBy('detail_rfid'), $date);
+
+            $report = $this->buildPackingReport($input, $code, $date, $userName, $details);
 
             DB::commit();
             DashboardCache::flush();
@@ -178,20 +181,28 @@ class PackingDeliveryController extends Controller
 
     private function insertBersihPacking(array $input, string $code, string $date, $userId): void
     {
+        // ponytail: bulk insert per chunk, bukan 1 query per RFID (N roundtrip).
+        $status = $this->bersihStatus($input['status']);
+        $barcode = strtoupper($code);
+        $rows = [];
         foreach ($input['rfids'] as $rfid) {
-            DB::table('bersih')->insert([
+            $rows[] = [
                 'bersih_rfid' => $rfid,
-                'bersih_status' => $this->bersihStatus($input['status']),
+                'bersih_status' => $status,
                 'bersih_id_rs' => $input['rsId'],
                 'bersih_id_ruangan' => $input['ruanganId'],
-                'bersih_barcode' => strtoupper($code),
+                'bersih_barcode' => $barcode,
                 'bersih_delivery' => null,
                 'bersih_created_at' => $date,
                 'bersih_updated_at' => $date,
                 'bersih_created_by' => $userId,
                 'bersih_updated_by' => $userId,
                 'bersih_report' => null,
-            ]);
+            ];
+        }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table('bersih')->insert($chunk);
         }
     }
 
@@ -219,28 +230,64 @@ class PackingDeliveryController extends Controller
         ]);
     }
 
-    private function logPacking(array $input, string $code): void
+    /**
+     * Bulk insert activity_log per chunk 500 — baris IDENTIK dengan
+     * activity()->log() per RFID (granularitas utuh, filter per-RFID jalan),
+     * tanpa N roundtrip. Kegagalan log ditelan (tidak boleh rollback transaksi).
+     *
+     * $items[] = ['description' => str, 'subject' => ?Model, 'properties' => array]
+     */
+    private function bulkActivityLog(string $logName, array $items, $causer, string $now): void
     {
-        // ponytail: 1 log per RFID (subject = DetailLinen) agar terlacak
-        // di filter RFID activity-log, bukan 1 log batch.
         try {
-            $subjects = DetailLinen::whereIn('detail_rfid', $input['rfids'])->get()->keyBy('detail_rfid');
-            foreach ($input['rfids'] as $rfid) {
-                $log = activity(LogType::PACKING)
-                    ->causedBy(auth()->user())
-                    ->withProperties(['rfid' => $rfid, 'rs_id' => $input['rsId'], 'code' => $code]);
-                if ($subjects->has($rfid)) {
-                    $log->performedOn($subjects->get($rfid));
-                }
-                $log->log("Packing RFID {$rfid} ke RS {$input['rsId']} ({$code})");
+            if (empty($items)) {
+                return;
+            }
+
+            $causerType = $causer ? $causer->getMorphClass() : null;
+            $causerId = $causer ? $causer->getKey() : null;
+
+            $rows = [];
+            foreach ($items as $item) {
+                $subject = $item['subject'] ?? null;
+                $rows[] = [
+                    'log_name' => $logName,
+                    'description' => $item['description'],
+                    'subject_type' => $subject ? $subject->getMorphClass() : null,
+                    'subject_id' => $subject ? $subject->getKey() : null,
+                    'event' => null,
+                    'causer_type' => $causerType,
+                    'causer_id' => $causerId,
+                    'properties' => json_encode($item['properties'] ?? []),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($rows, 500) as $chunk) {
+                DB::table('activity_log')->insert($chunk);
             }
         } catch (\Throwable $e) {
         }
     }
 
-    private function buildPackingReport(array $input, string $code, string $date, string $userName): array
+    private function logPacking(array $input, string $code, $subjects, string $date): void
     {
-        $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $input['rfids'])->get();
+        // ponytail: 1 log per RFID (subject = DetailLinen) agar terlacak
+        // di filter RFID activity-log, bukan 1 log batch.
+        $items = [];
+        foreach ($input['rfids'] as $rfid) {
+            $items[] = [
+                'description' => "Packing RFID {$rfid} ke RS {$input['rsId']} ({$code})",
+                'subject' => $subjects->has($rfid) ? $subjects->get($rfid) : null,
+                'properties' => ['rfid' => $rfid, 'rs_id' => $input['rsId'], 'code' => $code],
+            ];
+        }
+        $this->bulkActivityLog(LogType::PACKING, $items, auth()->user(), $date);
+    }
+
+    private function buildPackingReport(array $input, string $code, string $date, string $userName, $details): array
+    {
         $grouped = $details->groupBy(fn ($item) => $item->detail_id_jenis.'#'.$item->detail_id_ruangan);
 
         $report = [];
@@ -347,17 +394,23 @@ class PackingDeliveryController extends Controller
         try {
             $code = $this->generateDeliveryCode($input);
             [$date, $reportDate] = $this->calculateReportDate();
-            $rfids = $this->collectPackingRfids($input);
+            // ponytail: SATU fetch outstanding dipakai ulang (dulu 3 query
+            // berulang: collect pluck + updateDetailRuangan get + count).
+            $packingRows = $this->collectPackingRows($input);
+            $rfids = $packingRows->pluck('outstanding_rfid')->all();
 
-            $this->updateDetailRuangan($input, $rfids);
+            $this->updateDetailRuangan($packingRows);
             $this->updateDetailsToBersih($input, $rfids, $date, $reportDate);
             $this->insertCetakDelivery($input, $code, $rfids);
             $this->updateBersihRows($input, $code, $rfids, $date, $reportDate);
             $this->deleteOutstanding($rfids);
             $this->updatePending($input, $rfids, $code, $reportDate);
-            $this->logDelivery($input, $code, $rfids);
 
-            $report = $this->buildDeliveryReport($input, $code, $rfids, $reportDate);
+            // ponytail: SATU fetch detail dipakai log + report (dulu 2 query).
+            $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $rfids)->get();
+            $this->logDelivery($input, $code, $rfids, $details->keyBy('detail_rfid'), $date->format('Y-m-d H:i:s'));
+
+            $report = $this->buildDeliveryReport($input, $code, $rfids, $reportDate, $details);
 
             DB::commit();
             DashboardCache::flush();
@@ -395,21 +448,20 @@ class PackingDeliveryController extends Controller
 
     // allow CarbonImmutable (now() di Laravel 13 bisa CarbonImmutable)
 
-    private function collectPackingRfids(array $input): array
+    /**
+     * @return \Illuminate\Support\Collection<int,Outstanding> baris PACKING siap delivery.
+     */
+    private function collectPackingRows(array $input)
     {
         return Outstanding::where('outstanding_rs_scan', $input['rsId'])
             ->where('outstanding_status_proses', 'PACKING')
             ->where('outstanding_status_transaksi', $input['status'])
-            ->pluck('outstanding_rfid')->all();
+            ->get();
     }
 
-    private function updateDetailRuangan(array $input, array $rfids): void
+    private function updateDetailRuangan($packingRows): void
     {
-        $grouped = Outstanding::where('outstanding_rs_scan', $input['rsId'])
-            ->where('outstanding_status_proses', 'PACKING')
-            ->where('outstanding_status_transaksi', $input['status'])
-            ->get()->groupBy('outstanding_id_ruangan');
-        foreach ($grouped as $locId => $items) {
+        foreach ($packingRows->groupBy('outstanding_id_ruangan') as $locId => $items) {
             DetailLinen::whereIn('detail_rfid', $items->pluck('outstanding_rfid')->all())->update(['detail_id_ruangan' => $locId]);
         }
     }
@@ -483,28 +535,23 @@ class PackingDeliveryController extends Controller
         }
     }
 
-    private function logDelivery(array $input, string $code, array $rfids): void
+    private function logDelivery(array $input, string $code, array $rfids, $subjects, string $date): void
     {
         // ponytail: 1 log per RFID (subject = DetailLinen) agar terlacak
         // di filter RFID activity-log, bukan 1 log batch.
-        try {
-            $subjects = DetailLinen::whereIn('detail_rfid', $rfids)->get()->keyBy('detail_rfid');
-            foreach ($rfids as $rfid) {
-                $log = activity(LogType::DELIVERY)
-                    ->causedBy(auth()->user())
-                    ->withProperties(['rfid' => $rfid, 'rs_id' => $input['rsId'], 'code' => $code]);
-                if ($subjects->has($rfid)) {
-                    $log->performedOn($subjects->get($rfid));
-                }
-                $log->log("Delivery {$code} RFID {$rfid}");
-            }
-        } catch (\Throwable $e) {
+        $items = [];
+        foreach ($rfids as $rfid) {
+            $items[] = [
+                'description' => "Delivery {$code} RFID {$rfid}",
+                'subject' => $subjects->has($rfid) ? $subjects->get($rfid) : null,
+                'properties' => ['rfid' => $rfid, 'rs_id' => $input['rsId'], 'code' => $code],
+            ];
         }
+        $this->bulkActivityLog(LogType::DELIVERY, $items, auth()->user(), $date);
     }
 
-    private function buildDeliveryReport(array $input, string $code, array $rfids, $reportDate): array
+    private function buildDeliveryReport(array $input, string $code, array $rfids, $reportDate, $details): array
     {
-        $details = DetailLinen::with(['hasJenis', 'hasRs', 'hasRuangan'])->whereIn('detail_rfid', $rfids)->get();
         $grouped = $details->groupBy(fn ($item) => $item->detail_id_jenis.'#'.$item->detail_id_ruangan);
 
         $report = [];
@@ -642,8 +689,12 @@ class PackingDeliveryController extends Controller
         }
         $q = Outstanding::query()->where('outstanding_rs_scan', $rsid)->where('outstanding_id_ruangan', $ruangan)->where('outstanding_status_transaksi', $transaksi);
         if ($jenis && $jenis != 0) {
-            $rfids = DetailLinen::where('detail_id_jenis', $jenis)->pluck('detail_rfid')->all();
-            $q->whereIn('outstanding_rfid', $rfids);
+            // ponytail: whereExists di DB, bukan pluck ribuan RFID ke memori PHP.
+            $q->whereExists(function ($sub) use ($jenis) {
+                $sub->select(DB::raw('1'))->from('detail_linen')
+                    ->whereColumn('detail_linen.detail_rfid', 'outstanding.outstanding_rfid')
+                    ->where('detail_linen.detail_id_jenis', $jenis);
+            });
         }
         $count = $q->count();
 

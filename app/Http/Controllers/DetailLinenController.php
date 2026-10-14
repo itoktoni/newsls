@@ -154,6 +154,10 @@ class DetailLinenController extends Controller
                     'ganti_rfid_baru' => $newRfid,
                     'ganti_tanggal' => now(),
                     'ganti_by' => auth()->id(),
+                    // Status terakhir dari outstanding lama (fallback BERSIH).
+                    'ganti_keterangan' => DB::table('outstanding')
+                        ->where('outstanding_rfid', (string) $id)
+                        ->value('outstanding_status_transaksi') ?? 'BERSIH',
                 ]);
 
                 $this->logGantiChip((string) $id, $newRfid, $counts, $payload['data'] ?? null);

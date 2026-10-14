@@ -14,8 +14,10 @@ it('exposes exactly the expected API route surface', function () {
 
     // ponytail: kontrak diperbarui — surface API mencakup CMS, transaksi RFID
     // (kotor/retur/rewash/register/packing/delivery), master data rs, opname,
-    // dan totals. CRUD user via API SENGAJA tidak ada (keputusan keamanan —
-    // lihat komentar di routes/api.php); kelola user hanya via web /user/*.
+    // totals, dan Ganti Pending (detail/{rfid} + ganti-pending untuk desktop
+    // tab Ganti Pending). CRUD user via API SENGAJA tidak ada (keputusan
+    // keamanan — lihat komentar di routes/api.php); kelola user hanya via
+    // web /user/*.
     expect($apiUris)->toBe([
         'api/cms/content-type/{slug}',
         'api/cms/content-type/{slug}/blueprint',
@@ -25,7 +27,9 @@ it('exposes exactly the expected API route surface', function () {
         'api/delivery',
         'api/delivery/{code}',
         'api/detail/rfid',
+        'api/detail/{rfid}',
         'api/download/{rsid}',
+        'api/ganti-pending',
         'api/grouping/{rfid}',
         'api/kotor',
         'api/list/delivery/{rsid}',

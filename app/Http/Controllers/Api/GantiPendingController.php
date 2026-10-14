@@ -193,12 +193,18 @@ class GantiPendingController extends Controller
                 'transaksi_updated_by' => $userId,
             ]);
 
+            // Status terakhir dari outstanding lama (fallback BERSIH bila tak ada).
+            $statusTerakhir = DB::table('outstanding')
+                ->where('outstanding_rfid', $lama)
+                ->value('outstanding_status_transaksi') ?? 'BERSIH';
+
             // Histori rantai A→B (dipakai ReportPenggantianLinen + forRfid).
             GantiChip::create([
                 'ganti_rfid_lama' => $lama,
                 'ganti_rfid_baru' => $baru,
                 'ganti_tanggal' => now(),
                 'ganti_by' => $userId,
+                'ganti_keterangan' => $statusTerakhir,
             ]);
 
             $this->log($lama, $baru, $outstandingUpdated, $transaksiUpdated);
@@ -207,6 +213,7 @@ class GantiPendingController extends Controller
                 'rfid_lama' => $lama,
                 'rfid_baru' => $baru,
                 'ganti_status' => $gantiStatus,
+                'status_terakhir' => $statusTerakhir,
                 'ganti_transaksi_id' => $ganti->transaksi_id,
                 'ganti_transaksi_key' => $ganti->transaksi_key,
                 'outstanding_lama_parkir' => $parkirLama,
