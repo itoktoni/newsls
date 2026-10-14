@@ -17,6 +17,79 @@ class DetailApiController extends Controller
      * Kontrak legacy andalan: satu item per RFID yang diminta, urutannya mengikuti
      * input, dan RFID yang tidak dikenal tetap dikembalikan dengan nilai null.
      */
+    /**
+     * GET /api/detail/{rfid} — lookup SATU RFID dari detail_linen.
+     *
+     * Dipakai tab desktop "Ganti Pending": textbox RFID lama + RFID pengganti
+     * di-Enter/d scan -> tampilkan Jenis Linen + RS tanpa clear.
+     * Shape data SAMA persis dengan satu item POST /api/detail/rfid
+     * supaya desktop bisa pakai satu DTO.
+     */
+    public function show(string $rfid)
+    {
+        $rfid = trim($rfid);
+
+        if ($rfid === '') {
+            return Notes::error(null, 'RFID tidak boleh kosong.');
+        }
+
+        $row = DB::table('detail_linen')
+            ->leftJoin('outstanding', 'detail_linen.detail_rfid', '=', 'outstanding.outstanding_rfid')
+            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->leftJoin('jenis_bahan', 'jenis_bahan.bahan_id', '=', 'detail_linen.detail_id_bahan')
+            ->leftJoin('supplier', 'supplier.supplier_id', '=', 'detail_linen.detail_id_supplier')
+            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
+            ->leftJoin('rs', 'rs.rs_id', '=', 'detail_linen.detail_id_rs')
+            ->leftJoin('users', 'users.id', '=', 'detail_linen.detail_updated_by')
+            ->where('detail_linen.detail_rfid', $rfid)
+            ->select([
+                'detail_linen.*',
+                'outstanding.outstanding_status_transaksi',
+                'outstanding.outstanding_status_proses',
+                'jenis_linen.jenis_nama',
+                'jenis_bahan.bahan_nama',
+                'supplier.supplier_nama',
+                'ruangan.ruangan_nama',
+                'rs.rs_nama',
+                'users.name as user_nama',
+            ])
+            ->first();
+
+        if ($row === null) {
+            return Notes::error($rfid, 'RFID '.$rfid.' tidak ditemukan di detail_linen.');
+        }
+
+        // Ganti Pending: RFID lama yang belum ada di outstanding = belum ada
+        // transaksi kotor — desktop menginfokannya saat lookup.
+        $diOutstanding = DB::table('outstanding')->where('outstanding_rfid', $rfid)->exists();
+
+        return Notes::single([
+            'rfid' => $rfid,
+            'jenis_id' => $row->detail_id_jenis,
+            'jenis_nama' => $row->jenis_nama ?? '',
+            'bahan_id' => $row->detail_id_bahan,
+            'bahan_nama' => $row->bahan_nama ?? '',
+            'supplier_id' => $row->detail_id_supplier,
+            'supplier_nama' => $row->supplier_nama ?? '',
+            'rs_id' => $row->detail_id_rs ?? '',
+            'rs_nama' => $row->rs_nama ?? '',
+            'ruangan_id' => $row->detail_id_ruangan,
+            'ruangan_nama' => $row->ruangan_nama ?? '',
+            'status_register' => $row->detail_status_register,
+            'status_cuci' => $row->detail_status_cuci,
+            'status_transaksi' => $row->outstanding_status_transaksi ?? TransactionType::BERSIH,
+            'status_proses' => $row->outstanding_status_proses ?? TransactionType::BERSIH,
+            'tanggal_create' => $row->detail_created_at ? Carbon::parse($row->detail_created_at)->format('Y-m-d') : null,
+            'tanggal_update' => $row->detail_updated_at ? Carbon::parse($row->detail_updated_at)->format('Y-m-d') : null,
+            'pemakaian' => $row->detail_total_bersih ?? 0,
+            'user_nama' => $row->user_nama,
+            'di_outstanding' => $diOutstanding,
+            // Mentah apa adanya (null bila belum ada baris outstanding) —
+            // dipakai label_pending_status desktop.
+            'outstanding_status_transaksi' => $row->outstanding_status_transaksi,
+        ]);
+    }
+
     public function rfid(Request $request)
     {
         $request->validate([

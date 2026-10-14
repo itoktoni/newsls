@@ -30,6 +30,8 @@ class Transaksi extends BaseModel
         'transaksi_created_by',
         'transaksi_updated_at',
         'transaksi_updated_by',
+        'transaksi_ganti_rfid',
+        'transaksi_ganti_status',
     ];
 
     const CREATED_AT = 'transaksi_created_at';

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\CuciEnum;
+use App\Enums\GantiStatusEnum;
 use App\Enums\RegisterEnum;
 use App\Http\Controllers\Controller;
 use App\Models\JenisBahan;
@@ -28,6 +29,8 @@ class ConfigurationController extends Controller
             'status_transaksi' => self::statusList(['KOTOR', 'REJECT', 'REWASH', 'BERSIH', 'REGISTER']),
             'status_cuci' => self::statusList([CuciEnum::CUCI, CuciEnum::RENTAL]),
             'status_register' => self::statusList([RegisterEnum::REGISTER, RegisterEnum::GANTI_CHIP]),
+            // Ganti Pending: sumber combo_box_pending_status desktop (diubah via web).
+            'status_ganti' => self::statusList(GantiStatusEnum::getValues()),
         ]);
     }
 

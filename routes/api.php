@@ -74,6 +74,10 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     Route::get('rs/{rsid}', [RsApiController::class, 'detail'])->name('api.rs_detail');
 
     Route::post('detail/rfid', [DetailApiController::class, 'rfid'])->name('api.detail.rfid');
+    // Ganti Pending: lookup satu RFID dari detail_linen (RFID lama + pengganti).
+    Route::get('detail/{rfid}', [DetailApiController::class, 'show'])->name('api.detail.show');
+    // Ganti Pending: validasi RS+jenis sama lalu swap RFID di outstanding + transaksi.
+    Route::post('ganti-pending', \App\Http\Controllers\Api\GantiPendingController::class)->name('api.ganti_pending');
 
     // =====================================================================
     // 3. REGISTER — registrasi linen massal + dropdown + grouping QC.
