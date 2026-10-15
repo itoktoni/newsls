@@ -1,7 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SUMMARY PELUNASAN PER JENIS - {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</title>
     <style>
         body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; margin: 20px; }
@@ -15,13 +16,14 @@
         table.data tfoot td { font-weight: bold; background: #eee; }
         .footer { width: 100%; margin-top: 20px; border: 0; }
         .print-date, .print-person { text-align: right; }
-        .no-print { margin-bottom: 12px; }
+        .no-print.action-bar { position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;gap:8px; }
+        @media (max-width:640px) { .no-print.action-bar { top:auto;bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#fff;box-shadow:0 -2px 12px rgba(0,0,0,.15); } .no-print.action-bar button, .no-print.action-bar a { flex:1;text-align:center; } }
         @media print { .no-print { display: none !important; } }
     </style>
 </head>
 <body>
 
-<div class="no-print" style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;gap:8px;">
+<div class="no-print action-bar">
     <button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);">Cetak / Simpan PDF</button>
     <a href="{{ route('report-summary-pelunasan.getExportExcel', request()->query()) }}" style="padding:8px 20px;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);background:#16a34a;color:#fff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;">Export Excel</a>
 </div>

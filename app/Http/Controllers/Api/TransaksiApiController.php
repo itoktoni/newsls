@@ -78,14 +78,10 @@ class TransaksiApiController extends Controller
 
             $return = $this->buildReturn($ctx, $statusTransaksi, $statusProcess, $rows['transaksi']);
 
-            // andalan: kalau semua RFID status_sync == 0 (No) berarti tidak ada yang di-sync.
-            if (collect($return)->where('status_sync', '!=', 0)->count() === 0) {
-                DB::commit();
-                DashboardCache::flush();
-
-                return Notes::error('Tidak Ada RFID yang di Sync !');
-            }
-
+            // Data per-RFID SELALU dikembalikan (termasuk status_sync 0 = sudah
+            // pernah di-sync) supaya desktop tahu nasib tiap RFID. Gate error
+            // andalan ('Tidak Ada RFID yang di Sync !') sengaja tidak dipakai
+            // karena Notes::error mengosongkan data menjadi [].
             DB::commit();
             DashboardCache::flush();
 
@@ -468,27 +464,18 @@ class TransaksiApiController extends Controller
                     ];
                 }
             } else {
-                if ($out) {
-                    $return[] = [
-                        'key' => $ctx['key'],
-                        'status_sync' => 0,
-                        'status_transaksi' => $out->outstanding_status_transaksi,
-                        'status_process' => $out->outstanding_status_proses,
-                        'rfid' => $rfid,
-                        'tanggal_update' => $ctx['now'],
-                    ];
-                } else {
-                    // RFID belum register — tiruan backup: tetap insert di atas,
-                    // tapi return Unknown (2) dengan status null.
-                    $return[] = [
-                        'key' => $ctx['key'],
-                        'status_sync' => 2,
-                        'status_transaksi' => null,
-                        'status_process' => null,
-                        'rfid' => $rfid,
-                        'tanggal_update' => $ctx['now'],
-                    ];
-                }
+                // RFID belum register — tiruan backup (TransaksiController:319-338):
+                // cabang SyncType::No praktis mati (banding datetime vs date),
+                // jadi SELALU Unknown (2) dengan status null, walau outstanding
+                // sudah ada dari sync sebelumnya. 2 != 0 sehingga data tetap keluar.
+                $return[] = [
+                    'key' => $ctx['key'],
+                    'status_sync' => 2,
+                    'status_transaksi' => null,
+                    'status_process' => null,
+                    'rfid' => $rfid,
+                    'tanggal_update' => $ctx['now'],
+                ];
             }
         }
 
