@@ -427,9 +427,11 @@ class TransaksiApiController extends Controller
 
     /**
      * Return per-RFID ala andalan (backup TransaksiController::transaction):
-     * [{key, status_sync, status_transaksi, status_proses, rfid, tanggal_update}, ...]
+     * [{key, status_sync, status_transaksi, status_process, rfid, tanggal_update}, ...]
      * SyncType: 1 = Yes (baru di-sync), 0 = No (sudah ada / tidak lolos filter),
      * 2 = Unknown (RFID belum register).
+     * Key 'status_process' (English) disamakan dengan backup/DAO desktop,
+     * bukan 'status_proses'.
      */
     private function buildReturn(array $ctx, string $statusTransaksi, string $statusProcess, array $transaksiInserted): array
     {
@@ -449,7 +451,7 @@ class TransaksiApiController extends Controller
                         'key' => $ctx['key'],
                         'status_sync' => 1,
                         'status_transaksi' => $statusTransaksi,
-                        'status_proses' => $statusProcess,
+                        'status_process' => $statusProcess,
                         'rfid' => $rfid,
                         'tanggal_update' => $ctx['now'],
                     ];
@@ -458,7 +460,7 @@ class TransaksiApiController extends Controller
                         'key' => $ctx['key'],
                         'status_sync' => 0,
                         'status_transaksi' => $out?->outstanding_status_transaksi ?? $detail->detail_status_linen,
-                        'status_proses' => $out?->outstanding_status_proses,
+                        'status_process' => $out?->outstanding_status_proses,
                         'rfid' => $rfid,
                         'tanggal_update' => $detail->detail_updated_at
                             ? Carbon::parse($detail->detail_updated_at)->format('Y-m-d H:i:s')
@@ -471,7 +473,7 @@ class TransaksiApiController extends Controller
                         'key' => $ctx['key'],
                         'status_sync' => 0,
                         'status_transaksi' => $out->outstanding_status_transaksi,
-                        'status_proses' => $out->outstanding_status_proses,
+                        'status_process' => $out->outstanding_status_proses,
                         'rfid' => $rfid,
                         'tanggal_update' => $ctx['now'],
                     ];
@@ -482,7 +484,7 @@ class TransaksiApiController extends Controller
                         'key' => $ctx['key'],
                         'status_sync' => 2,
                         'status_transaksi' => null,
-                        'status_proses' => null,
+                        'status_process' => null,
                         'rfid' => $rfid,
                         'tanggal_update' => $ctx['now'],
                     ];
