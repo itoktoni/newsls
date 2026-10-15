@@ -76,10 +76,20 @@ class TransaksiApiController extends Controller
             $this->markDetailsAsKotor($rows['toKotor'], $ctx['now']);
             $this->logTransactions($rows['transaksi'], $request, $ctx['details']->all());
 
+            $return = $this->buildReturn($ctx, $statusTransaksi, $statusProcess, $rows['transaksi']);
+
+            // andalan: kalau semua RFID status_sync == 0 (No) berarti tidak ada yang di-sync.
+            if (collect($return)->where('status_sync', '!=', 0)->count() === 0) {
+                DB::commit();
+                DashboardCache::flush();
+
+                return Notes::error('Tidak Ada RFID yang di Sync !');
+            }
+
             DB::commit();
             DashboardCache::flush();
 
-            return $this->successResponse($ctx, $statusTransaksi, $rows['transaksi']);
+            return $this->successResponse($return);
         } catch (\Throwable $th) {
             DB::rollBack();
             report($th);
@@ -415,19 +425,76 @@ class TransaksiApiController extends Controller
         }
     }
 
-    private function successResponse(array $ctx, string $statusTransaksi, array $transaksi)
+    /**
+     * Return per-RFID ala andalan (backup TransaksiController::transaction):
+     * [{key, status_sync, status_transaksi, status_proses, rfid, tanggal_update}, ...]
+     * SyncType: 1 = Yes (baru di-sync), 0 = No (sudah ada / tidak lolos filter),
+     * 2 = Unknown (RFID belum register).
+     */
+    private function buildReturn(array $ctx, string $statusTransaksi, string $statusProcess, array $transaksiInserted): array
     {
-        return Notes::sentJson([
-            'status' => true,
-            'code' => 200,
-            'name' => Notes::create,
-            'message' => 'Transaksi berhasil.',
-            'data' => [
-                'key' => $ctx['key'],
-                'status' => $statusTransaksi,
-                'rfid_count' => count($ctx['rfids']),
-                'inserted' => count($transaksi),
-            ],
-        ]);
+        $insertedMap = collect($transaksiInserted)->keyBy('transaksi_rfid')->all();
+        $return = [];
+
+        foreach ($ctx['rfids'] as $rfid) {
+            $detail = $ctx['details'][$rfid] ?? null;
+            $out = $ctx['outstandingExisting'][$rfid] ?? null;
+
+            if ($detail) {
+                $canSync = empty($out?->outstanding_status_transaksi)
+                    && $this->rfidCanSyncToServer($statusTransaksi, $detail->detail_status_linen, $detail->detail_updated_at);
+
+                if (isset($insertedMap[$rfid]) || $canSync) {
+                    $return[] = [
+                        'key' => $ctx['key'],
+                        'status_sync' => 1,
+                        'status_transaksi' => $statusTransaksi,
+                        'status_proses' => $statusProcess,
+                        'rfid' => $rfid,
+                        'tanggal_update' => $ctx['now'],
+                    ];
+                } else {
+                    $return[] = [
+                        'key' => $ctx['key'],
+                        'status_sync' => 0,
+                        'status_transaksi' => $out?->outstanding_status_transaksi ?? $detail->detail_status_linen,
+                        'status_proses' => $out?->outstanding_status_proses,
+                        'rfid' => $rfid,
+                        'tanggal_update' => $detail->detail_updated_at
+                            ? Carbon::parse($detail->detail_updated_at)->format('Y-m-d H:i:s')
+                            : $ctx['now'],
+                    ];
+                }
+            } else {
+                if ($out) {
+                    $return[] = [
+                        'key' => $ctx['key'],
+                        'status_sync' => 0,
+                        'status_transaksi' => $out->outstanding_status_transaksi,
+                        'status_proses' => $out->outstanding_status_proses,
+                        'rfid' => $rfid,
+                        'tanggal_update' => $ctx['now'],
+                    ];
+                } else {
+                    // RFID belum register — tiruan backup: tetap insert di atas,
+                    // tapi return Unknown (2) dengan status null.
+                    $return[] = [
+                        'key' => $ctx['key'],
+                        'status_sync' => 2,
+                        'status_transaksi' => null,
+                        'status_proses' => null,
+                        'rfid' => $rfid,
+                        'tanggal_update' => $ctx['now'],
+                    ];
+                }
+            }
+        }
+
+        return collect($return)->unique('rfid')->values()->all();
+    }
+
+    private function successResponse(array $return)
+    {
+        return Notes::create($return);
     }
 }
