@@ -43,7 +43,7 @@ $badgeClass = fn (string $level) => match ($level) {
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <x-card label="Sebaran Global (Bersih per Ruangan)" icon="grid_view" :noGrid="true">
+            <x-card label="Sebaran Bersih per Ruangan" icon="grid_view" :noGrid="true">
                 @if ($sebaran->isEmpty())
                     <p class="text-sm text-on-surface-variant py-4">Belum ada linen bersih tercatat.</p>
                 @else
