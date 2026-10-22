@@ -30,12 +30,13 @@
                     <th>Jenis Linen</th>
                     <th>Parstock</th>
                     <th>Total Register</th>
+                    <th>Sisa Bersih</th>
                     <th>Kurang</th>
                 </x-slot:head>
 
                 <x-slot:body>
                     @forelse($rows as $row)
-                    @php $kurang = $row->parstock === null ? null : $row->parstock - $row->total_register; @endphp
+                    @php $kurang = $row->parstock === null ? null : $row->parstock - $row->stok_bersih; @endphp
                     <tr>
                         <td>{{ $row->jenis_nama }}</td>
                         <td>
@@ -46,6 +47,7 @@
                             @error('parstock.'.$row->jenis_id)<span class="text-error text-xs block">{{ $message }}</span>@enderror
                         </td>
                         <td>{{ $row->total_register }}</td>
+                        <td>{{ $row->stok_bersih }}</td>
                         <td>
                             @if($kurang === null)
                             <span class="text-on-surface-variant">-</span>
@@ -58,7 +60,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="text-center text-on-surface-variant">Belum ada jenis untuk RS ini. Tambahkan lewat form edit RS.</td>
+                        <td colspan="5" class="text-center text-on-surface-variant">Belum ada jenis untuk RS ini. Tambahkan lewat form edit RS.</td>
                     </tr>
                     @endforelse
                 </x-slot:body>
@@ -66,13 +68,13 @@
                 <x-slot:mobile>
                     <div class="p-3 space-y-3">
                         @forelse($rows as $row)
-                        @php $kurang = $row->parstock === null ? null : $row->parstock - $row->total_register; @endphp
+                        @php $kurang = $row->parstock === null ? null : $row->parstock - $row->stok_bersih; @endphp
                         <div class="border border-outline-variant rounded-xl p-4 bg-surface-container-lowest shadow-sm">
                             <p class="text-sm font-bold text-on-surface truncate mb-3">{{ $row->jenis_nama }}</p>
                             <div class="grid grid-cols-3 gap-2 text-xs">
                                 <div>
-                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Register</p>
-                                    <p class="font-bold text-on-surface">{{ $row->total_register }}</p>
+                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Bersih</p>
+                                    <p class="font-bold text-on-surface">{{ $row->stok_bersih }}</p>
                                 </div>
                                 <div>
                                     <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Kurang</p>

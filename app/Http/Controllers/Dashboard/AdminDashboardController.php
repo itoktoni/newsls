@@ -31,22 +31,30 @@ class AdminDashboardController extends Controller
 
         $scope = DashboardCache::userScope();
 
-        $payload = DashboardCache::remember($scope, 'admin:stats:v2', function () {
+        $rsId = $request->query('rs_id');
+        $rsId = is_numeric($rsId) ? (int) $rsId : null;
+
+        $payload = DashboardCache::remember($scope, 'admin:stats:v2:rs:'.($rsId ?? 'all'), function () use ($rsId) {
             $gudangId = Warehouse::utamaId();
 
             $kpi = [
-                'register' => DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER)->count(),
-                'kotor' => DetailLinen::where('detail_status_linen', LinenStatusEnum::KOTOR)->count(),
-                'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
-                'bersih' => DetailLinen::where('detail_status_linen', LinenStatusEnum::BERSIH)->count(),
-                'outstanding' => Outstanding::count(),
-                'warehouse' => Outstanding::where('outstanding_status_proses', 'GUDANG')
-                    ->where('outstanding_id_warehouse', $gudangId)
-                    ->count(),
+                'register' => User::applyRsFilter(DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER), 'detail_linen.detail_id_rs', $rsId)->count(),
+                'kotor' => User::applyRsFilter(DetailLinen::where('detail_status_linen', LinenStatusEnum::KOTOR), 'detail_linen.detail_id_rs', $rsId)->count(),
+                'pending' => User::applyRsFilter(Outstanding::whereNotNull('outstanding_pending_created_at'), ['outstanding.outstanding_rs_scan', 'outstanding.outstanding_rs_ori'], $rsId)->count(),
+                'bersih' => User::applyRsFilter(DetailLinen::where('detail_status_linen', LinenStatusEnum::BERSIH), 'detail_linen.detail_id_rs', $rsId)->count(),
+                'outstanding' => User::applyRsFilter(Outstanding::query(), ['outstanding.outstanding_rs_scan', 'outstanding.outstanding_rs_ori'], $rsId)->count(),
+                'warehouse' => User::applyRsFilter(
+                    Outstanding::where('outstanding_status_proses', 'GUDANG')->where('outstanding_id_warehouse', $gudangId),
+                    ['outstanding.outstanding_rs_scan', 'outstanding.outstanding_rs_ori'],
+                    $rsId
+                )->count(),
             ];
 
-            $sebaran = DetailLinen::query()
-                ->where('detail_status_linen', LinenStatusEnum::BERSIH)
+            $sebaran = User::applyRsFilter(
+                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
+                'detail_linen.detail_id_rs',
+                $rsId
+            )
                 ->join('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
                 ->selectRaw('detail_linen.detail_id_ruangan as ruangan_id, ruangan.ruangan_nama, COUNT(*) as stok')
                 ->groupBy('detail_linen.detail_id_ruangan', 'ruangan.ruangan_nama')
@@ -97,8 +105,10 @@ class AdminDashboardController extends Controller
             'health' => $payload['health'],
             'opname' => $payload['opname'],
             'recentUsers' => collect($payload['recentUsers']),
-            'userChart' => $chart->kotorVsBersih((int) config('dashboard.chart_days', 7)),
-            'notifChart' => $chart->statusLinenDonut(),
+            'rsOptions' => User::rsOptions(),
+            'selectedRs' => $rsId,
+            'userChart' => $chart->kotorVsBersih((int) config('dashboard.chart_days', 7), $rsId),
+            'notifChart' => $chart->statusLinenDonut($rsId),
         ]);
     }
 }

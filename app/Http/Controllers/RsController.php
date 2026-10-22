@@ -162,17 +162,29 @@ class RsController extends Controller
             ->where('config_linen.rs_id', $rsId)
             ->groupBy('config_linen.rs_id', 'detail_linen.detail_id_jenis');
 
+        // ponytail: stok bersih siap pakai — 1 subquery, dipakai kolom Sisa Bersih.
+        $bersih = DB::table('detail_linen')
+            ->select('detail_id_rs', 'detail_id_jenis', DB::raw('COUNT(*) as total'))
+            ->where('detail_id_rs', $rsId)
+            ->where('detail_status_linen', 'BERSIH')
+            ->groupBy('detail_id_rs', 'detail_id_jenis');
+
         $query = DB::table('rs_dan_jenis')
             ->join('jenis_linen', 'jenis_linen.jenis_id', '=', 'rs_dan_jenis.jenis_id')
             ->leftJoinSub($register, 'reg', function ($join) {
                 $join->on('reg.rs_id', '=', 'rs_dan_jenis.rs_id')
                     ->on('reg.detail_id_jenis', '=', 'rs_dan_jenis.jenis_id');
             })
+            ->leftJoinSub($bersih, 'brs', function ($join) {
+                $join->on('brs.detail_id_rs', '=', 'rs_dan_jenis.rs_id')
+                    ->on('brs.detail_id_jenis', '=', 'rs_dan_jenis.jenis_id');
+            })
             ->select(
                 'rs_dan_jenis.jenis_id',
                 'rs_dan_jenis.parstock',
                 'jenis_linen.jenis_nama',
-                DB::raw('COALESCE(reg.total, 0) as total_register')
+                DB::raw('COALESCE(reg.total, 0) as total_register'),
+                DB::raw('COALESCE(brs.total, 0) as stok_bersih')
             )
             ->where('rs_dan_jenis.rs_id', $rsId);
 

@@ -60,7 +60,7 @@ it('POST /api/detail/rfid mengembalikan satu item per RFID dengan kontrak legacy
             'rfid', 'jenis_id', 'jenis_nama', 'bahan_id', 'bahan_nama', 'supplier_id',
             'supplier_nama', 'rs_id', 'rs_nama', 'ruangan_id', 'ruangan_nama',
             'status_register', 'status_cuci', 'status_transaksi', 'status_proses',
-            'tanggal_create', 'tanggal_update', 'pemakaian', 'user_nama',
+            'tanggal_create', 'tanggal_update', 'pemakaian', 'maks_cuci', 'level_cuci', 'user_nama',
         ])
         ->and($data[0]['rfid'])->toBe('LEG_RFID_1')
         ->and($data[0]['jenis_id'])->toBe($this->jenis->jenis_id)
@@ -69,6 +69,8 @@ it('POST /api/detail/rfid mengembalikan satu item per RFID dengan kontrak legacy
         ->and($data[0]['rs_nama'])->toBe('RS Legacy')
         ->and($data[0]['ruangan_nama'])->toBe('Ruang Legacy')
         ->and($data[0]['pemakaian'])->toBe(4)
+        ->and($data[0]['maks_cuci'])->toBe(100)
+        ->and($data[0]['level_cuci'])->toBe('hijau')
         ->and($data[1]['rfid'])->toBe('LEG_TIDAK_ADA');
 
     // RFID tak dikenal tetap dikembalikan, nilainya null

@@ -102,6 +102,7 @@ return [
                 ['route' => 'report-detail-pending-linen.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pending Outstanding', 'match' => ['report-detail-pending-linen.*']],
                 ['route' => 'report-pending-jenis.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pending per Jenis', 'match' => ['report-pending-jenis.*']],
                 ['route' => 'report-pelunasan-pending.getTable', 'icon' => 'hourglass_empty', 'label' => 'Pelunasan Pending', 'match' => ['report-pelunasan-pending.*']],
+                ['route' => 'report-waspada-linen.getTable', 'icon' => 'warning', 'label' => 'Linen Waspada', 'match' => ['report-waspada-linen.*']],
             ],
         ],
         [

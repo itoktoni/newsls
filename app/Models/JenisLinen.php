@@ -23,11 +23,12 @@ class JenisLinen extends BaseModel
         'jenis_id_rs',
         'jenis_gambar',
         'jenis_berat',
+        'jenis_max_cuci',
     ];
 
     public static $filterColumns = ['jenis_nama', 'jenis_id_kategori', 'jenis_id_rs'];
 
-    public static $sortColumns = ['jenis_nama', 'jenis_berat', 'jenis_deskripsi'];
+    public static $sortColumns = ['jenis_nama', 'jenis_berat', 'jenis_deskripsi', 'jenis_max_cuci'];
 
     protected function casts(): array
     {
@@ -36,6 +37,7 @@ class JenisLinen extends BaseModel
             'jenis_id_kategori' => 'integer',
             'jenis_id_rs' => 'integer',
             'jenis_berat' => 'float',
+            'jenis_max_cuci' => 'integer',
         ];
     }
 
@@ -53,6 +55,7 @@ class JenisLinen extends BaseModel
             'jenis_id_rs' => 'nullable|integer',
             'jenis_gambar' => 'nullable|string|max:255',
             'jenis_berat' => 'nullable|numeric|min:0',
+            'jenis_max_cuci' => 'nullable|integer|min:1|max:10000',
         ];
     }
 

@@ -55,8 +55,10 @@
                     <td>{{ $table->jenis_nama ?? '-' }}</td>
 
                     <td class="text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                            {{ $table->detail_total_bersih ?? 0 }}x
+                        @php($maxCuci = $table->jenis_max_cuci ?? 100)
+                        @php($levelCuci = \App\Models\DetailLinen::umurLevel($table->detail_total_bersih, $maxCuci))
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $levelCuci === 'merah' ? 'bg-red-100 text-red-800' : ($levelCuci === 'kuning' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800') }}" title="Maks {{ $maxCuci }}x">
+                            {{ $table->detail_total_bersih ?? 0 }}/{{ $maxCuci }}x
                         </span>
                     </td>
                     <td class="whitespace-nowrap text-on-surface-variant">{{ formatDate($table->detail_created_at) ?? '-' }}</td>
@@ -104,7 +106,9 @@
                             </div>
                             <div class="min-w-0">
                                 <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Total Bersih</p>
-                                <p class="font-bold text-green-700">{{ $table->detail_total_bersih ?? 0 }}x</p>
+                                @php($maxCuciM = $table->jenis_max_cuci ?? 100)
+                                @php($levelCuciM = \App\Models\DetailLinen::umurLevel($table->detail_total_bersih, $maxCuciM))
+                                <p class="font-bold {{ $levelCuciM === 'merah' ? 'text-red-700' : ($levelCuciM === 'kuning' ? 'text-amber-700' : 'text-green-700') }}">{{ $table->detail_total_bersih ?? 0 }}/{{ $maxCuciM }}x</p>
                             </div>
                             <div class="min-w-0 text-right">
                                 <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Reject / Rewash</p>

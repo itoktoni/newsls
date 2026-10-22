@@ -103,6 +103,7 @@ class DetailLinenController extends Controller
                 'rs.rs_nama as rs_nama',
                 'ruangan.ruangan_nama as ruangan_nama',
                 'jenis_linen.jenis_nama as jenis_nama',
+                'jenis_linen.jenis_max_cuci as jenis_max_cuci',
                 'pemilik' => $pemilik,
             ]);
     }

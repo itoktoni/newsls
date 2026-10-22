@@ -190,4 +190,25 @@ class DetailLinen extends BaseModel
     {
         return $this->hasOne(Supplier::class, 'supplier_id', 'detail_id_supplier');
     }
+
+    /**
+     * Level umur linen — 2x if integer, tanpa bagi/koma (tercepat).
+     * shortcut: null/0 max = 100 agar data lama aman.
+     */
+    public static function umurLevel(?int $pakai, mixed $max): string
+    {
+        $m = (int) ($max ?? 0);
+        if ($m <= 0) {
+            $m = 100;
+        }
+        $p = (int) ($pakai ?? 0);
+        if ($p >= $m) {
+            return 'merah';
+        }
+        if ($p >= $m - 20) {
+            return 'kuning';
+        }
+
+        return 'hijau';
+    }
 }

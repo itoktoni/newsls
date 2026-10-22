@@ -25,6 +25,7 @@
                 <th>Actions</th>
                 <x-table-sort field="jenis_nama" label="Nama" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="jenis_berat" label="Berat" :sortField="$sortField" :sortDir="$sortDir" />
+                <x-table-sort field="jenis_max_cuci" label="Maks Cuci" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="jenis_deskripsi" label="Deskripsi" :sortField="$sortField" :sortDir="$sortDir" />
             </x-slot:head>
 
@@ -35,6 +36,7 @@
                     <x-table-action :model="$model" :id="$table->field_primary" />
                     <td>{{ $table->jenis_nama }}</td>
                     <td class="text-right">{{ formatQty($table->jenis_berat) ?? '-' }}</td>
+                    <td class="text-center">{{ $table->jenis_max_cuci ?? 100 }}x</td>
                     <td>{{ $table->jenis_deskripsi ?? '-' }}</td>
                 </tr>
                 @endforeach

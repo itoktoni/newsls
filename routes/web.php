@@ -81,6 +81,7 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
         Route::auto('/report-pending-jenis', 'ReportPendingJenisController', ['name' => 'report-pending-jenis', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-pelunasan-pending', 'ReportPelunasanPendingController', ['name' => 'report-pelunasan-pending', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-summary-pelunasan', 'ReportSummaryPelunasanController', ['name' => 'report-summary-pelunasan', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-waspada-linen', 'ReportWaspadaLinenController', ['name' => 'report-waspada-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
     });
     Route::auto('/ruangan', 'RuanganController', ['name' => 'ruangan']);
     Route::auto('/kategori', 'KategoriController', ['name' => 'kategori']);

@@ -47,6 +47,7 @@ class DetailApiController extends Controller
                 'outstanding.outstanding_status_transaksi',
                 'outstanding.outstanding_status_proses',
                 'jenis_linen.jenis_nama',
+                'jenis_linen.jenis_max_cuci',
                 'jenis_bahan.bahan_nama',
                 'supplier.supplier_nama',
                 'ruangan.ruangan_nama',
@@ -58,6 +59,14 @@ class DetailApiController extends Controller
         if ($row === null) {
             return Notes::error($rfid, 'RFID '.$rfid.' tidak ditemukan di detail_linen.');
         }
+
+        // ponytail: 2x if integer saja (tanpa bagi/koma) — tercepat, 1 query.
+        $maxCuci = (int) ($row->jenis_max_cuci ?? 0);
+        if ($maxCuci <= 0) {
+            $maxCuci = 100;
+        }
+        $pakai = (int) ($row->detail_total_bersih ?? 0);
+        $levelCuci = $pakai >= $maxCuci ? 'merah' : ($pakai >= $maxCuci - 20 ? 'kuning' : 'hijau');
 
         // Ganti Pending: RFID lama yang belum ada di outstanding = belum ada
         // transaksi kotor — desktop menginfokannya saat lookup.
@@ -82,6 +91,8 @@ class DetailApiController extends Controller
             'tanggal_create' => $row->detail_created_at ? Carbon::parse($row->detail_created_at)->format('Y-m-d') : null,
             'tanggal_update' => $row->detail_updated_at ? Carbon::parse($row->detail_updated_at)->format('Y-m-d') : null,
             'pemakaian' => $row->detail_total_bersih ?? 0,
+            'maks_cuci' => $maxCuci,
+            'level_cuci' => $levelCuci,
             'user_nama' => $row->user_nama,
             'di_outstanding' => $diOutstanding,
             // Mentah apa adanya (null bila belum ada baris outstanding) —
@@ -113,6 +124,7 @@ class DetailApiController extends Controller
                 'outstanding.outstanding_status_transaksi',
                 'outstanding.outstanding_status_proses',
                 'jenis_linen.jenis_nama',
+                'jenis_linen.jenis_max_cuci',
                 'jenis_bahan.bahan_nama',
                 'supplier.supplier_nama',
                 'ruangan.ruangan_nama',
@@ -126,7 +138,7 @@ class DetailApiController extends Controller
             'jenis_id', 'jenis_nama', 'bahan_id', 'bahan_nama', 'supplier_id', 'supplier_nama',
             'rs_id', 'rs_nama', 'ruangan_id', 'ruangan_nama', 'status_register', 'status_cuci',
             'status_transaksi', 'status_proses', 'tanggal_create', 'tanggal_update', 'pemakaian',
-            'user_nama',
+            'maks_cuci', 'level_cuci', 'user_nama',
         ], null);
 
         $data = [];
@@ -138,6 +150,14 @@ class DetailApiController extends Controller
 
                 continue;
             }
+
+            // ponytail: 2x if integer, tanpa bagi — dihitung sekali per baris.
+            $maxBulk = (int) ($row->jenis_max_cuci ?? 0);
+            if ($maxBulk <= 0) {
+                $maxBulk = 100;
+            }
+            $pakaiBulk = (int) ($row->detail_total_bersih ?? 0);
+            $levelBulk = $pakaiBulk >= $maxBulk ? 'merah' : ($pakaiBulk >= $maxBulk - 20 ? 'kuning' : 'hijau');
 
             $data[] = [
                 'rfid' => $rfid,
@@ -160,6 +180,8 @@ class DetailApiController extends Controller
                 'tanggal_create' => $row->detail_created_at ? Carbon::parse($row->detail_created_at)->format('Y-m-d') : null,
                 'tanggal_update' => $row->detail_updated_at ? Carbon::parse($row->detail_updated_at)->format('Y-m-d') : null,
                 'pemakaian' => $row->detail_total_bersih ?? 0,
+                'maks_cuci' => $maxBulk,
+                'level_cuci' => $levelBulk,
                 'user_nama' => $row->user_nama,
             ];
         }

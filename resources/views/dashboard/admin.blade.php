@@ -4,6 +4,8 @@
 /** @var array $health */
 /** @var array $opname */
 /** @var array $recentUsers */
+/** @var array $rsOptions */
+/** @var int|null $selectedRs */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $userChart */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $notifChart */
 /** @var string $title */
@@ -22,7 +24,17 @@ $badgeClass = fn (string $level) => match ($level) {
         ]" />
 
         <div>
-            <p class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest mb-2">KPI Global</p>
+            <form method="GET" action="{{ route('dashboard.admin') }}" class="mb-3 flex items-center gap-2">
+                <label for="sebaran-rs" class="text-sm font-medium text-on-surface-variant whitespace-nowrap">Rumah Sakit</label>
+                <select id="sebaran-rs" name="rs_id" onchange="this.form.submit()"
+                    class="w-full sm:max-w-xs text-sm border border-outline-variant rounded-lg px-3 py-2 bg-surface text-on-surface">
+                    <option value="">Semua Rumah Sakit</option>
+                    @foreach ($rsOptions as $id => $nama)
+                        <option value="{{ $id }}" @selected((int) $selectedRs === (int) $id)>{{ $nama }}</option>
+                    @endforeach
+                </select>
+            </form>
+            <p class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest mb-2">KPI {{ $selectedRs ? ($rsOptions[$selectedRs] ?? '') : 'Global' }}</p>
             <x-stat-widget :items="[
                 ['value' => number_format($kpi['kotor']), 'label' => 'Kotor', 'icon_name' => 'local_laundry_service', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
                 ['value' => number_format($kpi['warehouse']), 'label' => 'Gudang', 'icon_name' => 'warehouse', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
