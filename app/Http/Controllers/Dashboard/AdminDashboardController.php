@@ -85,17 +85,7 @@ class AdminDashboardController extends Controller
                     ->count(),
             ];
 
-            // Dashboard overview — recent users untuk tabel bawah.
-            $recentUsers = User::latest()->limit(5)->get()
-                ->map(fn ($user) => [
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role,
-                    'created_at' => $user->created_at?->format('d M Y'),
-                ])
-                ->all();
-
-            return compact('kpi', 'sebaran', 'health', 'opname', 'recentUsers');
+            return compact('kpi', 'sebaran', 'health', 'opname');
         });
 
         return view('dashboard.admin', [
@@ -104,7 +94,6 @@ class AdminDashboardController extends Controller
             'sebaran' => collect($payload['sebaran']),
             'health' => $payload['health'],
             'opname' => $payload['opname'],
-            'recentUsers' => collect($payload['recentUsers']),
             'rsOptions' => User::rsOptions(),
             'selectedRs' => $rsId,
             'userChart' => $chart->kotorVsBersih((int) config('dashboard.chart_days', 7), $rsId),

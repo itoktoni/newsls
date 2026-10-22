@@ -2,6 +2,10 @@
 
 @php
     $menu = config('menu.sidebar');
+    // ponytail: frontend dimatikan -> grup CMS tak ada gunanya, hide dari side menu.
+    if (env('DISABLE_FRONTEND', false)) {
+        $menu = collect($menu)->reject(fn ($section) => ($section['label'] ?? null) === 'CMS')->all();
+    }
 @endphp
 
 @foreach($menu as $section)

@@ -139,13 +139,35 @@ return [
         ],
     ],
 
+    // Bottom nav mobile (5 slot, index 2 = tombol tengah). Per role mengikuti
+    // dashboard masing-masing; role tanpa set khusus pakai 'default'.
     'bottom_nav' => [
 
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Left'],
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Kiri'],
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Home'],
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Kanan'],
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Right'],
+        'default' => [
+            ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Linen'],
+            ['route' => 'transaksi.getTable', 'icon' => 'receipt_long', 'label' => 'Transaksi'],
+            ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Home'],
+            ['route' => 'bersih.getTable', 'icon' => 'inventory_2', 'label' => 'Bersih'],
+            ['route' => 'opname.getTable', 'icon' => 'fact_check', 'label' => 'Opname'],
+        ],
+
+        // RS: monitor stok + opname (cermin dashboard.rs).
+        'rs' => [
+            ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Linen'],
+            ['route' => 'opname.getTable', 'icon' => 'fact_check', 'label' => 'Opname'],
+            ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Home'],
+            ['route' => 'transaksi.getTable', 'icon' => 'receipt_long', 'label' => 'Transaksi'],
+            ['route' => 'bersih.getTable', 'icon' => 'inventory_2', 'label' => 'Bersih'],
+        ],
+
+        // Laundry: packing/delivery + gudang (cermin dashboard.laundry).
+        'laundry' => [
+            ['route' => 'transaksi.getTable', 'icon' => 'receipt_long', 'label' => 'Transaksi'],
+            ['route' => 'bersih.getTable', 'icon' => 'inventory_2', 'label' => 'Bersih'],
+            ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Home'],
+            ['route' => 'warehouse.getTable', 'icon' => 'warehouse', 'label' => 'Gudang'],
+            ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Linen'],
+        ],
 
     ],
 

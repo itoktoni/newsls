@@ -1,5 +1,8 @@
 @php
-    $bottomNav = config('menu.bottom_nav');
+    // ponytail: bottom nav mengikuti role login (cermin dashboard role-nya).
+    $sets = config('menu.bottom_nav');
+    $role = auth()->user()->role ?? 'guest';
+    $bottomNav = $sets[$role] ?? $sets['default'] ?? reset($sets);
 @endphp
 
 <nav class="md:hidden fixed inset-x-0 bottom-0 z-50 h-16 bg-surface-container-lowest border-t border-outline-variant shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
@@ -8,7 +11,10 @@
             @php
                 $routeName = $item['route'];
                 $url = route($routeName);
-                $isActive = request()->routeIs($routeName) || request()->routeIs($routeName . '.*');
+                // samakan dengan sidebar: aktif untuk seluruh grup route modulnya,
+                // jadi Home tetap aktif di dashboard.admin/rs/laundry.
+                $base = explode('.', $routeName)[0];
+                $isActive = request()->routeIs($base) || request()->routeIs($base . '.*');
                 $isCenter = $index === 2;
             @endphp
 

@@ -3,7 +3,6 @@
 /** @var \Illuminate\Support\Collection $sebaran */
 /** @var array $health */
 /** @var array $opname */
-/** @var array $recentUsers */
 /** @var array $rsOptions */
 /** @var int|null $selectedRs */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $userChart */
@@ -114,36 +113,6 @@ $badgeClass = fn (string $level) => match ($level) {
                     <div class="min-w-0">{!! $notifChart->container() !!}</div>
                 </div>
             </div>
-
-            <h4 class="font-semibold text-on-surface mb-2">Recent Users</h4>
-            @if ($recentUsers->isNotEmpty())
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-xs text-on-surface-variant uppercase border-b border-outline-variant">
-                                <th class="pb-3 pr-4">Name</th>
-                                <th class="pb-3 pr-4">Email</th>
-                                <th class="pb-3 pr-4">Role</th>
-                                <th class="pb-3">Joined</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($recentUsers as $user)
-                                <tr class="border-b border-outline-variant/50">
-                                    <td class="py-3 pr-4 font-medium">{{ $user['name'] }}</td>
-                                    <td class="py-3 pr-4 text-on-surface-variant">{{ $user['email'] }}</td>
-                                    <td class="py-3 pr-4">
-                                        <span class="bg-surface-container text-xs px-2 py-1 rounded-full">{{ ucfirst($user['role']) }}</span>
-                                    </td>
-                                    <td class="py-3 text-on-surface-variant">{{ $user['created_at'] ?? '—' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <div class="text-center py-6 text-on-surface-variant text-sm">Belum ada user.</div>
-            @endif
         </x-card>
     </div>
 
