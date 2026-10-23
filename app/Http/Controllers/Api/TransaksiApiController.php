@@ -9,11 +9,13 @@ use App\Models\Activity;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
 use App\Models\Transaksi;
+use App\Models\TransaksiMaster;
 use App\Models\User;
 use App\Support\DashboardCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Plugins\Notes;
 
 /**
@@ -71,6 +73,7 @@ class TransaksiApiController extends Controller
             $rows = $this->buildRows($ctx, $statusTransaksi, $statusProcess);
 
             $this->persistTransactions($rows['transaksi']);
+            $this->persistMaster($ctx, $statusTransaksi);
             $this->persistOutstanding($rows['outstanding'], $ctx['outstandingExisting'], $ctx['now'], $ctx['userId']);
             $this->refreshExistingOutstanding($ctx, $statusTransaksi, $statusProcess);
             $this->markDetailsAsKotor($rows['toKotor'], $ctx['now']);
@@ -107,11 +110,19 @@ class TransaksiApiController extends Controller
 
     private function validateTransactionRequest(Request $request): void
     {
+        // qty = BERAT kotor timbangan (kg, desimal, opsional) — bukan
+        // hitung RFID. Berat bersih pembanding (= SUM jenis_berat per RFID)
+        // dihitung server, tidak dikirim desktop. Terima koma desimal
+        // Indonesia ("10,5") — normalisasi ke titik sebelum rule numeric.
+        if (is_string($request->input('qty'))) {
+            $request->merge(['qty' => str_replace(',', '.', $request->input('qty'))]);
+        }
         $request->validate([
             'rfid' => 'required|array|min:1',
             'rfid.*' => 'required|string',
             'rs_id' => 'required|integer|exists:rs,rs_id',
             'key' => 'required|string|max:255',
+            'qty' => 'nullable|numeric|min:0',
         ]);
     }
 
@@ -125,6 +136,7 @@ class TransaksiApiController extends Controller
             'rfids' => $rfids,
             'key' => $request->input('key'),
             'rsScan' => (int) $request->input('rs_id'),
+            'totalQty' => $request->input('qty') !== null ? (float) $request->input('qty') : null,
             'now' => now()->format('Y-m-d H:i:s'),
             'userId' => auth()->id() ?? $request->user()?->id,
             'details' => DetailLinen::whereIn('detail_rfid', $rfids)->get()->keyBy('detail_rfid'),
@@ -290,6 +302,57 @@ class TransaksiApiController extends Controller
         }
     }
 
+    /**
+     * Master header 1 baris per key (idempoten: retry key sama = update,
+     * bukan duplikat). Berat bersih TIDAK disimpan — dihitung live dari
+     * detail dan dikembalikan pemanggil untuk respons.
+     * Dilewati bila tabel belum dimigrasi agar API lama tetap jalan.
+     *
+     * @return float berat bersih (kg) = SUM jenis_berat batch ini
+     */
+    private function persistMaster(array $ctx, string $statusTransaksi): float
+    {
+        $bersih = $this->beratBersih($ctx['rfids']);
+
+        if (! Schema::hasTable('transaksi_master')) {
+            return $bersih;
+        }
+
+        $master = TransaksiMaster::firstOrNew(['master_kode' => $ctx['key']]);
+        $isNew = ! $master->exists;
+
+        $master->master_rs_id = $ctx['rsScan'];
+        $master->master_status = $statusTransaksi;
+        $master->master_tanggal = substr($ctx['now'], 0, 10);
+        $master->master_qty = $ctx['totalQty'];
+        $master->master_updated_at = $ctx['now'];
+        $master->master_updated_by = $ctx['userId'];
+
+        if ($isNew) {
+            $master->master_created_at = $ctx['now'];
+            $master->master_created_by = $ctx['userId'];
+        }
+
+        $master->save();
+
+        return $bersih;
+    }
+
+    /**
+     * Berat bersih pembanding (kg) = SUM jenis_berat untuk RFID terdaftar
+     * dalam batch. RFID tak terregister tidak ikut (berat tak diketahui).
+     */
+    private function beratBersih(array $rfids): float
+    {
+        if ($rfids === []) {
+            return 0.0;
+        }
+
+        return (float) DetailLinen::whereIn('detail_rfid', $rfids)
+            ->join('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->sum('jenis_linen.jenis_berat');
+    }
+
     private function persistOutstanding(array $outstanding, $existingMap, string $now, $userId): void
     {
         $inserts = [];
@@ -417,17 +480,67 @@ class TransaksiApiController extends Controller
 
     private function successResponse(array $ctx, string $statusTransaksi, array $transaksi)
     {
+        // Kontrak persis backup/andalan: envelope Notes::create —
+        // {status:true, code:200, name:'Create', message:'Data berhasil di buat',
+        //  qty:<echo input>, data:[{key, status_sync, status_transaksi,
+        //  status_process, rfid, tanggal_update}]}.
         return Notes::sentJson([
             'status' => true,
             'code' => 200,
             'name' => Notes::create,
-            'message' => 'Transaksi berhasil.',
-            'data' => [
-                'key' => $ctx['key'],
-                'status' => $statusTransaksi,
-                'rfid_count' => count($ctx['rfids']),
-                'inserted' => count($transaksi),
-            ],
-        ]);
+            'message' => 'Data berhasil di buat',
+            'data' => $this->buildSyncItems($ctx, $statusTransaksi, $transaksi),
+        ], 200, ['qty' => $ctx['totalQty']]);
+    }
+
+    /**
+     * Rincian sinkronisasi per RFID ala backup TransaksiController::transaction:
+     * - Punya detail/outstanding sebelumnya: sync=1 bila baris transaksi
+     *   dibuat request ini, selain itu sync=0 (pakai status outstanding).
+     * - Tanpa detail & outstanding (RFID asing baru): sync=2 + UNKNOWN —
+     *   sama seperti backup meski barisnya ikut dibuat request ini.
+     */
+    private function buildSyncItems(array $ctx, string $statusTransaksi, array $transaksi): array
+    {
+        $inserted = collect($transaksi)->pluck('transaksi_rfid')->flip()->all();
+        $items = [];
+        foreach ($ctx['rfids'] as $rfid) {
+            $out = $ctx['outstandingExisting'][$rfid] ?? null;
+            $detail = $ctx['details'][$rfid] ?? null;
+            if ($detail || $out) {
+                if (isset($inserted[$rfid])) {
+                    $items[] = [
+                        'key' => $ctx['key'],
+                        'status_sync' => 1,
+                        'status_transaksi' => $statusTransaksi,
+                        'status_process' => 'SCAN',
+                        'rfid' => $rfid,
+                        'tanggal_update' => $ctx['now'],
+                    ];
+                } else {
+                    $items[] = [
+                        'key' => $ctx['key'],
+                        'status_sync' => 0,
+                        'status_transaksi' => $out ? $out->outstanding_status_transaksi : null,
+                        'status_process' => $out ? $out->outstanding_status_proses : null,
+                        'rfid' => $rfid,
+                        'tanggal_update' => $detail && $detail->detail_updated_at
+                            ? Carbon::parse($detail->detail_updated_at)->format('Y-m-d H:i:s')
+                            : $ctx['now'],
+                    ];
+                }
+            } else {
+                $items[] = [
+                    'key' => $ctx['key'],
+                    'status_sync' => 2,
+                    'status_transaksi' => 'UNKNOWN',
+                    'status_process' => 'UNKNOWN',
+                    'rfid' => $rfid,
+                    'tanggal_update' => $ctx['now'],
+                ];
+            }
+        }
+
+        return $items;
     }
 }

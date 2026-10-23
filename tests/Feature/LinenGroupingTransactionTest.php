@@ -76,3 +76,31 @@ it('grouping tanpa scan kotor membuat transaksi KOTOR key GRP dan outstanding GU
     expect(DB::table('transaksi')->where('transaksi_rfid', $this->rfid)->count())->toBe(1);
     expect(DB::table('outstanding')->where('outstanding_rfid', $this->rfid)->count())->toBe(1);
 });
+
+/**
+ * Format ganda: DB menyimpan teks ASCII ("D000..."), handheld mengirim hex
+ * mentah ("4430...") — grouping wajib tetap ketemu dan menulis pakai bentuk
+ * tersimpan (bukan hex), begitu pula sebaliknya.
+ */
+it('grouping menerima hex mentah untuk RFID yang tersimpan sebagai teks ASCII', function () {
+    $ascii = 'D0000000000000000000075X'.strtoupper(uniqid());
+    DetailLinen::create([
+        'detail_rfid' => $ascii, 'detail_id_rs' => $this->rs->rs_id, 'detail_id_ruangan' => $this->ruangan->ruangan_id,
+        'detail_id_jenis' => $this->jenis->jenis_id, 'detail_id_bahan' => $this->bahan->bahan_id, 'detail_id_supplier' => $this->supplier->supplier_id,
+        'detail_status_cuci' => CuciEnum::CUCI, 'detail_status_kepemilikan' => RsStatusEnum::DEDICATED,
+        'detail_status_register' => RegisterEnum::REGISTER, 'detail_status_linen' => LinenStatusEnum::BERSIH,
+        'detail_report' => now()->subDays(2)->format('Y-m-d'),
+        'detail_total_bersih' => 1, 'detail_created_by' => $this->admin->id,
+    ]);
+
+    $hex = strtoupper(bin2hex($ascii));
+
+    $this->withToken($this->token)->getJson("/api/grouping/{$hex}")
+        ->assertOk()
+        ->assertJson(['rfid' => $ascii]);
+
+    // Tulis memakai bentuk tersimpan, bukan hex kiriman handheld.
+    expect(DB::table('outstanding')->where('outstanding_rfid', $ascii)->count())->toBe(1);
+    expect(DB::table('outstanding')->where('outstanding_rfid', $hex)->count())->toBe(0);
+    expect(DB::table('transaksi')->where('transaksi_rfid', $ascii)->count())->toBe(1);
+});

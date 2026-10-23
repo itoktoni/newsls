@@ -118,7 +118,7 @@ function generateDeliveryCode(string $rsCode, string $prefix = 'BSH'): string
 
 function generatePackingCode(): string
 {
-    return generateBarcode('BKA');
+    return generateBarcode('REG');
 }
 
 function modules($action = null)

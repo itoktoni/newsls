@@ -16,6 +16,12 @@
 </table>
 <br>
 <table border="1">
+    <tr><th colspan="4">RINGKASAN BERAT TIMBANGAN ({{ $berat['n_transaksi'] ?? 0 }} transaksi, ditimbang: {{ $berat['n_timbang'] ?? 0 }})</th></tr>
+    <tr><th>Kotor Timbangan (Kg)</th><th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th></tr>
+    <tr><td>{{ ($berat['kotor'] ?? null) !== null ? $berat['kotor'] : 'belum ditimbang' }}</td><td>{{ $berat['bersih'] ?? 0 }}</td><td>{{ ($berat['selisih'] ?? null) !== null ? $berat['selisih'] : '-' }}</td><td>{{ $berat['n_transaksi'] ?? 0 }}</td></tr>
+</table>
+<br>
+<table border="1">
     <thead>
         <tr>
             <th>No.</th>

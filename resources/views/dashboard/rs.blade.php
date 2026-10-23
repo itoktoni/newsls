@@ -37,6 +37,7 @@ $badgeClass = fn (string $level) => match ($level) {
                 'icon_name' => 'local_laundry_service',
                 'bg_color' => 'bg-warning/10',
                 'icon_color' => 'text-warning',
+                'badge' => formatQty($kpi['kotor_kg'] ?? 0).' kg',
             ],
             [
                 'value' => number_format($kpi['pending']),
@@ -51,6 +52,7 @@ $badgeClass = fn (string $level) => match ($level) {
                 'icon_name' => 'task_alt',
                 'bg_color' => 'bg-success/10',
                 'icon_color' => 'text-success',
+                'badge' => formatQty($kpi['bersih_kg'] ?? 0).' kg',
             ],
         ]" />
 
@@ -81,7 +83,7 @@ $badgeClass = fn (string $level) => match ($level) {
                                 </span>
                             </div>
                             <p class="text-2xl font-bold text-on-surface">{{ number_format($row['stok']) }}</p>
-                            <p class="text-xs text-on-surface-variant mt-0.5">Stok bersih · par —</p>
+                            <p class="text-xs text-on-surface-variant mt-0.5">Stok bersih · {{ formatQty($row['kg'] ?? 0) }} kg · par —</p>
                         </div>
                     @endforeach
                 </div>

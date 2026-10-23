@@ -1,4 +1,4 @@
-<?php /** @var App\Models\Transaksi $table */ ?>
+<?php /** @var App\Models\TransaksiMaster $table */ ?>
 
 <x-layouts::app>
     <x-breadcrumb :items="[['url' => '/dashboard', 'label' => 'Home'], ['url' => '', 'label' => moduleLabel()]]" />
@@ -23,36 +23,44 @@
         <x-table>
             <x-slot:head>
                 <x-table-checkbox :model="$model" onchange="toggleAll(this)" />
+                <th>Actions</th>
                 <th>No.</th>
-                <x-table-sort field="transaksi_key" label="NO. TRANSAKSI" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="transaksi_created_at" label="TANGGAL KOTOR" :sortField="$sortField" :sortDir="$sortDir" />
-                <x-table-sort field="transaksi_rfid" label="NO. RFID" :sortField="$sortField" :sortDir="$sortDir" />
-                <th>LINEN</th>
+                <x-table-sort field="master_kode" label="KODE TRANSAKSI" :sortField="$sortField" :sortDir="$sortDir" />
+                <x-table-sort field="master_tanggal" label="TANGGAL" :sortField="$sortField" :sortDir="$sortDir" />
                 <th>RUMAH SAKIT</th>
-                <th>RUANGAN</th>
-                <th>LOKASI SCAN RUMAH SAKIT</th>
-                <x-table-sort field="transaksi_status" label="STATUS KOTOR" :sortField="$sortField" :sortDir="$sortDir" />
                 <th>OPERATOR</th>
+                <x-table-sort field="master_status" label="STATUS" :sortField="$sortField" :sortDir="$sortDir" />
+                <th class="num">KOTOR (KG)</th>
+                <th class="num">BERSIH (KG)</th>
+                <th class="num">SELISIH (KG)</th>
+                <th>DETAIL</th>
             </x-slot:head>
 
             <x-slot:body>
                 @foreach($data as $i => $table)
                 <tr>
                     <x-table-row-checkbox :model="$model" :value="$table->field_primary" />
+                    <x-table-action :model="$model" :id="$table->field_primary">
+                        @can('show', $model)
+                        <a href="{{ moduleRoute('getShow', ['id' => $table->field_primary]) }}" wire:navigate title="Detail" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 transition-colors">
+                            <span class="material-symbols-outlined text-lg">list_alt</span>
+                        </a>
+                        @endcan
+                    </x-table-action>
                     <td>{{ $i + 1 }}</td>
-                    <td class="font-mono text-xs">{{ $table->transaksi_key }}</td>
-                    <td class="whitespace-nowrap text-xs">{{ formatDate($table->transaksi_created_at, true) ?? '-' }}</td>
-                    <td class="font-mono text-xs">{{ $table->transaksi_rfid }}</td>
-                    <td>{{ $table->linen_nama ?? '-' }}</td>
-                    <td>{{ $table->rs_ori_nama ?? $table->transaksi_rs_ori ?? '-' }}</td>
-                    <td>{{ $table->ruangan_nama ?? '-' }}</td>
-                    <td>{{ $table->rs_scan_nama ?? $table->transaksi_rs_scan ?? '-' }}</td>
+                    <td class="font-mono text-xs">{{ $table->master_kode }}</td>
+                    <td class="whitespace-nowrap text-xs">{{ formatDate($table->master_tanggal) ?? '-' }}</td>
+                    <td>{{ $table->rs_nama ?? '-' }}</td>
+                    <td>{{ $table->operator_name ?? '-' }}</td>
                     <td>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $table->transaksi_status === 'KOTOR' ? 'bg-amber-100 text-amber-800' : ($table->transaksi_status === 'REWASH' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800') }}">
-                            {{ $table->transaksi_status }}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $table->master_status === 'KOTOR' ? 'bg-amber-100 text-amber-800' : ($table->master_status === 'REWASH' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800') }}">
+                            {{ $table->master_status }}
                         </span>
                     </td>
-                    <td>{{ $table->operator_name ?? '-' }}</td>
+                    <td class="text-right">{{ $table->master_qty !== null ? formatQty($table->master_qty) : '-' }}</td>
+                    <td class="text-right">{{ formatQty($table->bersih_kg ?? 0) }}</td>
+                    <td class="text-right">{{ $table->master_qty !== null ? formatQty($table->master_qty - ($table->bersih_kg ?? 0)) : '-' }}</td>
+                    <td class="text-right">{{ $table->detail_count ?? '-' }}</td>
                 </tr>
                 @endforeach
             </x-slot:body>
@@ -64,30 +72,21 @@
                     <div class="border border-outline-variant rounded-xl p-4 bg-surface-container-lowest shadow-sm active:scale-[0.99] transition-transform" data-id="{{ $table->field_primary }}" onclick="mToggle(this)">
                         <div class="flex items-center gap-2 mb-2">
                             <span data-check class="icon-[tabler--circle] size-5 text-base-content/20 shrink-0"></span>
-                            <p class="flex-1 min-w-0 text-sm font-bold font-mono text-on-surface truncate">{{ $table->transaksi_rfid }}</p>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $table->transaksi_status === 'KOTOR' ? 'bg-amber-100 text-amber-800' : ($table->transaksi_status === 'REWASH' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800') }}">{{ $table->transaksi_status }}</span>
+                            <p class="flex-1 min-w-0 text-sm font-bold font-mono text-on-surface truncate">{{ $table->master_kode }}</p>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $table->master_status === 'KOTOR' ? 'bg-amber-100 text-amber-800' : ($table->master_status === 'REWASH' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800') }}">{{ $table->master_status }}</span>
                         </div>
-                        <p class="text-[11px] text-on-surface-variant truncate mb-3">NO. TRANSAKSI: {{ $table->transaksi_key }}</p>
                         <div class="grid grid-cols-2 gap-x-3 gap-y-2 mb-3 text-xs">
                             <div>
-                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">TANGGAL KOTOR</p>
-                                <p class="font-medium text-on-surface truncate">{{ formatDate($table->transaksi_created_at, true) ?? '-' }}</p>
+                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">TANGGAL</p>
+                                <p class="font-medium text-on-surface truncate">{{ formatDate($table->master_tanggal) ?? '-' }}</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">LINEN</p>
-                                <p class="font-medium text-on-surface truncate">{{ $table->linen_nama ?? '-' }}</p>
+                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">KOTOR / BERSIH (KG)</p>
+                                <p class="font-medium text-on-surface truncate">{{ $table->master_qty !== null ? formatQty($table->master_qty) : '-' }} / {{ formatQty($table->bersih_kg ?? 0) }}</p>
                             </div>
                             <div>
                                 <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">RUMAH SAKIT</p>
-                                <p class="font-medium text-on-surface truncate">{{ $table->rs_ori_nama ?? $table->transaksi_rs_ori ?? '-' }}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">RUANGAN</p>
-                                <p class="font-medium text-on-surface truncate">{{ $table->ruangan_nama ?? '-' }}</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">LOKASI SCAN</p>
-                                <p class="font-medium text-on-surface truncate">{{ $table->rs_scan_nama ?? $table->transaksi_rs_scan ?? '-' }}</p>
+                                <p class="font-medium text-on-surface truncate">{{ $table->rs_nama ?? '-' }}</p>
                             </div>
                             <div class="text-right">
                                 <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">OPERATOR</p>
@@ -96,6 +95,9 @@
                         </div>
                         <div class="flex items-center justify-between pt-2 border-t border-outline-variant/50">
                             <span class="text-[9px] font-mono text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ $table->field_primary }}</span>
+                            @can('show', $model)
+                            <a href="{{ moduleRoute('getShow', ['id' => $table->field_primary]) }}" wire:navigate class="text-xs font-semibold text-violet-600">Lihat detail →</a>
+                            @endcan
                         </div>
                     </div>
                     @endforeach

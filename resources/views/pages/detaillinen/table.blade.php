@@ -37,6 +37,7 @@
                 <x-table-sort field="detail_status_kepemilikan" label="Kepemilikan" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="ruangan_nama" label="Ruangan" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="jenis_nama" label="Jenis Linen" :sortField="$sortField" :sortDir="$sortDir" />
+                <x-table-sort field="detail_status_linen" label="Status" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="detail_total_bersih" label="Pemakaian" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="detail_updated_at" label="Tgl Terakhir" :sortField="$sortField" :sortDir="$sortDir" />
             </x-slot:head>
@@ -53,6 +54,11 @@
                     </td>
                     <td>{{ $table->ruangan_nama ?? '-' }}</td>
                     <td>{{ $table->jenis_nama ?? '-' }}</td>
+                    <td class="whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ in_array($table->detail_status_linen, ['BERSIH', 'GUDANG']) ? 'bg-green-100 text-green-800' : ($table->detail_status_linen === 'KOTOR' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700') }}">
+                            {{ $table->detail_status_linen ?? '-' }}
+                        </span>
+                    </td>
 
                     <td class="text-center">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">

@@ -84,4 +84,9 @@ class Transaksi extends BaseModel
     {
         return $this->hasOne(Ruangan::class, 'ruangan_id', 'transaksi_id_ruangan');
     }
+
+    public function hasMaster()
+    {
+        return $this->hasOne(TransaksiMaster::class, 'master_kode', 'transaksi_key');
+    }
 }

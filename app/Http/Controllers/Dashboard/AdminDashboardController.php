@@ -31,18 +31,23 @@ class AdminDashboardController extends Controller
 
         $scope = DashboardCache::userScope();
 
-        $payload = DashboardCache::remember($scope, 'admin:stats:v2', function () {
+        $payload = DashboardCache::remember($scope, 'admin:stats:v3', function () {
             $gudangId = Warehouse::utamaId();
+
+            $kotorBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR);
+            $bersihBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH);
 
             $kpi = [
                 'register' => DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER)->count(),
-                'kotor' => DetailLinen::where('detail_status_linen', LinenStatusEnum::KOTOR)->count(),
+                'kotor' => (clone $kotorBase)->count(),
                 'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
-                'bersih' => DetailLinen::where('detail_status_linen', LinenStatusEnum::BERSIH)->count(),
+                'bersih' => (clone $bersihBase)->count(),
                 'outstanding' => Outstanding::count(),
                 'warehouse' => Outstanding::where('outstanding_status_proses', 'GUDANG')
                     ->where('outstanding_id_warehouse', $gudangId)
                     ->count(),
+                'kotor_kg' => DashboardCache::sumBerat($kotorBase),
+                'bersih_kg' => DashboardCache::sumBerat($bersihBase),
             ];
 
             $sebaran = DetailLinen::query()

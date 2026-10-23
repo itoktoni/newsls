@@ -37,9 +37,13 @@ class RsDashboardController extends Controller
     {
         $scope = DashboardCache::userScope();
 
-        $payload = DashboardCache::remember($scope, 'rs:stats', function () {
+        $payload = DashboardCache::remember($scope, 'rs:stats:v2', function () {
             $bersihQuery = fn () => User::scopeRs(
                 DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
+                'detail_linen.detail_id_rs'
+            );
+            $kotorQuery = fn () => User::scopeRs(
+                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
                 'detail_linen.detail_id_rs'
             );
 
@@ -48,21 +52,21 @@ class RsDashboardController extends Controller
                     DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::REGISTER),
                     'detail_linen.detail_id_rs'
                 )->count(),
-                'kotor' => User::scopeRs(
-                    DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
-                    'detail_linen.detail_id_rs'
-                )->count(),
+                'kotor' => $kotorQuery()->count(),
                 'pending' => User::scopeRs(
                     Outstanding::query()->whereNotNull('outstanding_pending_created_at'),
                     'outstanding.outstanding_rs_scan'
                 )->count(),
                 'bersih' => $bersihQuery()->count(),
+                'kotor_kg' => DashboardCache::sumBerat($kotorQuery()),
+                'bersih_kg' => DashboardCache::sumBerat($bersihQuery()),
             ];
 
             // Sebaran bersih per ruangan: stok absolut (par per-ruangan tidak ada di schema).
             $sebaran = $bersihQuery()
                 ->join('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
-                ->selectRaw('detail_linen.detail_id_ruangan as ruangan_id, ruangan.ruangan_nama, COUNT(*) as stok')
+                ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+                ->selectRaw('detail_linen.detail_id_ruangan as ruangan_id, ruangan.ruangan_nama, COUNT(*) as stok, SUM(jenis_linen.jenis_berat) as kg')
                 ->groupBy('detail_linen.detail_id_ruangan', 'ruangan.ruangan_nama')
                 ->orderBy('stok')
                 ->limit((int) config('dashboard.top_ruangan', 12))
@@ -74,6 +78,7 @@ class RsDashboardController extends Controller
                         'ruangan_id' => $row->ruangan_id,
                         'ruangan_nama' => $row->ruangan_nama,
                         'stok' => $stok,
+                        'kg' => (float) ($row->kg ?? 0),
                         'par' => null,
                         'fill' => null,
                         'level' => $stok === 0 ? 'danger' : ($stok < 5 ? 'warn' : 'ok'),

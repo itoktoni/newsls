@@ -307,10 +307,10 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
             'rs_id' => $this->rs->rs_id,
             'key' => $kotorKey,
         ]);
-    $kotorRes->assertOk()->assertJson(['status' => true, 'message' => 'Transaksi berhasil.']);
-    $kotorRes->assertJsonPath('data.key', $kotorKey);
-    $kotorRes->assertJsonPath('data.status', 'KOTOR');
-    $kotorRes->assertJsonPath('data.rfid_count', 3);
+    $kotorRes->assertOk()->assertJson(['status' => true, 'message' => 'Data berhasil di buat']);
+    $kotorRes->assertJsonPath('data.0.key', $kotorKey);
+    $kotorRes->assertJsonPath('data.0.status_transaksi', 'KOTOR');
+    expect(count($kotorRes->json('data')))->toBe(3);
 
     // Transaksi harus ada 3 baris KOTOR dengan key yang sama
     expect(Transaksi::where('transaksi_key', $kotorKey)->where('transaksi_status', 'KOTOR')->count())->toBe(3);

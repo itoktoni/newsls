@@ -94,6 +94,13 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     Route::post('retur', [TransaksiApiController::class, 'retur'])->name('transaksi.retur');
     Route::post('rewash', [TransaksiApiController::class, 'rewash'])->name('transaksi.rewash');
 
+    // Alias prefix transaksi/* — kontrak yang dipakai desktop ApiClient/Outbox
+    // (POST {API}/transaksi/kotor|retur|rewash, lihat desktop/AGENTS.md §5.2).
+    // Logic sama persis, route tanpa prefix di atas tetap hidup untuk kompatibilitas.
+    Route::post('transaksi/kotor', [TransaksiApiController::class, 'kotor'])->name('api.transaksi.kotor');
+    Route::post('transaksi/retur', [TransaksiApiController::class, 'retur'])->name('api.transaksi.retur');
+    Route::post('transaksi/rewash', [TransaksiApiController::class, 'rewash'])->name('api.transaksi.rewash');
+
     // =====================================================================
     // 5. BERSIH — packing + delivery + reprint + counter (desktop andalan).
     // =====================================================================

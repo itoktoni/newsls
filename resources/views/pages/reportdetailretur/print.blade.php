@@ -40,6 +40,21 @@
     </tr>
 </table>
 
+<table class="data" style="margin-bottom:10px;">
+    <thead>
+        <tr><th colspan="4" style="text-align:left;">RINGKASAN BERAT TIMBANGAN</th></tr>
+        <tr><th>Kotor Timbangan (Kg)</th><th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="num">{{ ($berat['kotor'] ?? null) !== null ? formatQty($berat['kotor']) : 'belum ditimbang' }}</td>
+            <td class="num">{{ formatQty($berat['bersih'] ?? 0) }}</td>
+            <td class="num">{{ ($berat['selisih'] ?? null) !== null ? formatQty($berat['selisih']) : '-' }}</td>
+            <td class="num">{{ $berat['n_transaksi'] ?? 0 }} (ditimbang: {{ $berat['n_timbang'] ?? 0 }})</td>
+        </tr>
+    </tbody>
+</table>
+
 <br>
 
 <div class="table-responsive" id="table_data">
@@ -50,6 +65,7 @@
                 <th>NO. TRANSAKSI</th>
                 <th>NO. RFID</th>
                 <th>LINEN</th>
+                <th class="num">BERAT (KG)</th>
                 <th>RUMAH SAKIT</th>
                 <th>RUANGAN</th>
                 <th>LOKASI SCAN</th>
@@ -67,6 +83,7 @@
                 <td>{{ $table->transaksi_key }}</td>
                 <td>{{ $table->transaksi_rfid }}</td>
                 <td>{{ $table->jenis_nama ?? '-' }}</td>
+                <td class="num">{{ $table->jenis_berat !== null ? formatQty($table->jenis_berat) : '-' }}</td>
                 <td>{{ $table->rs_ori_nama ?? '-' }}</td>
                 <td>{{ $table->ruangan_nama ?? '-' }}</td>
                 <td>{{ $table->rs_scan_nama ?? '-' }}</td>
@@ -77,9 +94,16 @@
                 <td>{{ $table->operator_nama ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="12" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="13" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="4" style="text-align:right;">Total:</th>
+                <th class="num">{{ formatQty($data->sum(fn ($r) => (float) ($r->jenis_berat ?? 0))) }}</th>
+                <th colspan="8" style="text-align:left;">{{ $data->count() }} baris</th>
+            </tr>
+        </tfoot>
     </table>
 </div>
 

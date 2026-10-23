@@ -20,7 +20,7 @@
             <p class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest mb-2">Pipeline</p>
             <x-stat-widget :items="[
                 ['value' => number_format($kpi['register']), 'label' => 'Register', 'icon_name' => 'app_registration', 'bg_color' => 'bg-primary/10', 'icon_color' => 'text-primary'],
-                ['value' => number_format($kpi['kotor']), 'label' => 'Kotor', 'icon_name' => 'local_laundry_service', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
+                ['value' => number_format($kpi['kotor']), 'label' => 'Kotor', 'icon_name' => 'local_laundry_service', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning', 'badge' => formatQty($kpi['kotor_kg'] ?? 0).' kg'],
                 ['value' => number_format($kpi['pending']), 'label' => 'Pending', 'icon_name' => 'pending_actions', 'bg_color' => 'bg-info/10', 'icon_color' => 'text-info'],
                 ['value' => number_format($kpi['bersih']), 'label' => 'Bersih', 'icon_name' => 'task_alt', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success'],
                 ['value' => number_format($kpi['delivered']), 'label' => 'Delivered Hari Ini', 'icon_name' => 'inventory_2', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success'],
@@ -55,7 +55,7 @@
                         @foreach ($gudangPerJenis as $row)
                             <li class="flex items-center justify-between text-sm border-b border-outline-variant/50 pb-1.5">
                                 <span class="text-on-surface">{{ $row['nama'] }}</span>
-                                <span class="font-semibold text-on-surface">{{ number_format($row['pcs']) }} pcs</span>
+                                <span class="font-semibold text-on-surface">{{ number_format($row['pcs']) }} pcs · {{ formatQty($row['kg'] ?? 0) }} kg</span>
                             </li>
                         @endforeach
                     </ul>

@@ -28,18 +28,20 @@ class LaundryDashboardController extends Controller
 
         $scope = DashboardCache::userScope();
 
-        $payload = DashboardCache::remember($scope, 'laundry:stats', function () {
+        $payload = DashboardCache::remember($scope, 'laundry:stats:v2', function () {
             $gudangId = Warehouse::utamaId();
+
+            $kotorBase = User::scopeRs(
+                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
+                'detail_linen.detail_id_rs'
+            );
 
             $kpi = [
                 'register' => User::scopeRs(
                     DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::REGISTER),
                     'detail_linen.detail_id_rs'
                 )->count(),
-                'kotor' => User::scopeRs(
-                    DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
-                    'detail_linen.detail_id_rs'
-                )->count(),
+                'kotor' => (clone $kotorBase)->count(),
                 'pending' => User::scopeRs(
                     Outstanding::query()->whereNotNull('outstanding_pending_created_at'),
                     'outstanding.outstanding_rs_scan'
@@ -58,6 +60,7 @@ class LaundryDashboardController extends Controller
                         ->where('outstanding_id_warehouse', $gudangId),
                     'outstanding.outstanding_rs_scan'
                 )->count(),
+                'kotor_kg' => DashboardCache::sumBerat($kotorBase),
             ];
 
             $antrean = [
@@ -76,7 +79,7 @@ class LaundryDashboardController extends Controller
                 ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
                 ->where('outstanding.outstanding_status_proses', 'GUDANG')
                 ->where('outstanding.outstanding_id_warehouse', $gudangId)
-                ->selectRaw('COALESCE(jenis_linen.jenis_nama, ?) as nama, COUNT(*) as pcs', ['Tanpa Jenis'])
+                ->selectRaw('COALESCE(jenis_linen.jenis_nama, ?) as nama, COUNT(*) as pcs, SUM(jenis_linen.jenis_berat) as kg', ['Tanpa Jenis'])
                 ->groupBy('jenis_linen.jenis_nama')
                 ->orderByDesc('pcs')
                 ->limit((int) config('dashboard.top_ruangan', 12))
@@ -84,6 +87,7 @@ class LaundryDashboardController extends Controller
                 ->map(fn ($row) => [
                     'nama' => $row->nama,
                     'pcs' => (int) $row->pcs,
+                    'kg' => (float) ($row->kg ?? 0),
                 ])
                 ->all();
 

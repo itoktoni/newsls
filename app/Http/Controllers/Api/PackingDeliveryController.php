@@ -33,6 +33,10 @@ class PackingDeliveryController extends Controller
 
         $input = $this->normalizePacking($request);
 
+        if ($err = $this->assertNotAlreadyPacked($input)) {
+            return $err;
+        }
+
         if ($err = $this->assertReadyForPacking($input)) {
             return $err;
         }
@@ -84,6 +88,28 @@ class PackingDeliveryController extends Controller
             'ruanganId' => (int) $request->input('ruangan_id'),
             'status' => $status,
         ];
+    }
+
+    /**
+     * RFID yang masih berstatus PACKING (RS/status apa pun) tidak boleh
+     * di-packing ulang — cegah dobel packing seperti ...75 yang tercatat
+     * di 2 RS (Kuningan + Cakung) tanpa delivery di antaranya.
+     */
+    private function assertNotAlreadyPacked(array $input)
+    {
+        $rows = Outstanding::whereIn('outstanding_rfid', $input['rfids'])
+            ->where('outstanding_status_proses', 'PACKING')
+            ->get(['outstanding_rfid', 'outstanding_rs_scan']);
+        if ($rows->isEmpty()) {
+            return null;
+        }
+        $names = Rs::whereIn('rs_id', $rows->pluck('outstanding_rs_scan')->unique()->all())->pluck('rs_nama', 'rs_id');
+        $bad = [];
+        foreach ($rows as $row) {
+            $bad[] = $row->outstanding_rfid.' ('.($names[$row->outstanding_rs_scan] ?? 'rs#'.$row->outstanding_rs_scan).')';
+        }
+
+        return Notes::validation('RFID sudah di packing: '.implode(', ', $bad), ['rfid' => $bad]);
     }
 
     private function assertReadyForPacking(array $input)
@@ -290,11 +316,50 @@ class PackingDeliveryController extends Controller
 
         $input = $this->normalizeDelivery($request);
 
-        if ($err = $this->assertPackingExists($input)) {
+        if (! empty($input['rfids'])) {
+            if ($err = $this->assertDeliveryRfids($input)) {
+                return $err;
+            }
+        } elseif ($err = $this->assertPackingExists($input)) {
             return $err;
         }
 
         return $this->executeDelivery($input);
+    }
+
+    /**
+     * Bila desktop mengirim rfid[] hasil scan, tiap RFID wajib sedang
+     * PACKING untuk RS ini (+ status cocok) — cegah kasus "packing Kuningan,
+     * delivery Cakung" lolos diam-diam. Tanpa rfid[] = perilaku lama
+     * (seluruh packing RS ini) agar desktop lama tetap kompatibel.
+     */
+    private function assertDeliveryRfids(array $input)
+    {
+        if (empty($input['rfids'])) {
+            return null;
+        }
+        $rows = Outstanding::whereIn('outstanding_rfid', $input['rfids'])
+            ->where('outstanding_status_proses', 'PACKING')
+            ->where('outstanding_status_transaksi', $input['status'])
+            ->get()->keyBy('outstanding_rfid');
+        $bad = [];
+        foreach ($input['rfids'] as $rfid) {
+            $row = $rows->get($rfid);
+            if (! $row) {
+                $bad[] = $rfid.' (tidak/belum packing)';
+
+                continue;
+            }
+            if ((int) $row->outstanding_rs_scan !== $input['rsId']) {
+                $rsName = Rs::find($row->outstanding_rs_scan)?->rs_nama ?? 'rs#'.$row->outstanding_rs_scan;
+                $bad[] = $rfid.' (packing untuk '.$rsName.')';
+            }
+        }
+        if ($bad !== []) {
+            return Notes::validation('RFID tidak sesuai packing RS ini: '.implode(', ', $bad), ['rfid' => $bad]);
+        }
+
+        return null;
     }
 
     private function validateDelivery(Request $request)
@@ -302,6 +367,8 @@ class PackingDeliveryController extends Controller
         $v = Validator::make($request->all(), [
             'rs_id' => 'required|integer|exists:rs,rs_id',
             'status_transaksi' => 'required|string',
+            'rfid' => 'nullable|array',
+            'rfid.*' => 'string',
         ], [
             'rs_id.required' => 'RS wajib dipilih.',
             'status_transaksi.required' => 'Status transaksi wajib diisi.',
@@ -325,6 +392,7 @@ class PackingDeliveryController extends Controller
         return [
             'rsId' => (int) $request->input('rs_id'),
             'status' => $status,
+            'rfids' => collect($request->input('rfid'))->filter()->unique()->values()->all(),
         ];
     }
 
@@ -397,18 +465,25 @@ class PackingDeliveryController extends Controller
 
     private function collectPackingRfids(array $input): array
     {
-        return Outstanding::where('outstanding_rs_scan', $input['rsId'])
+        $query = Outstanding::where('outstanding_rs_scan', $input['rsId'])
             ->where('outstanding_status_proses', 'PACKING')
-            ->where('outstanding_status_transaksi', $input['status'])
-            ->pluck('outstanding_rfid')->all();
+            ->where('outstanding_status_transaksi', $input['status']);
+        if (! empty($input['rfids'])) {
+            $query->whereIn('outstanding_rfid', $input['rfids']);
+        }
+
+        return $query->pluck('outstanding_rfid')->all();
     }
 
     private function updateDetailRuangan(array $input, array $rfids): void
     {
-        $grouped = Outstanding::where('outstanding_rs_scan', $input['rsId'])
+        $query = Outstanding::where('outstanding_rs_scan', $input['rsId'])
             ->where('outstanding_status_proses', 'PACKING')
-            ->where('outstanding_status_transaksi', $input['status'])
-            ->get()->groupBy('outstanding_id_ruangan');
+            ->where('outstanding_status_transaksi', $input['status']);
+        if (! empty($input['rfids'])) {
+            $query->whereIn('outstanding_rfid', $input['rfids']);
+        }
+        $grouped = $query->get()->groupBy('outstanding_id_ruangan');
         foreach ($grouped as $locId => $items) {
             DetailLinen::whereIn('detail_rfid', $items->pluck('outstanding_rfid')->all())->update(['detail_id_ruangan' => $locId]);
         }

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Concerns\ControllerTrait;
 use App\Enums\TransactionType;
+use App\Http\Controllers\Concerns\BuildsBeratSummary;
 use App\Http\Controllers\Concerns\BuildsRekapMatrix;
 use App\Http\Requests\GeneralRequest;
 use App\Models\Rs;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 /**
@@ -20,6 +22,7 @@ use Illuminate\Http\Request;
  */
 class ReportRekapRewashController extends Controller
 {
+    use BuildsBeratSummary;
     use BuildsRekapMatrix;
     use ControllerTrait;
 
@@ -80,7 +83,7 @@ class ReportRekapRewashController extends Controller
     protected function share($data = [])
     {
         $default = [
-            'rsOptions' => \App\Models\User::rsOptions(),
+            'rsOptions' => User::rsOptions(),
         ];
 
         return array_merge($default, $data);
@@ -93,6 +96,11 @@ class ReportRekapRewashController extends Controller
             TransactionType::REWASH,
             $filter['start_rekap'] ?? null,
             $filter['end_rekap'] ?? null
-        );
+        ) + ['berat' => $this->beratSummary(
+            (int) $filter['rs_id'],
+            TransactionType::REWASH,
+            $filter['start_rekap'] ?? null,
+            $filter['end_rekap'] ?? null
+        )];
     }
 }

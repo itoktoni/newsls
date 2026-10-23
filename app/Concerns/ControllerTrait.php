@@ -272,14 +272,18 @@ trait ControllerTrait
             }
         }
 
-        // Legacy _q + _field search
+        // Legacy _q + _field search — kualifikasi sama seperti filters di atas,
+        // karena getData controller bisa menambah join (mis. config-linen join
+        // detail_linen yang juga punya detail_rfid -> 1052 ambiguous).
         $q = $request->input('_q');
         $searchField = $request->input('_field');
         if ($q && $searchField && in_array($searchField, $allowedFields)) {
-            $query->whereRaw('LOWER('.$searchField.') LIKE ?', ['%'.strtolower($q).'%']);
+            $searchColumn = str_contains($searchField, '.') ? $searchField : $this->model->getTable().'.'.$searchField;
+            $query->whereRaw('LOWER('.$searchColumn.') LIKE ?', ['%'.strtolower($q).'%']);
         }
 
-        // Sort: sort[0] = column:direction
+        // Sort: sort[0] = column:direction (alias select seperti rs_nama
+        // sengaja TIDAK dikualifikasi — prefix tabel justru merusak alias).
         $sort = $request->input('sort.0');
         $sortColumns = $this->model::$sortColumns ?? [];
         if ($sort) {

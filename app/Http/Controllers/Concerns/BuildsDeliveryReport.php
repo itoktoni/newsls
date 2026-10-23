@@ -170,12 +170,15 @@ trait BuildsDeliveryReport
         $legacy = $this->applyLegacyRange(
             DB::table('bersih')
                 ->leftJoin('users', 'users.id', '=', 'bersih.bersih_created_by')
+                ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'bersih.bersih_rfid')
+                ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
                 ->where('bersih.bersih_status', $this->legacyStatus())
                 ->where('bersih.bersih_id_rs', $filter['rs_id']),
             $filter
         )
             ->groupBy('bersih.bersih_delivery')
             ->selectRaw('bersih.bersih_delivery as do, MIN(bersih.bersih_report) as tanggal_raw, COUNT(*) as total')
+            ->selectRaw('SUM(jenis_linen.jenis_berat) as kg')
             ->selectRaw("SUBSTRING_INDEX(GROUP_CONCAT(users.name ORDER BY bersih.bersih_id SEPARATOR '|'), '|', 1) as operator")
             ->orderBy('tanggal_raw')
             ->orderBy('do')
@@ -186,6 +189,7 @@ trait BuildsDeliveryReport
                 'do' => $row->do ?? '-',
                 'rs' => $rsNama ?? '-',
                 'total' => (int) $row->total,
+                'kg' => (float) ($row->kg ?? 0),
                 'tanggal' => $row->tanggal_raw ? formatDate($row->tanggal_raw) ?? '-' : '-',
                 'operator' => $row->operator ?? '-',
             ];

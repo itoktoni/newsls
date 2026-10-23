@@ -34,38 +34,50 @@ beforeEach(function () {
         $this->token = $this->admin->createToken('test-token-'.uniqid())->plainTextToken;
         $this->rfids = $existingRfids;
 
+        // Reset sisa run sebelumnya untuk RFID ini (kasus run parsial).
+        DetailLinen::whereIn('detail_rfid', $this->rfids)->update(['detail_status_linen' => LinenStatusEnum::BERSIH]);
+        DB::table('outstanding')->whereIn('outstanding_rfid', $this->rfids)->delete();
+        DB::table('transaksi')->whereIn('transaksi_rfid', $this->rfids)->whereDate('transaksi_created_at', today())->delete();
+
         return;
     }
 
-    // Fallback standalone (jalan step2 langsung tanpa step1) — buat data sendiri
-    $this->rs = Rs::create(['rs_nama' => 'RS Step2', 'rs_code' => 'STP2', 'rs_status' => RsStatusEnum::DEDICATED, 'rs_aktif' => 1]);
-    $this->ruangan = Ruangan::create(['ruangan_nama' => 'Ruang Dahlia', 'ruangan_code' => 'DHL']);
-    $this->jenis = JenisLinen::create(['jenis_nama' => 'Seprai Single']);
-    $this->bahan = JenisBahan::create(['bahan_nama' => 'Katun']);
-    $this->supplier = Supplier::create(['supplier_nama' => 'Supplier Test']);
-    DB::table('rs_dan_ruangan')->insert(['rs_id' => $this->rs->rs_id, 'ruangan_id' => $this->ruangan->ruangan_id]);
-    DB::table('rs_dan_jenis')->insert(['rs_id' => $this->rs->rs_id, 'jenis_id' => $this->jenis->jenis_id, 'parstock' => 10]);
+    // Fallback standalone (jalan step2 langsung tanpa step1) — idempoten,
+    // boleh run berulang: updateOrCreate + reset status + buang sisa run
+    // sebelumnya untuk RFID ini saja (tanpa menyentuh data test lain).
+    $this->rs = Rs::updateOrCreate(['rs_code' => 'STP2'], ['rs_nama' => 'RS Step2', 'rs_status' => RsStatusEnum::DEDICATED, 'rs_aktif' => 1]);
+    $this->ruangan = Ruangan::firstOrCreate(['ruangan_code' => 'DHL'], ['ruangan_nama' => 'Ruang Dahlia']);
+    $this->jenis = JenisLinen::firstOrCreate(['jenis_nama' => 'Seprai Single']);
+    $this->bahan = JenisBahan::firstOrCreate(['bahan_nama' => 'Katun']);
+    $this->supplier = Supplier::firstOrCreate(['supplier_nama' => 'Supplier Test']);
+    DB::table('rs_dan_ruangan')->updateOrInsert(['rs_id' => $this->rs->rs_id, 'ruangan_id' => $this->ruangan->ruangan_id], []);
+    DB::table('rs_dan_jenis')->updateOrInsert(['rs_id' => $this->rs->rs_id, 'jenis_id' => $this->jenis->jenis_id], ['parstock' => 10]);
     DB::table('warehouse')->updateOrInsert(['warehouse_id' => 1], ['warehouse_nama' => 'Gudang Utama']);
-    $this->admin = User::create(['name' => 'Admin Step2', 'email' => 'step2@bka.test', 'password' => Hash::make('password'), 'role' => 'admin', 'verified_at' => now(), 'email_verified_at' => now()]);
-    DB::table('rs_dan_user')->insert(['user_id' => $this->admin->id, 'rs_id' => $this->rs->rs_id]);
+    $this->admin = User::firstOrCreate(['email' => 'step2@bka.test'], ['name' => 'Admin Step2', 'password' => Hash::make('password'), 'role' => 'admin', 'verified_at' => now(), 'email_verified_at' => now()]);
+    DB::table('rs_dan_user')->updateOrInsert(['user_id' => $this->admin->id, 'rs_id' => $this->rs->rs_id], []);
     $this->token = $this->admin->createToken('test-token')->plainTextToken;
     $this->rfids = ['STEP2_1', 'STEP2_2', 'STEP2_3'];
     foreach ($this->rfids as $rfid) {
-        DetailLinen::create([
-            'detail_rfid' => $rfid, 'detail_id_rs' => $this->rs->rs_id, 'detail_id_ruangan' => $this->ruangan->ruangan_id,
+        DetailLinen::updateOrCreate(['detail_rfid' => $rfid], [
+            'detail_id_rs' => $this->rs->rs_id, 'detail_id_ruangan' => $this->ruangan->ruangan_id,
             'detail_id_jenis' => $this->jenis->jenis_id, 'detail_id_bahan' => $this->bahan->bahan_id, 'detail_id_supplier' => $this->supplier->supplier_id,
             'detail_status_cuci' => CuciEnum::CUCI, 'detail_status_kepemilikan' => RsStatusEnum::DEDICATED,
             'detail_status_register' => RegisterEnum::REGISTER, 'detail_status_linen' => LinenStatusEnum::BERSIH,
             'detail_report' => now()->subDays(2)->format('Y-m-d'),
             'detail_total_bersih' => 1, 'detail_created_by' => $this->admin->id,
         ]);
-        DB::table('config_linen')->insert(['detail_rfid' => $rfid, 'rs_id' => $this->rs->rs_id]);
-        DB::table('bersih')->insert([
-            'bersih_rfid' => $rfid, 'bersih_status' => 'BERSIH', 'bersih_id_rs' => $this->rs->rs_id, 'bersih_id_ruangan' => $this->ruangan->ruangan_id,
+        DB::table('config_linen')->updateOrInsert(['detail_rfid' => $rfid, 'rs_id' => $this->rs->rs_id], []);
+        DB::table('bersih')->updateOrInsert(['bersih_rfid' => $rfid], [
+            'bersih_status' => 'BERSIH', 'bersih_id_rs' => $this->rs->rs_id, 'bersih_id_ruangan' => $this->ruangan->ruangan_id,
             'bersih_barcode' => generateBarcode(), 'bersih_delivery' => generateDeliveryCode($this->rs->rs_code),
             'bersih_created_at' => now(), 'bersih_updated_at' => now(), 'bersih_created_by' => $this->admin->id, 'bersih_report' => now()->format('Y-m-d'),
         ]);
     }
+    // Reset agar scan kotor fresh: status BERSIH + buang outstanding &
+    // transaksi hari ini untuk RFID ini saja.
+    DetailLinen::whereIn('detail_rfid', $this->rfids)->update(['detail_status_linen' => LinenStatusEnum::BERSIH, 'detail_updated_at' => now()->subDays(2)]);
+    DB::table('outstanding')->whereIn('outstanding_rfid', $this->rfids)->delete();
+    DB::table('transaksi')->whereIn('transaksi_rfid', $this->rfids)->whereDate('transaksi_created_at', today())->delete();
 });
 
 /**
@@ -82,7 +94,7 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
     $kotorKey = 'KTR-STEP2-'.strtoupper(uniqid());
     $this->withToken($this->token)->postJson('/api/kotor', [
         'rfid' => $rfids, 'rs_id' => $this->rs->rs_id, 'key' => $kotorKey,
-    ])->assertOk()->assertJson(['status' => true])->assertJsonPath('data.status', 'KOTOR');
+    ])->assertOk()->assertJson(['status' => true])->assertJsonPath('data.0.status_transaksi', 'KOTOR');
 
     // Cek transaksi KOTOR terinsert, outstanding SCAN/NORMAL, detail jadi KOTOR
     expect(DB::table('transaksi')->where('transaksi_key', $kotorKey)->where('transaksi_status', 'KOTOR')->count())->toBe(3);
@@ -100,10 +112,11 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
     $this->actingAs($this->admin)->get('/report-detail-kotor/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-kotor-vs-bersih/table?rs_id='.$this->rs->rs_id)->assertOk();
     $this->actingAs($this->admin)->get('/report-in-vs-out/table?rs_id='.$this->rs->rs_id)->assertOk();
-    expect(DB::table('outstanding')->where('outstanding_status_transaksi', 'KOTOR')->count())->toBe(3);
-    expect(DB::table('transaksi')->where('transaksi_status', 'KOTOR')->count())->toBe(3);
-    // bersih masih 3 (detail BERSIH sebelumnya) tapi detail sekarang KOTOR, jadi bersih vs kotor terpisah
-    expect(DetailLinen::where('detail_status_linen', LinenStatusEnum::BERSIH)->count())->toBe(0);
+    expect(DB::table('outstanding')->whereIn('outstanding_rfid', $rfids)->where('outstanding_status_transaksi', 'KOTOR')->count())->toBe(3);
+    expect(DB::table('transaksi')->whereIn('transaksi_rfid', $rfids)->where('transaksi_status', 'KOTOR')->count())->toBe(3);
+    // RFID sendiri tidak ada lagi yang BERSIH (scope RFID sendiri supaya
+    // data test lain seperti LEG_RFID_1 tidak ikut dihitung).
+    expect(DetailLinen::whereIn('detail_rfid', $rfids)->where('detail_status_linen', LinenStatusEnum::BERSIH)->count())->toBe(0);
 
     // 3) Grouping masuk gudang — GET /api/grouping/{rfid} → outstanding GUDANG, detail GUDANG
     foreach ($rfids as $rfid) {
@@ -136,7 +149,7 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
     }
 
     // 4) Cek stok gudang & viewer bersih (stat Antrean Packing = outstanding SCAN/QC/REGISTER/GUDANG)
-    expect(DB::table('outstanding')->where('outstanding_status_proses', 'GUDANG')->count())->toBe(3);
+    expect(DB::table('outstanding')->whereIn('outstanding_rfid', $rfids)->where('outstanding_status_proses', 'GUDANG')->count())->toBe(3);
     $this->actingAs($this->admin)->get('/bersih/table?tab=packing')->assertOk()->assertSee('Antrean Packing');
 
     // dedup: scan kotor lagi hari sama tidak nambah transaksi (existing today skip)
@@ -144,6 +157,6 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
     $this->withToken($this->token)->postJson('/api/kotor', [
         'rfid' => $rfids, 'rs_id' => $this->rs->rs_id, 'key' => $dupKey,
     ])->assertOk()->assertJson(['status' => true]);
-    expect(DB::table('transaksi')->whereDate('transaksi_created_at', today())->count())->toBe(3);
-    expect(DB::table('outstanding')->count())->toBe(3); // outstanding tetap 3, diupdate
+    expect(DB::table('transaksi')->whereIn('transaksi_rfid', $rfids)->whereDate('transaksi_created_at', today())->count())->toBe(3);
+    expect(DB::table('outstanding')->whereIn('outstanding_rfid', $rfids)->count())->toBe(3); // outstanding tetap 3, diupdate
 });

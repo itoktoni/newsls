@@ -37,6 +37,17 @@ class DashboardCache
         }
     }
 
+    /**
+     * Total berat bersih (kg) = SUM jenis_berat untuk query berbasis
+     * detail_linen. Dipakai KPI bobot dashboard (stok, bukan timbangan).
+     */
+    public static function sumBerat($query): float
+    {
+        return (float) (clone $query)
+            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->sum('jenis_linen.jenis_berat');
+    }
+
     public static function key(string $scope, string $segment): string
     {
         return 'dash:'.self::generation().':'.$scope.':'.$segment;

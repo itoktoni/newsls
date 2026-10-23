@@ -1,0 +1,420 @@
+.column-checkbox, .checkbox, .column-action{
+	display: none !important;
+}
+
+.text-center{
+    text-align: center;
+}
+
+.text-left{
+    text-align: left;
+}
+
+.text-right{
+    text-align: right;
+}
+
+.cursor{
+    cursor: pointer;
+}
+
+h3 {
+    font-size: 10pt;
+}
+
+h4{
+	font-size: 25px;
+	text-align: center;
+	margin: 10px 0px;
+}
+
+.wrapper {
+    width: 500px;
+    position: absolute;
+    right: 5px;
+    top: 35px;
+}
+
+.progress-bar {
+    width: 100%;
+    background-color: #e0e0e0;
+    padding: 3px;
+    border-radius: 3px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
+}
+
+.progress-bar-fill {
+    display: block;
+    height: 15px;
+    background-color: #659cef;
+    border-radius: 3px;
+
+    transition: width 500ms ease-in-out;
+}
+
+.header-action{
+	position: fixed;
+	right: 1%;
+	top:15px;
+	text-align: right;
+	background-color: #fff;
+
+	a{
+		padding: 5px 15px;
+		border-radius: 10px;
+		border: 0.5px solid lightgray;
+        background-color: #fff;
+        font-family: sans-serif,
+	}
+
+    a:hover{
+        cursor: pointer;
+    }
+
+    .download{
+        position: fixed;
+        top: 9px;
+        right: 240px;
+    }
+
+    .ready{
+        position: fixed;
+        top: 9px;
+        right: 410px;
+        background-color:  lightgreen;
+    }
+}
+
+a:link, a:visited, a {
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+/* purgecss start ignore */
+.table-responsive{
+    margin-bottom: 20px;
+    margin-right: 10px;
+    table{
+        border-spacing: 0 !important;
+        width : max-content;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+
+        thead{
+            th{
+                text-align: left;
+                border:thin solid black;
+                vertical-align: middle;
+                padding: 5px 7px;
+                background-color: whitesmoke;
+                font-family: Arial, sans-serif;
+                font-size: 13px;
+                &.text-center{
+                    text-align: center;
+                }
+
+                &.text-right{
+                    text-align: right;
+                }
+            }
+        }
+
+        td{
+            margin: 0px;
+            border:thin solid black;
+            padding: 5px 7px;
+            font-size: 11px;
+            font-family: Arial, sans-serif;
+
+            &.text-center{
+                text-align: center;
+            }
+
+            &.text-right{
+                text-align: right;
+            }
+        }
+    }
+}
+/* purgecss end ignore */
+
+h1, h2, h3, h4, h5, h6, p, span{
+	font-family: Arial, sans-serif;
+}
+h1,h2,h3,h4,h5,h6{
+	font-weight:normal
+}
+
+table.header{
+    margin-bottom: 20px;
+    tr > td{
+        border: none !important;
+        padding: 0px;
+    }
+
+    h1,h2,h3,h4,h5,h6{
+        margin: 0px;
+    }
+}
+
+table.footer{
+
+    tr > td{
+        border: none !important;
+        padding: 0px;
+    }
+
+    td.print-date{
+        height: 100px;
+        vertical-align: top;
+    }
+
+    td.print-person{
+        margin-top: 20px;
+    }
+}
+
+@page {
+	margin: 0;
+    margin-top: 10px;
+    margin-right: 10px;
+}
+
+@media print{
+
+	body {
+        margin-left: 10px;
+		margin-right: 17px;
+    }
+
+    .header-action{
+        display: none;
+    }
+
+    table#border {
+        border: 0.5px solid black;
+    }
+
+    table.header{
+
+        h1,h2,h3,h4,h5,h6{
+            margin: 5px;
+        }
+    }
+
+    .print-only, .csv {
+        display: none !important
+    }
+
+    * {
+        background: transparent !important;
+        color: black !important;
+        -webkit-box-shadow: none !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+        -ms-filter: none !important
+    }
+
+    *,
+    *:before,
+    *:after {
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box
+    }
+
+    a,
+    a:visited {
+        text-decoration: underline
+    }
+
+        pre,
+        blockquote {
+            border: 1px solid #999;
+            page-break-inside: avoid
+        }
+
+        thead {
+            display: table-header-group
+        }
+
+        tr,
+        img {
+            page-break-inside: avoid
+        }
+
+        img {
+            max-width: 100% !important;
+            vertical-align: middle;
+            max-height: 100% !important
+        }
+
+        table {
+            border-collapse: collapse
+        }
+
+        th,
+        td {
+            border: solid 1px #333;
+            padding: 0.25em 8px;
+            vertical-align: top
+        }
+
+        dl {
+            margin: 0
+        }
+
+        dd {
+            margin: 0
+        }
+
+        p,
+        h2,
+        h3 {
+            orphans: 3;
+            widows: 3
+        }
+
+        h2,
+        h3 {
+            page-break-after: avoid
+        }
+
+        .hide-on-print {
+            display: none !important
+        }
+
+        .print-only {
+            display: block !important
+        }
+
+        .hide-for-print {
+            display: none !important
+        }
+
+        .show-for-print {
+            display: inherit !important
+        }
+
+        .break-page-after {
+            page-break-after: always;
+            page-break-inside: avoid
+        }
+
+        html {
+            overflow-x: visible
+        }
+
+        body {
+            font-size: 10px;
+            line-height: 1.5;
+
+            font-family: Arial, sans-serif;
+            padding: 0
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-weight: normal
+        }
+
+        h1 a,
+        h2 a,
+        h3 a,
+        h4 a,
+        h5 a,
+        h6 a {
+            font-weight: inherit
+        }
+
+        h2 {
+            font-size: 13pt;
+            line-height: 1.5;
+            margin-bottom: 0.75em
+        }
+
+        h3 {
+            font-size: 12pt;
+            line-height: 1;
+            margin-top: 2em;
+            margin-bottom: 1em
+        }
+
+        h4 {
+            font-size: 10pt;
+            line-height: 2.4
+        }
+
+        h5 {
+            font-size: 9pt;
+            font-weight: bold;
+            margin-top: 2.25em;
+            margin-bottom: 0.75em
+        }
+
+        h6 {
+            text-transform: uppercase;
+            margin-top: 2.25em;
+            margin-bottom: 0.75em
+        }
+
+        #page {
+            width: 100%;
+            position: relative;
+        }
+
+        .address p {
+            margin-top: 0px;
+            margin-bottom: 0px;
+        }
+
+        .th {
+            text-align: left;
+            width: 40%;
+            padding: 0px;
+        }
+
+        .total {
+            text-align: right;
+            width: 20%;
+            padding: 0px;
+        }
+
+        .price {
+            text-align: right;
+            width: 30%;
+            padding: 0px;
+        }
+
+        .td {
+            text-align: right;
+            padding: 0px;
+        }
+
+        .name {
+            padding: 0px;
+        }
+
+        .qty {
+            text-align: right;
+            width: 10%;
+            padding: 0px;
+        }
+
+        .address td {
+            padding-top: 7px;
+        }
+
+        .alamat {
+            font-size: 0.8rem;
+            line-height: 1.2;
+        }
+
+}

@@ -76,6 +76,35 @@ class GroupingController extends Controller
     }
 
     /**
+     * Bentuk alternatif RFID untuk lookup (aturan sama dengan desktop
+     * R700Service::CanonicalEpc): hex genap yang byte-nya printable ASCII
+     * <-> teksnya, dua arah karena DB campuran (register handheld = hex,
+     * register R700 = teks). Maksimal 2 kandidat, tanpa query bila tak ada.
+     *
+     * @return string[]
+     */
+    private static function alternateRfids(string $rfid): array
+    {
+        $alts = [];
+
+        if (strlen($rfid) > 0 && strlen($rfid) % 2 === 0 && preg_match('/\A[0-9A-Fa-f]+\z/', $rfid)) {
+            $bin = @hex2bin($rfid);
+            if (is_string($bin) && $bin !== '' && preg_match('/\A[\x20-\x7E]+\z/', $bin)) {
+                $alts[] = strtoupper($bin);
+            }
+        }
+
+        if (preg_match('/\A[\x20-\x7E]+\z/', $rfid)) {
+            $hex = strtoupper(bin2hex($rfid));
+            if ($hex !== $rfid) {
+                $alts[] = $hex;
+            }
+        }
+
+        return array_values(array_unique($alts));
+    }
+
+    /**
      * Inti transaksional: differential update — hanya tabel yang berubah
      * yang ditulis (1× update outstanding ATAU 1× insert + opsional transaksi).
      *
@@ -92,13 +121,27 @@ class GroupingController extends Controller
 
         // BKA: DetailLinen primary = detail_rfid, bukan id. Satu query
         // dengan semua relasi yang dipakai response (tanpa N+1).
+        // Format ganda: handheld RWDev kirim hex mentah ("4430..."), R700 +
+        // DB pakai teks ASCII ("D000..."). Cari bentuk persis dulu, lalu
+        // bentuk alternatif — tulis/balas selalu pakai bentuk tersimpan.
         $detail = DetailLinen::with(['hasRs', 'hasRuangan', 'hasJenis', 'hasBahan', 'hasSupplier'])
             ->where('detail_rfid', $rfid)
             ->first();
 
         if (! $detail) {
+            $alts = self::alternateRfids($rfid);
+            if ($alts !== []) {
+                $detail = DetailLinen::with(['hasRs', 'hasRuangan', 'hasJenis', 'hasBahan', 'hasSupplier'])
+                    ->whereIn('detail_rfid', $alts)
+                    ->first();
+            }
+        }
+
+        if (! $detail) {
             throw new ModelNotFoundException("RFID {$rfid} tidak ditemukan");
         }
+
+        $rfid = $detail->detail_rfid;
 
         $this->log("Grouping QC RFID {$rfid}", $detail, $rfid);
 
@@ -326,7 +369,14 @@ class GroupingController extends Controller
 
         return [Outstanding::create($data + [
             'outstanding_key' => $key,
-            'outstanding_status_transaksi' => $statusLinen ?: TransactionType::KOTOR,
+            // ponytail: outstanding_status_transaksi = ENUM KOTOR/REJECT/REWASH/
+            // REGISTER/WAREHOUSE/HUB — status linen lain (mis. GUDANG) dipaksa
+            // KOTOR agar tidak 500 truncation, selaras asumsi grouping di atas
+            // (= linen kotor tiba di gudang, transaksi KOTOR menyertai).
+            'outstanding_status_transaksi' => in_array($statusLinen, [
+                TransactionType::KOTOR, TransactionType::REJECT,
+                TransactionType::REWASH, 'REGISTER', 'WAREHOUSE', 'HUB',
+            ], true) ? $statusLinen : TransactionType::KOTOR,
             'outstanding_created_at' => $date,
             'outstanding_created_by' => $userId,
         ]), $flag];

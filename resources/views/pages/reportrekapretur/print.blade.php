@@ -42,6 +42,21 @@
     </tr>
 </table>
 
+<table class="data" style="margin-bottom:10px;">
+    <thead>
+        <tr><th colspan="4" style="text-align:left;">RINGKASAN BERAT TIMBANGAN ({{ $berat['n_transaksi'] ?? 0 }} transaksi, ditimbang: {{ $berat['n_timbang'] ?? 0 }})</th></tr>
+        <tr><th>Kotor Timbangan (Kg)</th><th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="num">{{ ($berat['kotor'] ?? null) !== null ? formatQty($berat['kotor']) : 'belum ditimbang' }}</td>
+            <td class="num">{{ formatQty($berat['bersih'] ?? 0) }}</td>
+            <td class="num">{{ ($berat['selisih'] ?? null) !== null ? formatQty($berat['selisih']) : '-' }}</td>
+            <td class="num">{{ $berat['n_transaksi'] ?? 0 }}</td>
+        </tr>
+    </tbody>
+</table>
+
 <br>
 
 <div class="table-responsive" id="table_data">

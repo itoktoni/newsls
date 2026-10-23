@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  */
 trait BuildsDetailList
 {
+    use BuildsBeratSummary;
+
     public function getPrint(Request $request)
     {
         set_time_limit(0);
@@ -43,6 +45,12 @@ trait BuildsDetailList
             'rs' => $rs,
             'start' => $validated['start_date'] ?? null,
             'end' => $validated['end_date'] ?? null,
+            'berat' => $this->beratSummary(
+                (int) $validated['rs_id'],
+                static::STATUS,
+                $validated['start_date'] ?? null,
+                $validated['end_date'] ?? null
+            ),
         ]));
     }
 
@@ -62,31 +70,46 @@ trait BuildsDetailList
 
         $filename = static::FILE_PREFIX.'-'.now()->format('Ymd-His').'.xls';
 
-        return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode, $title) {
+        $berat = $this->beratSummary(
+            (int) $validated['rs_id'],
+            static::STATUS,
+            $validated['start_date'] ?? null,
+            $validated['end_date'] ?? null
+        );
+
+        return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode, $title, $berat) {
             echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
             echo '<head><meta charset="UTF-8"></head><body>';
-            echo '<table><tr><td colspan="10"><b>'.e($title).'</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
+            echo '<table><tr><td colspan="11"><b>'.e($title).'</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
             echo '<td colspan="2" style="text-align:right;">';
             if ($logoAbs) {
                 echo '<img src="'.e($logoAbs).'" alt="Logo" height="60" width="90">';
             }
             echo '</td></tr></table><br>';
+            echo '<table border="1"><tr><td colspan="13"><b>RINGKASAN BERAT TIMBANGAN</b> ('.e(($berat['n_transaksi'] ?? 0).' transaksi, ditimbang: '.($berat['n_timbang'] ?? 0)).')</td></tr>'
+                .'<tr><td colspan="3"><b>Kotor Timbangan (Kg)</b></td><td colspan="3">'.e(($berat['kotor'] ?? null) !== null ? $berat['kotor'] : 'belum ditimbang').'</td>'
+                .'<td colspan="3"><b>Bersih Hitung (Kg)</b></td><td colspan="4">'.e($berat['bersih'] ?? 0).'</td></tr>'
+                .'<tr><td colspan="3"><b>Selisih (Kg)</b></td><td colspan="3">'.e(($berat['selisih'] ?? null) !== null ? $berat['selisih'] : '-').'</td>'
+                .'<td colspan="3"><b>N Transaksi</b></td><td colspan="4">'.e($berat['n_transaksi'] ?? 0).'</td></tr></table><br>';
             echo '<table border="1"><thead><tr>'
-                .'<th>No.</th><th>NO. TRANSAKSI</th><th>NO. RFID</th><th>LINEN</th>'
+                .'<th>No.</th><th>NO. TRANSAKSI</th><th>NO. RFID</th><th>LINEN</th><th>BERAT (KG)</th>'
                 .'<th>RUMAH SAKIT</th><th>RUANGAN</th><th>LOKASI SCAN</th><th>CUCI/RENTAL</th>'
                 .'<th>JUMLAH PEMAKAIAN</th><th>TGL PENERIMAAN</th><th>TGL REGISTER</th><th>OPERATOR</th>'
                 .'</tr></thead><tbody>';
 
             $no = 0;
+            $totalKg = 0.0;
             $this->detailBaseQuery($validated)
                 ->orderBy('transaksi.transaksi_id')
-                ->chunk(1000, function ($rows) use (&$no) {
+                ->chunk(1000, function ($rows) use (&$no, &$totalKg) {
                     foreach ($rows as $table) {
                         $no++;
+                        $totalKg += (float) ($table->jenis_berat ?? 0);
                         echo '<tr><td>'.$no.'</td>'
                             .'<td>'.e($table->transaksi_key).'</td>'
                             .'<td>'.e($table->transaksi_rfid).'</td>'
                             .'<td>'.e($table->jenis_nama ?? '-').'</td>'
+                            .'<td>'.e($table->jenis_berat ?? '-').'</td>'
                             .'<td>'.e($table->rs_ori_nama ?? '-').'</td>'
                             .'<td>'.e($table->ruangan_nama ?? '-').'</td>'
                             .'<td>'.e($table->rs_scan_nama ?? '-').'</td>'
@@ -99,7 +122,7 @@ trait BuildsDetailList
                     flush();
                 });
 
-            echo '</tbody></table></body></html>';
+            echo '</tbody><tfoot><tr><th colspan="4">Total</th><th>'.$totalKg.'</th><th colspan="8">'.$no.' baris</th></tr></tfoot></table></body></html>';
         }, $filename, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
@@ -134,6 +157,7 @@ trait BuildsDetailList
                 'transaksi.transaksi_rfid',
                 'transaksi.transaksi_created_at',
                 'jenis_linen.jenis_nama as jenis_nama',
+                'jenis_linen.jenis_berat as jenis_berat',
                 'rs_ori.rs_nama as rs_ori_nama',
                 'ruangan.ruangan_nama as ruangan_nama',
                 'rs_scan.rs_nama as rs_scan_nama',

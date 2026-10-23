@@ -51,6 +51,7 @@
                 <th>NO. DO</th>
                 <th>RUMAH SAKIT</th>
                 <th class="num">TOTAL</th>
+                <th class="num">BERAT (KG)</th>
                 <th>TANGGAL DO</th>
                 <th>OPERATOR</th>
             </tr>
@@ -62,17 +63,19 @@
                 <td>{{ $table['do'] }}</td>
                 <td>{{ $table['rs'] }}</td>
                 <td class="num"><b>{{ $table['total'] }}</b></td>
+                <td class="num"><b>{{ formatQty($table['kg'] ?? 0) }}</b></td>
                 <td>{{ $table['tanggal'] }}</td>
                 <td>{{ $table['operator'] }}</td>
             </tr>
             @empty
-            <tr><td colspan="6" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="7" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
         <tfoot>
             <tr>
                 <th colspan="3" style="text-align:right;">Total:</th>
                 <th class="num">{{ array_sum(array_column($data, 'total')) }}</th>
+                <th class="num">{{ formatQty(array_sum(array_column($data, 'kg'))) }}</th>
                 <th colspan="2"></th>
             </tr>
         </tfoot>

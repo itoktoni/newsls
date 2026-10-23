@@ -56,6 +56,7 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
         Route::auto('/report-opname-mutasi', 'ReportOpnameMutasiController', ['name' => 'report-opname-mutasi', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-data-linen', 'ReportDataLinenController', ['name' => 'report-data-linen', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-rekap-kotor', 'ReportRekapKotorController', ['name' => 'report-rekap-kotor', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-selisih-berat', 'ReportSelisihBeratController', ['name' => 'report-selisih-berat', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-rekap-bersih', 'ReportRekapBersihController', ['name' => 'report-rekap-bersih', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-rekap-retur', 'ReportRekapReturController', ['name' => 'report-rekap-retur', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-rekap-rewash', 'ReportRekapRewashController', ['name' => 'report-rekap-rewash', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);

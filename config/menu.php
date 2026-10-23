@@ -67,6 +67,7 @@ return [
             'label' => 'Report Rekap',
             'items' => [
                 ['route' => 'report-rekap-kotor.getTable', 'icon' => 'summarize', 'label' => 'Rekap Kotor', 'match' => ['report-rekap-kotor.*']],
+                ['route' => 'report-selisih-berat.getTable', 'icon' => 'scale', 'label' => 'Selisih Berat', 'match' => ['report-selisih-berat.*']],
                 ['route' => 'report-rekap-bersih.getTable', 'icon' => 'summarize', 'label' => 'Rekap Bersih', 'match' => ['report-rekap-bersih.*']],
                 //['route' => 'report-rekap-retur.getTable', 'icon' => 'summarize', 'label' => 'Rekap Retur', 'match' => ['report-rekap-retur.*']],
                 //['route' => 'report-rekap-rewash.getTable', 'icon' => 'summarize', 'label' => 'Rekap Rewash', 'match' => ['report-rekap-rewash.*']],
