@@ -85,7 +85,7 @@ class TransaksiApiController extends Controller
             DB::commit();
             DashboardCache::flush();
 
-            return $this->successResponse($return);
+            return $this->successResponse($return, $request->input('qty'));
         } catch (\Throwable $th) {
             DB::rollBack();
             report($th);
@@ -118,6 +118,7 @@ class TransaksiApiController extends Controller
             'rfid.*' => 'required|string',
             'rs_id' => 'required|integer|exists:rs,rs_id',
             'key' => 'required|string|max:255',
+            'qty' => 'nullable|numeric|min:0',
         ]);
     }
 
@@ -482,8 +483,13 @@ class TransaksiApiController extends Controller
         return collect($return)->unique('rfid')->values()->all();
     }
 
-    private function successResponse(array $return)
+    /**
+     * qty murni info opsional: bila dikirim di-echo apa adanya, bila tidak
+     * dikirim diisi jumlah RFID yang diproses. Tidak ada sangkut paut/validasi
+     * terhadap isi data.
+     */
+    private function successResponse(array $return, $qty = null)
     {
-        return Notes::create($return);
+        return Notes::create($return, ['qty' => $qty ?? count($return)]);
     }
 }

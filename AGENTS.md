@@ -116,9 +116,10 @@ Logic di `RegisterLinenAction`, controller hanya `Notes::create()` envelope `{st
 
 ```
 POST /api/{kotor|retur|rewash} (Bearer)
-Body: rfid[] (required array), rs_id (required int exists:rs), key (required string, transaksi_key)
+Body: rfid[] (required array), rs_id (required int exists:rs), key (required string, transaksi_key),
+      qty (optional numeric desimal, murni info — di-echo di response, tanpa validasi ke RFID)
 
--> 201 { message, data: { key, status, rfid_count, inserted } }
+-> 201 { message, data: [...per RFID...], qty: <jumlah RFID> }
 ```
 
 `TransaksiApiController@transaction` normalisasi `type` upper + map `REJECT` alias, validasi, lalu `handle()`:

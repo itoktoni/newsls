@@ -33,6 +33,12 @@ class PackingDeliveryController extends Controller
 
         $input = $this->normalizePacking($request);
 
+        if ($err = $this->assertNotPackedInBersih($input)) {
+            return $err;
+        }
+        if ($err = $this->assertNotAlreadyPacked($input)) {
+            return $err;
+        }
         if ($err = $this->assertReadyForPacking($input)) {
             return $err;
         }
@@ -99,6 +105,67 @@ class PackingDeliveryController extends Controller
         return null;
     }
 
+    /**
+     * Sumber kebenaran packing = tabel bersih: baris dengan bersih_delivery
+     * NULL berarti sudah di-packing tapi belum di-delivery. RFID seperti itu
+     * tidak boleh packing ulang (apalagi ke RS lain) — walau status outstanding
+     * sudah berubah di tengah jalan (mis. tertimpa scan QC/grouping).
+     */
+    private function assertNotPackedInBersih(array $input)
+    {
+        $rows = DB::table('bersih')
+            ->whereIn('bersih_rfid', $input['rfids'])
+            ->whereNull('bersih_delivery')
+            ->get(['bersih_rfid', 'bersih_barcode', 'bersih_id_rs']);
+
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
+        $rsNames = Rs::whereIn('rs_id', $rows->pluck('bersih_id_rs')->filter()->unique()->all())
+            ->pluck('rs_nama', 'rs_id');
+
+        $detail = $rows->map(fn ($row) => $row->bersih_rfid
+            .($row->bersih_barcode ? ' (packing '.$row->bersih_barcode : '')
+            .($row->bersih_id_rs ? ', RS '.($rsNames[$row->bersih_id_rs] ?? $row->bersih_id_rs) : '')
+            .($row->bersih_barcode ? ')' : ''))
+            ->unique()->implode(', ');
+
+        return Notes::validation(
+            'RFID sudah pernah di-packing dan belum di-delivery, tidak bisa packing ulang: '.$detail,
+            ['rfid' => ['RFID sudah pernah di-packing dan belum di-delivery: '.$detail]]
+        );
+    }
+
+    /**
+     * RFID yang sudah PACKING dan belum di-delivery tidak boleh packing ulang
+     * — apalagi ke RS lain (akan menimpa outstanding_rs_scan + dobel baris
+     * bersih sehingga delivery salah RS). Cek tanpa filter status: PACKING
+     * dalam status apa pun tetap belum delivery.
+     */
+    private function assertNotAlreadyPacked(array $input)
+    {
+        $packed = Outstanding::whereIn('outstanding_rfid', $input['rfids'])
+            ->where('outstanding_status_proses', 'PACKING')
+            ->get(['outstanding_rfid', 'outstanding_rs_scan']);
+
+        if ($packed->isEmpty()) {
+            return null;
+        }
+
+        $rsNames = Rs::whereIn('rs_id', $packed->pluck('outstanding_rs_scan')->filter()->unique()->all())
+            ->pluck('rs_nama', 'rs_id');
+
+        $detail = $packed->map(fn ($row) => $row->outstanding_rfid
+            .($row->outstanding_rs_scan ? ' (RS '.($rsNames[$row->outstanding_rs_scan] ?? $row->outstanding_rs_scan).')' : ''))
+            ->implode(', ');
+
+        return Notes::validation(
+            'RFID sudah di-packing dan belum di-delivery, tidak bisa packing ulang: '.$detail,
+            ['rfid' => ['RFID sudah di-packing dan belum di-delivery: '.$detail]]
+        );
+    }
+
     private function assertOwnership(array $input)
     {
         try {
@@ -138,6 +205,26 @@ class PackingDeliveryController extends Controller
     {
         DB::beginTransaction();
         try {
+            // Kunci baris outstanding dulu — request bersamaan (double-click /
+            // 2 operator) antre di sini, assert di bawah melihat state terbaru.
+            Outstanding::whereIn('outstanding_rfid', $input['rfids'])->lockForUpdate()->get();
+
+            if ($err = $this->assertNotPackedInBersih($input)) {
+                DB::rollBack();
+
+                return $err;
+            }
+            if ($err = $this->assertNotAlreadyPacked($input)) {
+                DB::rollBack();
+
+                return $err;
+            }
+            if ($err = $this->assertReadyForPacking($input)) {
+                DB::rollBack();
+
+                return $err;
+            }
+
             $code = generatePackingCode();
             $date = now()->format('Y-m-d H:i:s');
             $userId = auth()->id();

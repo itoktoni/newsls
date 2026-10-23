@@ -87,7 +87,7 @@ class Notes
         return self::sentJson($log);
     }
 
-    public static function create($data = null)
+    public static function create($data = null, $additional = [])
     {
         $log['status'] = true;
         $log['code'] = 200;
@@ -98,7 +98,7 @@ class Notes
             Log::info(self::create, $log);
         }
 
-        return self::sentJson($log);
+        return self::sentJson($log, 200, $additional);
     }
 
     public static function token($data = null)
