@@ -3,6 +3,8 @@
 /** @var \Illuminate\Support\Collection $sebaran */
 /** @var \Illuminate\Support\Collection $alert */
 /** @var \Illuminate\Support\Collection $menipis */
+/** @var \ArielMejiaDev\LarapexCharts\LarapexChart $chart */
+/** @var \ArielMejiaDev\LarapexCharts\LarapexChart $donut */
 /** @var string $title */
 
 use App\Enums\LinenStatusEnum;
@@ -24,14 +26,8 @@ $badgeClass = fn (string $level) => match ($level) {
             ['url' => route('dashboard.rs'), 'label' => 'Dashboard RS'],
         ]" />
 
-        <x-stat-widget :items="[
-            [
-                'value' => number_format($kpi['register']),
-                'label' => 'Register',
-                'icon_name' => 'app_registration',
-                'bg_color' => 'bg-primary/10',
-                'icon_color' => 'text-primary',
-            ],
+        <div class="space-y-4">
+        <x-stat-widget :cols="3" :items="[
             [
                 'value' => number_format($kpi['kotor']),
                 'label' => 'Kotor',
@@ -39,6 +35,22 @@ $badgeClass = fn (string $level) => match ($level) {
                 'bg_color' => 'bg-warning/10',
                 'icon_color' => 'text-warning',
             ],
+            [
+                'value' => number_format($kpi['reject'] ?? 0),
+                'label' => 'Reject',
+                'icon_name' => 'assignment_return',
+                'bg_color' => 'bg-warning/10',
+                'icon_color' => 'text-warning',
+            ],
+            [
+                'value' => number_format($kpi['rewash'] ?? 0),
+                'label' => 'Rewash',
+                'icon_name' => 'autorenew',
+                'bg_color' => 'bg-warning/10',
+                'icon_color' => 'text-warning',
+            ],
+        ]" />
+        <x-stat-widget :cols="3" :items="[
             [
                 'value' => number_format($kpi['pending']),
                 'label' => 'Pending',
@@ -53,7 +65,15 @@ $badgeClass = fn (string $level) => match ($level) {
                 'bg_color' => 'bg-success/10',
                 'icon_color' => 'text-success',
             ],
+            [
+                'value' => number_format($kpi['register']),
+                'label' => 'Register',
+                'icon_name' => 'app_registration',
+                'bg_color' => 'bg-primary/10',
+                'icon_color' => 'text-primary',
+            ],
         ]" />
+        </div>
 
         @if (($menipis ?? collect())->isNotEmpty())
             <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
@@ -76,6 +96,13 @@ $badgeClass = fn (string $level) => match ($level) {
                 </ul>
             </div>
         @endif
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2">
+                <x-chart-widget title="Kotor vs Bersih 7 Hari" :chart="$chart" />
+            </div>
+            <x-chart-widget title="Status Linen" :chart="$donut" />
+        </div>
 
         <x-card label="Sebaran Linen Bersih per Ruangan" icon="grid_view">
             @if ($sebaran->isEmpty())

@@ -34,12 +34,18 @@ $badgeClass = fn (string $level) => match ($level) {
                 </select>
             </form>
             <p class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest mb-2">KPI {{ $selectedRs ? ($rsOptions[$selectedRs] ?? '') : 'Global' }}</p>
-            <x-stat-widget :items="[
+            <div class="space-y-4">
+            <x-stat-widget :cols="3" :items="[
                 ['value' => number_format($kpi['kotor']), 'label' => 'Kotor', 'icon_name' => 'local_laundry_service', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
-                ['value' => number_format($kpi['warehouse']), 'label' => 'Gudang', 'icon_name' => 'warehouse', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
+                ['value' => number_format($kpi['reject'] ?? 0), 'label' => 'Reject', 'icon_name' => 'assignment_return', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
+                ['value' => number_format($kpi['rewash'] ?? 0), 'label' => 'Rewash', 'icon_name' => 'autorenew', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
+            ]" />
+            <x-stat-widget :cols="3" :items="[
                 ['value' => number_format($kpi['bersih']), 'label' => 'Bersih', 'icon_name' => 'task_alt', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success'],
                 ['value' => number_format($kpi['pending']), 'label' => 'Pending', 'icon_name' => 'pending_actions', 'bg_color' => 'bg-info/10', 'icon_color' => 'text-info'],
+                ['value' => number_format($kpi['warehouse']), 'label' => 'Gudang', 'icon_name' => 'warehouse', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
             ]" />
+            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -10,7 +10,9 @@ trait ResolvesDashboardRole
     {
         return match ($role) {
             RoleEnum::ADMIN, RoleEnum::DEVELOPER => 'dashboard.admin',
-            RoleEnum::RS => 'dashboard.rs',
+            // ponytail: user = orang RS / customer laundry — dashboard RS
+            // (tanpa gudang & pipeline laundry), bukan dashboard laundry.
+            RoleEnum::RS, RoleEnum::USER => 'dashboard.rs',
             default => 'dashboard.laundry',
         };
     }

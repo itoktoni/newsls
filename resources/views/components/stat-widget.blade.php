@@ -1,6 +1,6 @@
-@props(['items' => []])
+@props(['items' => [], 'cols' => 4])
 
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="grid grid-cols-2 gap-4 {{ $cols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4' }}">
     @foreach($items as $item)
     <div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-5 shadow-sm">
         <div class="flex items-center justify-between mb-4">

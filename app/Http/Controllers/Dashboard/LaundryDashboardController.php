@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Charts\DashboardChart;
 use App\Enums\LinenStatusEnum;
 use App\Enums\RoleEnum;
+use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
@@ -28,8 +29,9 @@ class LaundryDashboardController extends Controller
 
         $scope = DashboardCache::userScope();
 
-        $payload = DashboardCache::remember($scope, 'laundry:stats', function () {
+        $payload = DashboardCache::remember($scope, 'laundry:stats:v3', function () {
             $gudangId = Warehouse::utamaId();
+            $col = 'outstanding.outstanding_rs_scan';
 
             $kpi = [
                 'register' => User::scopeRs(
@@ -40,9 +42,18 @@ class LaundryDashboardController extends Controller
                     DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
                     'detail_linen.detail_id_rs'
                 )->count(),
+                // ponytail: pending = antrean laundry nyata (outstanding KOTOR/REJECT/REWASH).
                 'pending' => User::scopeRs(
-                    Outstanding::query()->whereNotNull('outstanding_pending_created_at'),
-                    'outstanding.outstanding_rs_scan'
+                    Outstanding::query()->whereIn('outstanding_status_transaksi', [TransactionType::KOTOR, TransactionType::REJECT, TransactionType::RETUR, TransactionType::REWASH]),
+                    $col
+                )->count(),
+                'reject' => User::scopeRs(
+                    Outstanding::query()->whereIn('outstanding_status_transaksi', [TransactionType::REJECT, TransactionType::RETUR]),
+                    $col
+                )->count(),
+                'rewash' => User::scopeRs(
+                    Outstanding::query()->where('outstanding_status_transaksi', TransactionType::REWASH),
+                    $col
                 )->count(),
                 'bersih' => User::scopeRs(
                     DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),

@@ -47,7 +47,7 @@ it('maps roles to default dashboard route names', function () {
         ->and($r->defaultDashboardRoute(RoleEnum::DEVELOPER))->toBe('dashboard.admin')
         ->and($r->defaultDashboardRoute(RoleEnum::RS))->toBe('dashboard.rs')
         ->and($r->defaultDashboardRoute(RoleEnum::LAUNDRY))->toBe('dashboard.laundry')
-        ->and($r->defaultDashboardRoute(RoleEnum::USER))->toBe('dashboard.laundry')
+        ->and($r->defaultDashboardRoute(RoleEnum::USER))->toBe('dashboard.rs')
         ->and($r->defaultDashboardRoute(RoleEnum::EDITOR))->toBe('dashboard.laundry')
         ->and($r->defaultDashboardRoute(null))->toBe('dashboard.laundry')
         ->and($r->defaultDashboardRoute('gak-ada'))->toBe('dashboard.laundry');
@@ -82,12 +82,15 @@ it('routes each role default dashboard to matching content', function () {
         ->assertRedirect(route('dashboard.laundry'));
     $this->actingAs($this->laundry)->get(route('dashboard.laundry'))
         ->assertOk()->assertSee('Dashboard Petugas Laundry', false);
+
+    // ponytail: role user = orang RS — defaultnya dashboard RS.
+    $this->actingAs($this->legacy)->get('/dashboard')
+        ->assertRedirect(route('dashboard.rs'));
+    $this->actingAs($this->legacy)->get(route('dashboard.rs'))
+        ->assertOk()->assertSee('Dashboard Rumah Sakit', false);
 });
 
-it('falls back legacy and unknown roles to laundry dashboard', function () {
-    $this->actingAs($this->legacy)->get('/dashboard')
-        ->assertRedirect(route('dashboard.laundry'));
-
+it('falls back unknown roles to laundry dashboard', function () {
     $user = User::create([
         'name' => 'X', 'email' => 'x@example.com',
         'password' => Hash::make('password123'), 'role' => 'gak-ada',
@@ -108,6 +111,10 @@ it('redirects wrong-role dashboard paths to default router', function () {
         ->assertRedirect(route('dashboard'));
     $this->actingAs($this->admin)->get('/dashboard/laundry')
         ->assertRedirect(route('dashboard'));
+    $this->actingAs($this->legacy)->get('/dashboard/laundry')
+        ->assertRedirect(route('dashboard'));
+    $this->actingAs($this->legacy)->get('/dashboard/admin')
+        ->assertRedirect(route('dashboard'));
     // Flash toast info ter-set di session untuk redirect.
     expect(session('toasts'))->not->toBeNull();
 });
@@ -117,8 +124,25 @@ it('allows direct path for matching role', function () {
         ->assertOk()->assertSee('Dashboard Admin', false);
     $this->actingAs($this->rsUser)->get('/dashboard/rs')
         ->assertOk()->assertSee('Dashboard Rumah Sakit', false);
+    $this->actingAs($this->legacy)->get('/dashboard/rs')
+        ->assertOk()->assertSee('Dashboard Rumah Sakit', false)
+        ->assertDontSee('Gudang', false);
     $this->actingAs($this->laundry)->get('/dashboard/laundry')
         ->assertOk()->assertSee('Dashboard Petugas Laundry', false);
+});
+
+it('scopes table data to mapped rs for user role', function () {
+    $rsA = Rs::create(['rs_nama' => 'RS A', 'rs_status' => 'DEDICATED', 'rs_aktif' => 1]);
+    $rsB = Rs::create(['rs_nama' => 'RS B', 'rs_status' => 'DEDICATED', 'rs_aktif' => 1]);
+    User::syncRs($this->legacy->id, [$rsA->rs_id]);
+
+    DetailLinen::create(['detail_rfid' => 'USER_A_1', 'detail_id_rs' => $rsA->rs_id, 'detail_status_linen' => 'BERSIH']);
+    DetailLinen::create(['detail_rfid' => 'USER_B_1', 'detail_id_rs' => $rsB->rs_id, 'detail_status_linen' => 'BERSIH']);
+
+    $this->actingAs($this->legacy)->get(route('detail-linen.getTable'))
+        ->assertOk()
+        ->assertSee('USER_A_1', false)
+        ->assertDontSee('USER_B_1', false);
 });
 
 it('requires auth for dashboard', function () {
@@ -139,6 +163,7 @@ it('shows ruangan sebaran and pending on rs dashboard', function () {
     Outstanding::create([
         'outstanding_rfid' => 'DASH_OUT_1',
         'outstanding_rs_scan' => $rs->rs_id,
+        'outstanding_status_transaksi' => 'KOTOR',
         'outstanding_pending_created_at' => now(),
     ]);
 
@@ -146,6 +171,10 @@ it('shows ruangan sebaran and pending on rs dashboard', function () {
         ->assertOk()
         ->assertSee('Sebaran', false)
         ->assertSee('Pending', false)
+        ->assertSee('Reject', false)
+        ->assertSee('Rewash', false)
+        ->assertSee('Kotor vs Bersih', false)
+        ->assertSee('Status Linen', false)
         ->assertSee('Ruang Mawar', false)
         ->assertSee('Dashboard Rumah Sakit', false)
         ->assertDontSee('Attempt to read property', false);
@@ -168,7 +197,7 @@ it('renders admin sebaran rows from cached arrays without 500', function () {
     $this->actingAs($this->admin)->get('/dashboard/admin')
         ->assertOk()
         ->assertSee('Ruang Melati', false)
-        ->assertSee('Sebaran Global', false);
+        ->assertSee('Sebaran Bersih', false);
 });
 
 it('renders laundry gudang rows from cached arrays without 500', function () {

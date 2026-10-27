@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Charts\DashboardChart;
 use App\Enums\LinenStatusEnum;
 use App\Enums\RoleEnum;
+use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\JenisLinen;
@@ -34,13 +35,18 @@ class AdminDashboardController extends Controller
         $rsId = $request->query('rs_id');
         $rsId = is_numeric($rsId) ? (int) $rsId : null;
 
-        $payload = DashboardCache::remember($scope, 'admin:stats:v2:rs:'.($rsId ?? 'all'), function () use ($rsId) {
+        $payload = DashboardCache::remember($scope, 'admin:stats:v3:rs:'.($rsId ?? 'all'), function () use ($rsId) {
             $gudangId = Warehouse::utamaId();
+            $rsCols = ['outstanding.outstanding_rs_scan', 'outstanding.outstanding_rs_ori'];
 
             $kpi = [
                 'register' => User::applyRsFilter(DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER), 'detail_linen.detail_id_rs', $rsId)->count(),
                 'kotor' => User::applyRsFilter(DetailLinen::where('detail_status_linen', LinenStatusEnum::KOTOR), 'detail_linen.detail_id_rs', $rsId)->count(),
-                'pending' => User::applyRsFilter(Outstanding::whereNotNull('outstanding_pending_created_at'), ['outstanding.outstanding_rs_scan', 'outstanding.outstanding_rs_ori'], $rsId)->count(),
+                // ponytail: pending = antrean laundry nyata (outstanding KOTOR/REJECT/REWASH),
+                // bukan flag pending_created_at yang hanya untuk DEDICATED nyangkut >24 jam (selalu 0).
+                'pending' => User::applyRsFilter(Outstanding::whereIn('outstanding_status_transaksi', [TransactionType::KOTOR, TransactionType::REJECT, TransactionType::RETUR, TransactionType::REWASH]), $rsCols, $rsId)->count(),
+                'reject' => User::applyRsFilter(Outstanding::whereIn('outstanding_status_transaksi', [TransactionType::REJECT, TransactionType::RETUR]), $rsCols, $rsId)->count(),
+                'rewash' => User::applyRsFilter(Outstanding::where('outstanding_status_transaksi', TransactionType::REWASH), $rsCols, $rsId)->count(),
                 'bersih' => User::applyRsFilter(DetailLinen::where('detail_status_linen', LinenStatusEnum::BERSIH), 'detail_linen.detail_id_rs', $rsId)->count(),
                 'outstanding' => User::applyRsFilter(Outstanding::query(), ['outstanding.outstanding_rs_scan', 'outstanding.outstanding_rs_ori'], $rsId)->count(),
                 'warehouse' => User::applyRsFilter(

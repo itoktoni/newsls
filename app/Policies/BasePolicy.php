@@ -26,6 +26,13 @@ class BasePolicy
      */
     public function before(?User $user, string $ability): ?Response
     {
+        // ponytail: role user = read-only — tombol create/update/delete di
+        // view (@can) otomatis hilang, dan akses tulis langsung ikut 403
+        // via GeneralRequest (lapis kedua setelah AccessMiddleware).
+        if ($user && ($user->role ?? null) === 'user' && ! in_array($ability, ['table', 'show'], true)) {
+            return Response::deny('Role user hanya boleh melihat data.');
+        }
+
         $name = request()->route()?->getName();
 
         if (! is_string($name) || $name === '') {

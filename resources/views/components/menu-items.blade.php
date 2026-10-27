@@ -6,6 +6,22 @@
     if (env('DISABLE_FRONTEND', false)) {
         $menu = collect($menu)->reject(fn ($section) => ($section['label'] ?? null) === 'CMS')->all();
     }
+    // ponytail: filter menu per role — section/item dengan hide_for berisi
+    // role login disembunyikan (mis. user = orang RS: tanpa Pengguna &
+    // Audit, Master Data, Manajemen Linen, Settings, dan Invoice).
+    // Berlaku untuk sidebar desktop + drawer mobile (satu komponen).
+    $role = auth()->user()->role ?? 'guest';
+    $menu = collect($menu)
+        ->reject(fn ($section) => in_array($role, $section['hide_for'] ?? [], true))
+        ->map(function ($section) use ($role) {
+            $section['items'] = collect($section['items'] ?? [])
+                ->reject(fn ($item) => in_array($role, $item['hide_for'] ?? [], true))
+                ->values()->all();
+
+            return $section;
+        })
+        ->reject(fn ($section) => empty($section['items']))
+        ->values()->all();
 @endphp
 
 @foreach($menu as $section)

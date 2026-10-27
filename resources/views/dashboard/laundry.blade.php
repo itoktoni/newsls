@@ -21,6 +21,8 @@
             <x-stat-widget :items="[
                 ['value' => number_format($kpi['register']), 'label' => 'Register', 'icon_name' => 'app_registration', 'bg_color' => 'bg-primary/10', 'icon_color' => 'text-primary'],
                 ['value' => number_format($kpi['kotor']), 'label' => 'Kotor', 'icon_name' => 'local_laundry_service', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
+                ['value' => number_format($kpi['reject'] ?? 0), 'label' => 'Reject', 'icon_name' => 'assignment_return', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
+                ['value' => number_format($kpi['rewash'] ?? 0), 'label' => 'Rewash', 'icon_name' => 'autorenew', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
                 ['value' => number_format($kpi['pending']), 'label' => 'Pending', 'icon_name' => 'pending_actions', 'bg_color' => 'bg-info/10', 'icon_color' => 'text-info'],
                 ['value' => number_format($kpi['bersih']), 'label' => 'Bersih', 'icon_name' => 'task_alt', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success'],
                 ['value' => number_format($kpi['delivered']), 'label' => 'Delivered Hari Ini', 'icon_name' => 'inventory_2', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success'],
@@ -68,7 +70,7 @@
 
         <x-chart-widget title="Kotor vs Bersih 7 Hari" :chart="$chart" />
 
-        @if ($kpi['register'] === 0 && $kpi['kotor'] === 0 && $kpi['bersih'] === 0 && $kpi['warehouse'] === 0)
+        @if ($kpi['register'] === 0 && $kpi['kotor'] === 0 && $kpi['bersih'] === 0 && $kpi['warehouse'] === 0 && ($kpi['pending'] ?? 0) === 0)
             <p class="text-sm text-on-surface-variant text-center py-2">Belum ada data pipeline hari ini.</p>
         @endif
     </div>

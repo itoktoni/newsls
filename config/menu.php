@@ -23,6 +23,7 @@ return [
         ],
         [
             'label' => 'Pengguna & Audit',
+            'hide_for' => ['user'],
             'items' => [
                 ['route' => 'user.getTable', 'icon' => 'manage_accounts', 'label' => 'Users', 'match' => ['user.*']],
                 ['route' => 'mobile-menu.getTable', 'icon' => 'phone_android', 'label' => 'Menu Mobile', 'match' => ['mobile-menu.*']],
@@ -31,6 +32,7 @@ return [
         ],
         [
             'label' => 'Master Data',
+            'hide_for' => ['user'],
             'items' => [
                 ['route' => 'jenis-linen.getTable', 'icon' => 'laundry', 'label' => 'Jenis Linen', 'match' => ['jenis-linen.*']],
                 ['route' => 'ruangan.getTable', 'icon' => 'meeting_room', 'label' => 'Ruangan', 'match' => ['ruangan.*']],
@@ -43,6 +45,7 @@ return [
         ],
         [
             'label' => 'Manajemen Linen',
+            'hide_for' => ['user'],
             'items' => [
                 ['route' => 'config-linen.getTable', 'icon' => 'settings_input_component', 'label' => 'Config Linen', 'match' => ['config-linen.*']],
                 ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Data Linen', 'match' => ['detail-linen.*']],
@@ -113,7 +116,7 @@ return [
                 ['route' => 'report-summary-pengiriman-rewash.getTable', 'icon' => 'summarize', 'label' => 'Summary Rewash', 'match' => ['report-summary-pengiriman-rewash.*']],
                 ['route' => 'report-summary-pengiriman-linen-baru.getTable', 'icon' => 'summarize', 'label' => 'Summary Baru', 'match' => ['report-summary-pengiriman-linen-baru.*']],
                 ['route' => 'report-summary-pelunasan.getTable', 'icon' => 'summarize', 'label' => 'Summary Pelunasan', 'match' => ['report-summary-pelunasan.*']],
-                ['route' => 'report-invoice.getTable', 'icon' => 'receipt', 'label' => 'Invoice', 'match' => ['report-invoice.*']],
+                ['route' => 'report-invoice.getTable', 'icon' => 'receipt', 'label' => 'Invoice', 'match' => ['report-invoice.*'], 'hide_for' => ['user']],
             ],
         ],
 
@@ -131,6 +134,7 @@ return [
         ],
         [
             'label' => 'Settings',
+            'hide_for' => ['user'],
             'items' => [
                 ['route' => 'settings.website', 'icon' => 'language', 'label' => 'Website'],
                 ['route' => 'settings.env', 'icon' => 'settings', 'label' => 'Environment'],
@@ -152,7 +156,16 @@ return [
         ],
 
         // RS: monitor stok + opname (cermin dashboard.rs).
+        // Role user = orang RS / customer laundry → navigasi sama seperti rs.
         'rs' => [
+            ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Linen'],
+            ['route' => 'opname.getTable', 'icon' => 'fact_check', 'label' => 'Opname'],
+            ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Home'],
+            ['route' => 'transaksi.getTable', 'icon' => 'receipt_long', 'label' => 'Transaksi'],
+            ['route' => 'bersih.getTable', 'icon' => 'inventory_2', 'label' => 'Bersih'],
+        ],
+
+        'user' => [
             ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Linen'],
             ['route' => 'opname.getTable', 'icon' => 'fact_check', 'label' => 'Opname'],
             ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Home'],
