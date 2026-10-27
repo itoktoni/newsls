@@ -2,7 +2,6 @@
 /** @var array $kpi */
 /** @var \Illuminate\Support\Collection $sebaran */
 /** @var \Illuminate\Support\Collection $alert */
-/** @var \Illuminate\Support\Collection $menipis */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $chart */
 /** @var \ArielMejiaDev\LarapexCharts\LarapexChart $donut */
 /** @var string $title */
@@ -74,17 +73,6 @@ $badgeClass = fn (string $level) => match ($level) {
             ],
         ]" />
         </div>
-
-        @if (($menipis ?? collect())->isNotEmpty())
-            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
-                <p class="font-semibold mb-1">Stok menipis (di bawah parstock)</p>
-                <ul class="list-disc pl-5 space-y-0.5">
-                    @foreach ($menipis as $row)
-                    <li>{{ $row['jenis_nama'] }} — sisa {{ number_format($row['stok']) }} / minimal {{ number_format($row['parstock']) }} (kurang {{ number_format($row['kurang']) }})</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
 
         @if ($alert->isNotEmpty())
             <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">

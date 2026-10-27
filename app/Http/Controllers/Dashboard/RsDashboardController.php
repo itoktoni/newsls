@@ -47,7 +47,7 @@ class RsDashboardController extends Controller
     }
 
     /**
-     * @return array{kpi: array, sebaran: Collection, alert: Collection, menipis: Collection}
+     * @return array{kpi: array, sebaran: Collection, alert: Collection}
      */
     private function stats(): array
     {
@@ -109,15 +109,10 @@ class RsDashboardController extends Controller
 
             $alert = $sebaran->filter(fn ($row) => $row['stok'] === 0)->values();
 
-            // ponytail: stok menipis per RS+jenis vs parstock — 1 query agregat,
-            // 2x if integer di PHP (tanpa bagi). null parstock = tidak diawasi.
-            $menipis = collect($this->menipisRows())->filter(fn ($r) => $r['level'] !== 'ok')->values();
-
             return [
                 'kpi' => $kpi,
                 'sebaran' => $sebaran->all(),
                 'alert' => $alert->all(),
-                'menipis' => $menipis->all(),
             ];
         });
 
@@ -125,55 +120,6 @@ class RsDashboardController extends Controller
             'kpi' => $payload['kpi'],
             'sebaran' => collect($payload['sebaran']),
             'alert' => collect($payload['alert']),
-            'menipis' => collect($payload['menipis'] ?? []),
         ];
-    }
-
-    private function menipisRows(): array
-    {
-        $ids = User::allowedRsIds();
-        $bersih = \Illuminate\Support\Facades\DB::table('detail_linen')
-            ->where('detail_status_linen', LinenStatusEnum::BERSIH)
-            ->select('detail_id_rs', 'detail_id_jenis', \Illuminate\Support\Facades\DB::raw('COUNT(*) as stok'))
-            ->groupBy('detail_id_rs', 'detail_id_jenis');
-
-        $query = \Illuminate\Support\Facades\DB::table('rs_dan_jenis')
-            ->join('jenis_linen', 'jenis_linen.jenis_id', '=', 'rs_dan_jenis.jenis_id')
-            ->join('rs', 'rs.rs_id', '=', 'rs_dan_jenis.rs_id')
-            ->leftJoinSub($bersih, 'b', function ($join) {
-                $join->on('b.detail_id_rs', '=', 'rs_dan_jenis.rs_id')
-                    ->on('b.detail_id_jenis', '=', 'rs_dan_jenis.jenis_id');
-            })
-            ->whereNotNull('rs_dan_jenis.parstock')
-            ->select([
-                'rs_dan_jenis.rs_id',
-                'rs.rs_nama',
-                'rs_dan_jenis.jenis_id',
-                'jenis_linen.jenis_nama',
-                'rs_dan_jenis.parstock',
-                \Illuminate\Support\Facades\DB::raw('COALESCE(b.stok, 0) as stok'),
-            ]);
-
-        if ($ids !== null) {
-            $query->whereIn('rs_dan_jenis.rs_id', $ids);
-        }
-
-        return $query->orderBy('rs.rs_nama')->orderBy('jenis_linen.jenis_nama')->get()
-            ->map(function ($row) {
-                $stok = (int) $row->stok;
-                $par = (int) $row->parstock;
-
-                return [
-                    'rs_id' => (int) $row->rs_id,
-                    'rs_nama' => $row->rs_nama,
-                    'jenis_id' => (int) $row->jenis_id,
-                    'jenis_nama' => $row->jenis_nama,
-                    'stok' => $stok,
-                    'parstock' => $par,
-                    'kurang' => $par - $stok,
-                    'level' => $stok === 0 ? 'danger' : ($stok < $par ? 'warn' : 'ok'),
-                ];
-            })
-            ->all();
     }
 }
