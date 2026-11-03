@@ -15,7 +15,10 @@ use App\Models\JenisLinen;
 use App\Models\Rs;
 use App\Models\Ruangan;
 use App\Models\Supplier;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Plugins\Notes;
 
 /**
@@ -43,7 +46,7 @@ class RegisterLinenController extends Controller
         set_time_limit(0);
 
         // Action mengembalikan payload {code, status, message, data}: data berisi
-        // Collection DetailLinen saat sukses, atau pesan error saat gagal.
+        // ['linen' => Collection, 'no_register' => string, 'keterangan' => ?string].
         // ValidationException dari Action dilempar ke handler global (422).
         $payload = RegisterLinenAction::run($request->validated());
 
@@ -51,13 +54,15 @@ class RegisterLinenController extends Controller
             return Notes::failed(500, $payload['data']);
         }
 
-        /** @var \Illuminate\Support\Collection<int, DetailLinen> $linen */
-        $linen = $payload['data'];
+        $result = $payload['data'];
+
+        /** @var Collection<int, DetailLinen> $linen */
+        $linen = $result['linen'];
 
         // Desktop RegisterSingleDAO expects data: Datum[] with linen_id/linen_nama etc (legacy andalan).
         // Web new format expects data: {total, rfid, data:[{rfid,jenis_id,...}]}.
         // Kirim keduanya agar desktop lama tidak "cannot deserialize" dan klien baru tetap dapat detail.
-        $desktopData = $this->linenResponsesForDesktop($linen);
+        $desktopData = $this->linenResponsesForDesktop($linen, $result['no_register']);
         $detailedData = $this->linenResponses($linen);
 
         // Notes::data (name=List, sama dengan andalan) + key tambahan `detail`/`total`/`rfid`
@@ -67,6 +72,38 @@ class RegisterLinenController extends Controller
             'detail' => $detailedData,
             'total' => $linen->count(),
             'rfid' => $linen->pluck(DetailLinen::field_primary())->all(),
+            'no_register' => $result['no_register'],
+            'keterangan' => $result['keterangan'],
+        ]);
+    }
+
+    /**
+     * API opsional — ambil ulang satu batch register dari nomornya.
+     *
+     * GET /api/register/{no} (Bearer) → { no_register, keterangan, total,
+     *   created_at, created_by, rfid[], detail[] }
+     * Dipakai desktop untuk verifikasi/cetak ulang tanpa scan ulang.
+     */
+    public function show(string $no)
+    {
+        $linen = DetailLinen::with(['hasRs', 'hasRuangan', 'hasJenis', 'hasBahan', 'hasSupplier'])
+            ->where(DetailLinen::field_no_register(), $no)
+            ->get();
+
+        if ($linen->isEmpty()) {
+            return Notes::failed(404, "Nomor register {$no} tidak ditemukan.");
+        }
+
+        $first = $linen->first();
+
+        return Notes::data($this->linenResponsesForDesktop($linen, $no), [
+            'detail' => $this->linenResponses($linen),
+            'total' => $linen->count(),
+            'rfid' => $linen->pluck(DetailLinen::field_primary())->all(),
+            'no_register' => $no,
+            'keterangan' => $first->detail_deskripsi,
+            'created_at' => $first->detail_created_at,
+            'created_by' => $first->detail_created_by,
         ]);
     }
 
@@ -81,14 +118,13 @@ class RegisterLinenController extends Controller
     {
         $rsId = $request->integer('rs_id') ?: null;
         // ponytail: dropdown register desktop ikut hak akses RS (pivot rs_dan_user).
-        $allowed = \App\Models\User::allowedRsIds();
+        $allowed = User::allowedRsIds();
         if ($rsId !== null && $allowed !== null && ! in_array($rsId, $allowed, true)) {
             abort(403, 'Akses rumah sakit ditolak.');
         }
 
-
         return Notes::data([
-            'rs' => $this->modelOptions(\App\Models\User::scopeRs(Rs::query(), 'rs.rs_id')->orderBy('rs_nama')->get(['rs_id', 'rs_nama']), 'rs_id', 'rs_nama'),
+            'rs' => $this->modelOptions(User::scopeRs(Rs::query(), 'rs.rs_id')->orderBy('rs_nama')->get(['rs_id', 'rs_nama']), 'rs_id', 'rs_nama'),
             'jenis' => $this->jenisOptions($rsId),
             'ruangan' => $this->ruanganOptions($rsId),
             'bahan' => $this->modelOptions(JenisBahan::query()->orderBy('bahan_nama')->get(['bahan_id', 'bahan_nama']), 'bahan_id', 'bahan_nama'),
@@ -100,16 +136,18 @@ class RegisterLinenController extends Controller
         ]);
     }
 
-    private function linenResponsesForDesktop($linen): array
+    private function linenResponsesForDesktop($linen, ?string $noRegister = null): array
     {
         // Mapping legacy desktop RegisterSingleDAO.Datum: linen_id,linen_nama,rs_id,rs_nama,ruangan_id,ruangan_nama,pemakaian,user_nama
         // plus extra field rfid agar desktop baru bisa pakai, dan field baru untuk kompatibilitas.
         return $linen->map(function (DetailLinen $item) {
             $userName = null;
             try {
-                $user = \App\Models\User::find($item->detail_created_by);
+                $user = User::find($item->detail_created_by);
                 $userName = $user?->name;
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
+
             return [
                 // legacy desktop fields — andalan: linen_id = RFID (bukan jenis_id), linen_nama = jenis_nama
                 'linen_id' => (string) $item->detail_rfid,
@@ -122,6 +160,8 @@ class RegisterLinenController extends Controller
                 'user_nama' => $userName ?? (string) $item->detail_created_by,
                 // extra untuk klien baru (tidak diabaikan desktop, tapi berguna)
                 'rfid' => $item->detail_rfid,
+                'no_register' => $noRegister ?? $item->detail_no_register,
+                'keterangan' => $item->detail_deskripsi,
                 'jenis_id' => $item->detail_id_jenis,
                 'jenis_nama' => $item->hasJenis?->jenis_nama,
                 'bahan_id' => $item->detail_id_bahan,
@@ -135,13 +175,13 @@ class RegisterLinenController extends Controller
     /**
      * Bentuk baris detail_linen jadi array yang enak dikonsumsi klien.
      *
-     * @param  \Illuminate\Support\Collection<int, DetailLinen>  $linen
+     * @param  Collection<int, DetailLinen>  $linen
      */
     private function linenResponses($linen): array
     {
         // Satu query untuk semua label pemilik, bukan satu query per RFID.
         // sqlite tidak support ORDER BY di dalam GROUP_CONCAT, fallback ke group_concat(x, ", ")
-        $isSqlite = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite';
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
         $concat = $isSqlite
             ? "group_concat(rs.rs_nama, ', ')"
             : 'GROUP_CONCAT(rs.rs_nama ORDER BY rs.rs_nama SEPARATOR ", ")';
@@ -154,6 +194,8 @@ class RegisterLinenController extends Controller
 
         return $linen->map(fn (DetailLinen $item) => [
             'rfid' => $item->detail_rfid,
+            'no_register' => $item->detail_no_register,
+            'keterangan' => $item->detail_deskripsi,
             'jenis_id' => $item->detail_id_jenis,
             'jenis_nama' => $item->hasJenis?->jenis_nama,
             'bahan_id' => $item->detail_id_bahan,

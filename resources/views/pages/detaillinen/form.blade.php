@@ -8,13 +8,14 @@
             @bind($model ?? null)
 
                 <x-input col="6" name="detail_rfid" label="RFID" />
+                <x-input col="6" name="detail_no_register" label="No. Register" readonly helper="Digenerate database saat register via API." />
                 <x-select col="6" name="detail_status_kepemilikan" label="Kepemilikan" :options="$milik" />
                 <x-select col="6" name="detail_id_rs" label="Dipakai RS Sekarang" :options="$rs"
                     helper="Current: RS yang sedang memegang linen ini (detail_linen)." />
                 <x-select col="6" name="detail_id_ruangan" label="Ruangan" :options="$ruangan" />
                 <x-select col="6" name="detail_id_jenis" label="Jenis Linen" :options="$jenis" />
                 <x-select col="6" name="detail_status_cuci" label="Status Cuci" :options="$cuci" />
-                <x-textarea col="12" name="detail_deskripsi" label="Deskripsi" />
+                <x-textarea col="12" name="detail_deskripsi" label="Keterangan" />
 
                 {{-- ponytail: MASTER pemilik (config_linen) —
                      DEDICATED = single RS (dropdown), GROUP = multi RS (checklist

@@ -30,6 +30,7 @@ class DetailLinen extends BaseModel
     protected $fillable = [
         'detail_id',
         'detail_rfid',
+        'detail_no_register',
         'detail_id_rs',
         'detail_id_ruangan',
         'detail_id_jenis',
@@ -67,6 +68,8 @@ class DetailLinen extends BaseModel
     // join hasRs/hasRuangan/hasJenis (double join = SQL error).
     public static $filterColumns = [
         'detail_rfid' => 'RFID',
+        'detail_no_register' => 'No. Register',
+        'detail_deskripsi' => 'Keterangan',
         'detail_id_rs' => 'Dipakai RS',
         'detail_id_ruangan' => 'Ruangan',
         'detail_id_jenis' => 'Jenis Linen',
@@ -91,6 +94,7 @@ class DetailLinen extends BaseModel
     {
         return [
             'detail_rfid' => 'required|string|max:255',
+            'detail_no_register' => 'nullable|string|max:50',
             'detail_id_rs' => 'nullable|integer',
             'detail_id_ruangan' => 'nullable|integer',
             'detail_id_jenis' => 'nullable|integer',

@@ -44,6 +44,17 @@
 
 <br>
 
+<table class="data" style="width:auto;margin-bottom:12px;">
+    <thead>
+        <tr><th>Ringkasan Berat</th><th class="num">Kg</th><th class="num">Rupiah</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>Timbangan (SUM transaksi_master.master_qty{{ $nTimbang ? ' — '.$nTimbang.' batch ditimbang' : '' }})</td><td class="num">{{ $timbangan !== null ? formatQty($timbangan) : 'belum ditimbang' }}</td><td class="num">{{ $rpTimbangan !== null ? formatAngka((int) round($rpTimbangan)) : '-' }}</td></tr>
+        <tr><td>Estimasi (Σ qty transaksi × jenis_linen.jenis_berat)</td><td class="num">{{ formatQty($estimasiKg ?? $sumKg) }}</td><td class="num">{{ formatAngka((int) round($rpEstimasi ?? $sumRp)) }}</td></tr>
+        <tr><td>Selisih (Timbangan − Estimasi)</td><td class="num">{{ $selisihKg !== null ? formatQty($selisihKg) : '-' }}</td><td class="num">-</td></tr>
+    </tbody>
+</table>
+
 <div class="table-responsive" id="table_data">
     <table class="data">
         <thead>
@@ -57,7 +68,7 @@
                 <th class="num">Harga</th>
                 <th class="num">Berat (KG)</th>
                 <th class="num">QTY</th>
-                <th class="num">Total (Kg)</th>
+                <th class="num">Total Estimasi (Kg)</th>
                 <th class="num">Total (Rupiah)</th>
             </tr>
         </thead>
@@ -79,13 +90,32 @@
             @empty
             <tr><td colspan="{{ count($dates) + 8 }}" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
+            <tr style="background:#eee;">
+                <td>-</td>
+                <td><b>TIMBANGAN (KG)</b></td>
+                @foreach($dates as $tgl)
+                <td class="num">{{ isset($timbanganHarian[$tgl]) && $timbanganHarian[$tgl] !== null ? formatQty($timbanganHarian[$tgl]) : '-' }}</td>
+                @endforeach
+                <td>-</td>
+                <td class="num">{{ formatAngka((int) $harga) }}</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="num">{{ $timbangan !== null ? formatQty($timbangan) : 'belum ditimbang' }}</td>
+                <td class="num">{{ $rpTimbangan !== null ? formatAngka((int) round($rpTimbangan)) : '-' }}</td>
+            </tr>
         </tbody>
         <tfoot>
             <tr>
-                <th colspan="{{ count($dates) + 5 }}" style="text-align:right;">TOTAL DATA</th>
+                <th colspan="{{ count($dates) + 5 }}" style="text-align:right;">TOTAL ESTIMASI</th>
                 <th class="num">{{ $sumQty }}</th>
                 <th class="num">{{ formatQty($sumKg) }}</th>
                 <th class="num">{{ formatAngka((int) round($sumRp)) }}</th>
+            </tr>
+            <tr>
+                <th colspan="{{ count($dates) + 5 }}" style="text-align:right;">TOTAL TIMBANGAN (master_qty)</th>
+                <th class="num">-</th>
+                <th class="num">{{ $timbangan !== null ? formatQty($timbangan) : 'belum ditimbang' }}</th>
+                <th class="num">{{ $rpTimbangan !== null ? formatAngka((int) round($rpTimbangan)) : '-' }}</th>
             </tr>
         </tfoot>
     </table>

@@ -7,6 +7,8 @@
         <x-filter :per-page="25" :fields="$fields">
             <x-slot:advanced>
                 <x-filter-item label="RFID" name="detail_rfid" operator="$contains" placeholder="Sebagian RFID..." />
+                <x-filter-item label="No. Register" name="detail_no_register" operator="$contains" placeholder="REG-..." />
+                <x-filter-item label="Keterangan" name="detail_deskripsi" operator="$contains" placeholder="Sebagian keterangan..." />
                 <x-filter-item label="Dipakai RS Sekarang" name="detail_id_rs" :options="$rs" />
                 <x-filter-item label="Kepemilikan" name="detail_status_kepemilikan" :options="$milik" />
                 <x-filter-item label="Ruangan" name="detail_id_ruangan" :options="$ruangan" />
@@ -33,10 +35,12 @@
                 <x-table-checkbox :model="$model" onchange="toggleAll(this)" />
                 <th>Actions</th>
                 <x-table-sort field="detail_rfid" label="RFID" :sortField="$sortField" :sortDir="$sortDir" />
+                <x-table-sort field="detail_no_register" label="No. Register" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="rs_nama" label="Rumah Sakit" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="detail_status_kepemilikan" label="Kepemilikan" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="ruangan_nama" label="Ruangan" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="jenis_nama" label="Jenis Linen" :sortField="$sortField" :sortDir="$sortDir" />
+                <th>Keterangan</th>
                 <x-table-sort field="detail_status_linen" label="Status" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="detail_total_bersih" label="Pemakaian" :sortField="$sortField" :sortDir="$sortDir" />
                 <x-table-sort field="detail_updated_at" label="Tgl Terakhir" :sortField="$sortField" :sortDir="$sortDir" />
@@ -48,12 +52,14 @@
                     <x-table-row-checkbox :model="$model" :value="$table->field_primary" />
                     <x-table-action :model="$model" :id="$table->field_primary" />
                     <td class="whitespace-nowrap font-mono text-xs">{{ $table->detail_rfid }}</td>
+                    <td class="whitespace-nowrap font-mono text-xs">{{ $table->detail_no_register ?? '-' }}</td>
                     <td>{{ $table->rs_nama ?? '-' }}</td>
                     <td>
                         {{ $table->detail_status_kepemilikan ?? '-' }}
                     </td>
                     <td>{{ $table->ruangan_nama ?? '-' }}</td>
                     <td>{{ $table->jenis_nama ?? '-' }}</td>
+                    <td class="max-w-48 truncate" title="{{ $table->detail_deskripsi ?? '' }}">{{ $table->detail_deskripsi ?? '-' }}</td>
                     <td class="whitespace-nowrap">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ in_array($table->detail_status_linen, ['BERSIH', 'GUDANG']) ? 'bg-green-100 text-green-800' : ($table->detail_status_linen === 'KOTOR' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700') }}">
                             {{ $table->detail_status_linen ?? '-' }}
@@ -92,6 +98,14 @@
                         </div>
                         {{-- detail grid --}}
                         <div class="grid grid-cols-2 gap-x-3 gap-y-2 mb-3 text-xs">
+                            <div class="min-w-0">
+                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">No. Register</p>
+                                <p class="font-medium font-mono text-on-surface truncate">{{ $table->detail_no_register ?? '-' }}</p>
+                            </div>
+                            <div class="min-w-0 text-right">
+                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Keterangan</p>
+                                <p class="font-medium text-on-surface truncate">{{ $table->detail_deskripsi ?? '-' }}</p>
+                            </div>
                             <div class="min-w-0">
                                 <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Ruangan</p>
                                 <p class="font-medium text-on-surface truncate">{{ $table->ruangan_nama ?? '-' }}</p>

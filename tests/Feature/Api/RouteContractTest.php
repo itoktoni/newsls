@@ -46,6 +46,7 @@ it('exposes exactly the expected API route surface', function () {
         'api/push-subscribe',
         'api/register',
         'api/register/config',
+        'api/register/{no}',
         'api/retur',
         'api/rewash',
         'api/rs',

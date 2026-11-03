@@ -18,10 +18,11 @@ use Illuminate\Validation\Rule;
  *
  * Tambahan project ini (semua opsional):
  *   - status_register    → REGISTER | GANTI_CHIP
- *   - status_kepemilikan → FREE | DEDICATED | GROUP (kalau kosong ditebak dari jumlah rs_id)
- *   - deskripsi, tgl_cek
+ *   - status_kepemilikan → FREE | DEDICATED | GROUP (kalau kosong: 0 rs_id → FREE;
+ *     1 rs_id → ikut tipe RS (FREE/GROUP/DEDICATED); ≥2 rs_id → GROUP)
+ *   - deskripsi, tgl_cek, keterangan (menang atas deskripsi)
  *
- * rs_id yang dikirim akan jadi baris master `config_linen` (lihat RegisterLinenAction).
+ * rs_id yang dikirim jadi baris master `config_linen` (kecuali FREE → nol baris).
  */
 class RegisterLinenRequest extends FormRequest
 {
@@ -38,8 +39,8 @@ class RegisterLinenRequest extends FormRequest
             'rfid.*' => 'required|string|max:255|distinct',
 
             'jenis_id' => 'required|integer|exists:jenis_linen,jenis_id',
-            // 'bahan_id' => 'required|integer|exists:jenis_bahan,bahan_id',
-            // 'supplier_id' => 'required|integer|exists:supplier,supplier_id',
+            'bahan_id' => 'nullable|integer|exists:jenis_bahan,bahan_id',
+            'supplier_id' => 'nullable|integer|exists:supplier,supplier_id',
             'status_cuci' => ['required', Rule::in(CuciEnum::getValues())],
 
             'status_register' => ['nullable', Rule::in(RegisterEnum::getValues())],
@@ -53,7 +54,10 @@ class RegisterLinenRequest extends FormRequest
             'rs_id.*' => 'integer|distinct|exists:rs,rs_id',
 
             'ruangan_id' => 'nullable|integer|exists:ruangan,ruangan_id',
-            'deskripsi' => 'nullable|string|max:255',
+            'deskripsi' => 'nullable|string|max:2000',
+            // Keterangan dari textarea desktop (textRegisterKeterangan).
+            // Opsional — kalau dikirim, dipakai sebagai deskripsi batch.
+            'keterangan' => 'nullable|string|max:2000',
             'tgl_cek' => 'nullable|date',
         ];
     }

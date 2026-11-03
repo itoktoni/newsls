@@ -104,10 +104,13 @@ PUT  /api/me     (Bearer) { name?, email?, phone? }
 ```
 POST /api/register (Bearer)
 Body: rfid[] (required, array string), jenis_id, bahan_id, supplier_id, status_cuci,
-      rs_id (int atau array untuk GROUP), ruangan_id, status_register, status_kepemilikan, deskripsi, tgl_cek
--> 201 { total, rfid[], data[] }
+      rs_id (int atau array untuk GROUP), ruangan_id, status_register, status_kepemilikan, deskripsi, tgl_cek,
+      keterangan (opsional string ≤2000, dari textarea desktop — menang atas deskripsi)
+-> 201 { total, rfid[], data[], no_register ("REG-YYYYMMDDHHMMSS-XXXX", dari waktu + acak), keterangan }
+   Tanpa status_kepemilikan: 0 rs_id → FREE; 1 rs_id → ikut tipe RS (FREE → FREE, GROUP → anggota group, lain → DEDICATED); ≥2 rs_id → GROUP.
 
 GET /api/register/config?rs_id=75 (Bearer) -> { rs[], jenis[], ruangan[], bahan[], supplier[], status_*[] }
+GET /api/register/{no} (Bearer, opsional) -> ambil ulang satu batch dari nomornya
 ```
 
 Logic di `RegisterLinenAction`, controller hanya `Notes::create()` envelope `{status,code,name,message,data}`.

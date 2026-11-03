@@ -83,6 +83,11 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     // Opsi dropdown form register. Query opsional ?rs_id=75 untuk menyaring jenis & ruangan.
     Route::get('/register/config', [RegisterLinenController::class, 'config'])->name('register.config');
 
+    // API opsional — ambil ulang satu batch register dari nomornya (verifikasi/cetak ulang).
+    // Constraint REG-* agar tidak menelan /register/config di atas.
+    Route::get('/register/{no}', [RegisterLinenController::class, 'show'])
+        ->where('no', 'REG-[0-9-]+')->name('register.show');
+
     // Grouping QC per RFID - logic di Api\GroupingController (kontrak GroupingDAO desktop).
     Route::get('grouping/{rfid}', [GroupingController::class, 'show'])->name('api.grouping');
 

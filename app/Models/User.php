@@ -210,12 +210,18 @@ class User extends Authenticatable
     }
 
     /**
-     * ID RS yang boleh dilihat user login. null = semua (tanpa mapping).
+     * ID RS yang boleh dilihat user login. null = semua (tanpa mapping,
+     * atau role admin/developer yang tidak pernah dibatasi).
      */
     public static function allowedRsIds(): ?array
     {
         $user = auth()->user();
         if (! $user) {
+            return null;
+        }
+        // Admin/developer selalu boleh semua RS — mapping per-RS hanya
+        // membatasi role operasional (rs/laundry/user/editor).
+        if ($user->isAdmin() || $user->isDeveloper()) {
             return null;
         }
         $ids = static::rsIdsFor((int) $user->id);

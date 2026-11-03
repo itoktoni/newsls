@@ -31,14 +31,17 @@ use Lorisleiva\Actions\Concerns\AsAction;
  * tercatat otomatis lewat spatie/laravel-activitylog karena DetailLinen memakai
  * LogsActivity.
  *
- * Aturan kepemilikan (lihat juga App\Models\ConfigLinen) — ditentukan jumlah rs_id:
- *   - FREE      → nol baris config_linen, linen bebas dipakai RS mana pun.
- *   - DEDICATED → satu RS pemilik.
- *   - GROUP     → beberapa RS pemilik (mis. siloam A + siloam B).
+ * Aturan kepemilikan (lihat juga App\Models\ConfigLinen):
+ *   - FREE      → nol baris config_linen (bebas dipakai RS mana pun),
+ *                 ruangan dikosongkan.
+ *   - DEDICATED → satu RS pemilik, ruangan disimpan.
+ *   - GROUP     → semua anggota group_rs pemilik, ruangan dikosongkan.
+ * Holder (detail_id_rs) selalu RS pengirim pertama bila ada — dipakai
+ * transaksi sebagai rs_ori untuk flag beda_rs.
  *
  * Pemakaian: RegisterLinenAction::run($request->validated());
- * Return: payload array {code, status, message, data} — data berisi Collection
- * DetailLinen saat sukses, atau pesan error saat gagal.
+ * Return: payload array {code, status, message, data} — data berisi
+ * ['linen' => Collection DetailLinen, 'no_register' => string, 'keterangan' => ?string].
  */
 class RegisterLinenAction
 {
@@ -47,7 +50,7 @@ class RegisterLinenAction
     public function handle(array $data): array
     {
         try {
-            $linen = $this->register($data);
+            $result = $this->register($data);
         } catch (ValidationException $th) {
             // Biarkan handler global (bootstrap/app.php) yang memformat jadi 422.
             throw $th;
@@ -61,13 +64,13 @@ class RegisterLinenAction
             return $this->payload(TOAST_FAILED, $th->getMessage());
         }
 
-        return $this->payload(TOAST_SUCCESS, $linen);
+        return $this->payload(TOAST_SUCCESS, $result);
     }
 
     /**
-     * @return Collection<int, DetailLinen> baris detail_linen yang baru dibuat
+     * @return array{linen: Collection<int, DetailLinen>, no_register: string, keterangan: ?string}
      */
-    private function register(array $data): Collection
+    private function register(array $data): array
     {
         $rfid = $this->normalizeRfid($data['rfid'] ?? []);
         $owners = $this->normalizeIds($data['rs_id'] ?? []);
@@ -75,11 +78,15 @@ class RegisterLinenAction
         // Type boleh dikirim eksplisit; kalau tidak, disimpulkan dari jumlah RS
         // yang dikirim (0 → FREE, 1 → DEDICATED, ≥2 → GROUP).
         $kepemilikan = $data['status_kepemilikan'] ?? $this->inferOwnership($owners);
+        $sentIds = $owners; // kiriman asli — dipakai untuk holder bila FREE
         $owners = $this->resolveOwners($kepemilikan, $owners);
 
-        // FREE tidak terikat RS mana pun (boleh dipakai semua RS) → detail_id_rs null.
-        // DEDICATED/GROUP → pemegang saat register = pemilik pertama.
-        $currentRs = $kepemilikan === RsStatusEnum::FREE ? null : $owners[0];
+        // Holder = RS pengirim pertama, SELALU diisi bila ada (null bikin
+        // flag beda_rs jadi YA saat dipakai di RS sendiri). Yang dikosongkan
+        // untuk FREE/GROUP adalah RUANGAN (lokasi): linen bebas/grup tidak
+        // menetap di satu ruangan. DEDICATED menyimpan ruangan apa adanya.
+        $currentRs = ($kepemilikan === RsStatusEnum::FREE ? $sentIds : $owners)[0] ?? null;
+        $ruangan = $kepemilikan === RsStatusEnum::DEDICATED ? ($data['ruangan_id'] ?? null) : null;
 
         $statusRegister = $data['status_register'] ?? RegisterEnum::REGISTER;
 
@@ -89,20 +96,36 @@ class RegisterLinenAction
             ? LinenStatusEnum::KOTOR
             : LinenStatusEnum::REGISTER;
 
+        // Keterangan dari textarea desktop (opsional) — disalin ke tiap
+        // baris detail_linen.
+        $keterangan = trim((string) ($data['keterangan'] ?? $data['deskripsi'] ?? ''));
+        $keterangan = $keterangan === '' ? null : $keterangan;
+
         DB::beginTransaction();
 
         try {
             $this->guardDuplikat($rfid);
 
+            // Nomor register pakai waktu + suffix acak (bukan dari database):
+            // REG-YYYYMMDDHHMMSS-XXXX. Cek tabrakan hanya sebagai pengaman.
+            $now = now();
+            $noRegister = 'REG-'.$now->format('YmdHis').'-'.str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $try = 0;
+            while ($try < 3 && DetailLinen::where(DetailLinen::field_no_register(), $noRegister)->exists()) {
+                $noRegister = 'REG-'.$now->format('YmdHis').'-'.str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+                $try++;
+            }
+
             foreach ($rfid as $code) {
                 DetailLinen::create([
                     DetailLinen::field_primary() => $code,
                     DetailLinen::field_rs_id() => $currentRs,
-                    DetailLinen::field_ruangan_id() => $data['ruangan_id'] ?? null,
+                    DetailLinen::field_ruangan_id() => $ruangan,
                     DetailLinen::field_jenis_id() => $data['jenis_id'] ?? null,
                     DetailLinen::field_bahan_id() => $data['bahan_id'] ?? null,
                     DetailLinen::field_supplier_id() => $data['supplier_id'] ?? null,
-                    DetailLinen::field_description() => $data['deskripsi'] ?? null,
+                    DetailLinen::field_description() => $keterangan,
+                    DetailLinen::field_no_register() => $noRegister,
                     DetailLinen::field_status_cuci() => $data['status_cuci'] ?? null,
                     DetailLinen::field_status_register() => $statusRegister,
                     DetailLinen::field_status_kepemilikan() => $kepemilikan,
@@ -127,28 +150,61 @@ class RegisterLinenAction
             throw $th;
         }
 
-        return DetailLinen::with(['hasRs', 'hasRuangan', 'hasJenis', 'hasBahan', 'hasSupplier'])
-            ->whereIn(DetailLinen::field_primary(), $rfid)
-            ->get();
+        return [
+            'linen' => DetailLinen::with(['hasRs', 'hasRuangan', 'hasJenis', 'hasBahan', 'hasSupplier'])
+                ->whereIn(DetailLinen::field_primary(), $rfid)
+                ->get(),
+            'no_register' => $noRegister,
+            'keterangan' => $keterangan,
+        ];
     }
 
     /**
-     * Tebak kepemilikan dari jumlah RS pemilik yang dikirim klien.
-     * Klien boleh menimpanya lewat field status_kepemilikan.
+     * Tebak kepemilikan bila klien tidak mengirim status_kepemilikan:
+     *   - 0 RS   → FREE (bebas, nol baris config_linen).
+     *   - 1 RS   → ikut tipe RS itu sendiri: FREE → FREE, GROUP (+anggota)
+     *             → GROUP, selain itu DEDICATED.
+     *   - ≥2 RS  → GROUP.
      */
     private function inferOwnership(array $owners): string
     {
         return match (count($owners)) {
             0 => RsStatusEnum::FREE,
-            1 => RsStatusEnum::DEDICATED,
+            1 => $this->inferSingleOwner($owners[0]),
             default => RsStatusEnum::GROUP,
         };
+    }
+
+    private function inferSingleOwner(int $rsId): string
+    {
+        $rs = Rs::query()->select(['rs_status', 'rs_id_group'])->where('rs_id', $rsId)->first();
+
+        // RS tidak ada → biarkan DEDICATED, resolveOwners yang 422-kan.
+        if ($rs === null) {
+            return RsStatusEnum::DEDICATED;
+        }
+
+        if (($rs->rs_status ?? null) === RsStatusEnum::FREE) {
+            return RsStatusEnum::FREE;
+        }
+
+        if (($rs->rs_status ?? null) === RsStatusEnum::GROUP && $rs->rs_id_group) {
+            return RsStatusEnum::GROUP;
+        }
+
+        return RsStatusEnum::DEDICATED;
     }
 
     private function resolveOwners(string $kepemilikan, array $owners): array
     {
         if ($kepemilikan === RsStatusEnum::FREE) {
             return [];
+        }
+
+        // GROUP dari 1 RS: kembangkan ke semua anggota group_rs yang sama
+        // (kiriman tetap pertama = current holder).
+        if ($kepemilikan === RsStatusEnum::GROUP && count($owners) === 1) {
+            $owners = $this->expandGroupMembers($owners[0]);
         }
 
         $min = $kepemilikan === RsStatusEnum::GROUP ? 2 : 1;
@@ -170,6 +226,24 @@ class RegisterLinenAction
         }
 
         return $owners;
+    }
+
+    /**
+     * Anggota group_rs yang sama (termasuk RS kiriman, tetap di depan).
+     * Grup beranggota tunggal → kembalikan apa adanya supaya validasi
+     * min 2 RS menolak dengan pesan yang jelas, bukan diam-diam DEDICATED.
+     */
+    private function expandGroupMembers(int $rsId): array
+    {
+        $groupId = Rs::where('rs_id', $rsId)->value('rs_id_group');
+
+        if (! $groupId) {
+            return [$rsId];
+        }
+
+        $members = Rs::where('rs_id_group', $groupId)->orderBy('rs_id')->pluck('rs_id')->all();
+
+        return array_values(array_unique(array_merge([$rsId], $members)));
     }
 
     /**

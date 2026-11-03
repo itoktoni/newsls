@@ -8,6 +8,16 @@ use App\Enums\RegisterEnum;
 
 trait DetailLinenEntity
 {
+    public static function field_no_register()
+    {
+        return 'detail_no_register';
+    }
+
+    public function getFieldNoRegisterAttribute()
+    {
+        return $this->{static::field_no_register()};
+    }
+
     public static function field_description()
     {
         return 'detail_deskripsi';
