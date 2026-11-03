@@ -172,6 +172,28 @@ it('report selisih berat dan rekap kotor memuat ringkasan berat', function () {
         ->assertSee('BERAT (KG)');
 });
 
+it('report kotor menampilkan scan RFID belum register dari transaksi', function () {
+    $uniq = strtoupper(uniqid());
+    $rfid = 'TMSEL-UNREG-'.$uniq; // sengaja tanpa baris detail_linen
+    DB::table('transaksi')->insert([
+        'transaksi_key' => "TMSEL-UNREG-{$uniq}", 'transaksi_rfid' => $rfid,
+        'transaksi_rs_ori' => null, 'transaksi_rs_scan' => $this->rs->rs_id,
+        'transaksi_beda_rs' => 'BELUM_REGISTER', 'transaksi_id_ruangan' => null,
+        'transaksi_status' => 'KOTOR', 'transaksi_created_at' => now(), 'transaksi_updated_at' => now(),
+        'transaksi_created_by' => $this->admin->id, 'transaksi_updated_by' => $this->admin->id,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get("/report-detail-kotor/print?rs_id={$this->rs->rs_id}")
+        ->assertOk()
+        ->assertSee($rfid);
+
+    $this->actingAs($this->admin)
+        ->get("/report-rekap-kotor/print?rs_id={$this->rs->rs_id}")
+        ->assertOk()
+        ->assertSee('Tanpa Jenis');
+});
+
 it('dashboard admin laundry rs menampilkan bobot kg', function () {
     $rfids = ['TMSEL-D1', 'TMSEL-D2'];
     foreach ($rfids as $rfid) {

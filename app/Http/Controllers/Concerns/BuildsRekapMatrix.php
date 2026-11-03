@@ -24,7 +24,8 @@ trait BuildsRekapMatrix
     protected function matrixFromTransaksi(int $rsId, string $status, ?string $start, ?string $end): array
     {
         $rows = DB::table('transaksi')
-            ->join('detail_linen', 'detail_linen.detail_rfid', '=', 'transaksi.transaksi_rfid')
+            // LEFT: scan RFID belum register tetap tampil (tanpa master).
+            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'transaksi.transaksi_rfid')
             ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
             ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'transaksi.transaksi_id_ruangan')
             ->where('transaksi.transaksi_status', $status)
