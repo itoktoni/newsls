@@ -76,8 +76,7 @@ it('grouping tanpa scan kotor membuat transaksi KOTOR key GRP dan outstanding GU
     expect(DB::table('transaksi')->where('transaksi_rfid', $this->rfid)->count())->toBe(1);
     expect(DB::table('outstanding')->where('outstanding_rfid', $this->rfid)->count())->toBe(1);
 
-    // Grouping atas outstanding yang SUDAH ada: lokasi + RS di-null-kan
-    // (linen di gudang pusat), warehouse tetap terisi.
+    // Grouping (baris baru maupun sudah ada): RS + lokasi outstanding null.
     $out = DB::table('outstanding')->where('outstanding_rfid', $this->rfid)->first();
     expect($out->outstanding_rs_ori)->toBeNull();
     expect($out->outstanding_rs_scan)->toBeNull();

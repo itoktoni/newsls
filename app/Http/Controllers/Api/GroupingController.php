@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\LinenStatusEnum;
 use App\Enums\LogType;
-use App\Enums\RsStatusEnum;
 use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
@@ -32,9 +31,9 @@ use Throwable;
  *   terscan di RS). Selain linen fresh-register, selalu pastikan ada baris
  *   transaksi KOTOR hari ini — buat baru dengan key prefix GRP bila belum
  *   ada (idempoten per hari, anti dobel-scan).
- * - FREE ownership → rs_ori & ruangan outstanding = null.
- * - Outstanding SUDAH ada → rs_ori, rs_scan & ruangan di-null-kan
- *   (linen di gudang pusat; warehouse tetap terisi).
+ * - Outstanding (baru maupun sudah ada, termasuk REGISTER) →
+ *   rs_ori, rs_scan & ruangan selalu null: linen di gudang pusat,
+ *   warehouse tetap terisi. Asal RS tercatat di baris transaksi.
  * - RFID tak dikenal → Notes::error (bukan 404 mentah).
  */
 class GroupingController extends Controller
@@ -159,9 +158,7 @@ class GroupingController extends Controller
         $flag = 'Normal';
 
         if ($outstanding) {
-            // RFID sudah ada di outstanding = linen kembali ke gudang
-            // pusat: lokasi (ruangan) + RS (ori/scan) di-null-kan.
-            $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId, true));
+            $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
         } else {
             [$outstanding, $flag] = $this->storeNewOutstanding($detail, $rfid, $key, $date, $today, $userId, $statusLinen);
         }
@@ -274,26 +271,21 @@ class GroupingController extends Controller
     }
 
     /**
-     * Payload outstanding — FREE ownership → rs_ori & ruangan null (legacy).
-     *
-     * $resetLokasi = true (grouping atas outstanding yang SUDAH ada) →
-     * rs_ori, rs_scan & ruangan ikut null: linen sudah di gudang pusat,
-     * tidak lagi menempati RS/ruangan mana pun (warehouse tetap terisi).
+     * Payload outstanding — grouping = linen masuk gudang pusat: RS
+     * (ori/scan) + ruangan SELALU null, kepemilikan apa pun termasuk
+     * REGISTER. Yang menandai asal hanya baris transaksi + warehouse.
      */
-    private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId, bool $resetLokasi = false): array
+    private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId): array
     {
-        $free = $detail->detail_status_kepemilikan === RsStatusEnum::FREE
-            || $detail->detail_status_kepemilikan === 'FREE';
-
         return [
             'outstanding_rfid' => $rfid,
             'outstanding_status_proses' => 'GUDANG',
             'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
             'outstanding_updated_at' => $date,
             'outstanding_updated_by' => $userId,
-            'outstanding_rs_ori' => ($resetLokasi || $free) ? null : $detail->detail_id_rs,
-            'outstanding_rs_scan' => $resetLokasi ? null : $detail->detail_id_rs,
-            'outstanding_id_ruangan' => ($resetLokasi || $free) ? null : $detail->detail_id_ruangan,
+            'outstanding_rs_ori' => null,
+            'outstanding_rs_scan' => null,
+            'outstanding_id_ruangan' => null,
             'outstanding_status_hilang' => 'NORMAL',
             'outstanding_hilang_created_at' => null,
             'outstanding_pending_created_at' => null,
