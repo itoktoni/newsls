@@ -101,7 +101,7 @@
             <tr>
                 <th colspan="4" style="text-align:right;">Total:</th>
                 <th class="num">{{ formatQty($data->sum(fn ($r) => (float) ($r->jenis_berat ?? 0))) }}</th>
-                <th colspan="8" style="text-align:left;">{{ $data->count() }} baris</th>
+                <th colspan="8" style="text-align:left;">{{ $data->count() }} pcs linen</th>
             </tr>
         </tfoot>
     </table>
