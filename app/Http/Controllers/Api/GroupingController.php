@@ -33,6 +33,8 @@ use Throwable;
  *   transaksi KOTOR hari ini — buat baru dengan key prefix GRP bila belum
  *   ada (idempoten per hari, anti dobel-scan).
  * - FREE ownership → rs_ori & ruangan outstanding = null.
+ * - Outstanding SUDAH ada → rs_ori, rs_scan & ruangan di-null-kan
+ *   (linen di gudang pusat; warehouse tetap terisi).
  * - RFID tak dikenal → Notes::error (bukan 404 mentah).
  */
 class GroupingController extends Controller
@@ -157,7 +159,9 @@ class GroupingController extends Controller
         $flag = 'Normal';
 
         if ($outstanding) {
-            $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
+            // RFID sudah ada di outstanding = linen kembali ke gudang
+            // pusat: lokasi (ruangan) + RS (ori/scan) di-null-kan.
+            $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId, true));
         } else {
             [$outstanding, $flag] = $this->storeNewOutstanding($detail, $rfid, $key, $date, $today, $userId, $statusLinen);
         }
@@ -271,8 +275,12 @@ class GroupingController extends Controller
 
     /**
      * Payload outstanding — FREE ownership → rs_ori & ruangan null (legacy).
+     *
+     * $resetLokasi = true (grouping atas outstanding yang SUDAH ada) →
+     * rs_ori, rs_scan & ruangan ikut null: linen sudah di gudang pusat,
+     * tidak lagi menempati RS/ruangan mana pun (warehouse tetap terisi).
      */
-    private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId): array
+    private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId, bool $resetLokasi = false): array
     {
         $free = $detail->detail_status_kepemilikan === RsStatusEnum::FREE
             || $detail->detail_status_kepemilikan === 'FREE';
@@ -283,9 +291,9 @@ class GroupingController extends Controller
             'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
             'outstanding_updated_at' => $date,
             'outstanding_updated_by' => $userId,
-            'outstanding_rs_ori' => $free ? null : $detail->detail_id_rs,
-            'outstanding_rs_scan' => $detail->detail_id_rs,
-            'outstanding_id_ruangan' => $free ? null : $detail->detail_id_ruangan,
+            'outstanding_rs_ori' => ($resetLokasi || $free) ? null : $detail->detail_id_rs,
+            'outstanding_rs_scan' => $resetLokasi ? null : $detail->detail_id_rs,
+            'outstanding_id_ruangan' => ($resetLokasi || $free) ? null : $detail->detail_id_ruangan,
             'outstanding_status_hilang' => 'NORMAL',
             'outstanding_hilang_created_at' => null,
             'outstanding_pending_created_at' => null,
