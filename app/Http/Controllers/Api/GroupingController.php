@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
 use App\Models\Transaksi;
+use App\Models\TransaksiMaster;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -248,6 +249,7 @@ class GroupingController extends Controller
             'transaksi_updated_by' => $userId,
         ]);
 
+        $this->persistMaster($key, $detail->detail_id_rs, TransactionType::KOTOR, $today, $date, $userId);
         $this->touchPending($rfid, TransactionType::KOTOR, $date);
 
         return 'KOTOR';
@@ -339,6 +341,8 @@ class GroupingController extends Controller
                     'transaksi_updated_by' => $userId,
                 ]);
 
+                $this->persistMaster($key, $detail->detail_id_rs, $transaksiStatus, $today, $date, $userId);
+
                 $flag = $isRegister ? 'REGISTER' : 'KOTOR';
             }
 
@@ -380,6 +384,48 @@ class GroupingController extends Controller
             'outstanding_created_at' => $date,
             'outstanding_created_by' => $userId,
         ]), $flag];
+    }
+
+    /**
+     * Header master 1 baris per key grouping (idempoten) supaya muncul di
+     * /transaksi/table + report berbasis master. Qty = SUM jenis_berat
+     * (berat jenis linen), bukan inputan — grouping tidak menimbang.
+     * Null bila jenis tidak punya berat (belum diketahui).
+     */
+    private function persistMaster(string $key, ?int $rsId, string $status, string $today, string $date, int $userId): void
+    {
+        try {
+            if (! self::hasTable('transaksi_master')) {
+                return;
+            }
+
+            // ponytail: hitung dari baris transaksi key ini (pola sama dengan
+            // beratBersih() di TransaksiApiController) — 1 RFID per key
+            // grouping, tapi SUM tetap benar bila key dipakai ulang.
+            $qty = (float) DB::table('transaksi')
+                ->join('detail_linen', 'detail_linen.detail_rfid', '=', 'transaksi.transaksi_rfid')
+                ->join('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+                ->where('transaksi.transaksi_key', $key)
+                ->sum('jenis_linen.jenis_berat');
+
+            $master = TransaksiMaster::firstOrNew(['master_kode' => $key]);
+            $isNew = ! $master->exists;
+
+            $master->master_rs_id = $rsId;
+            $master->master_status = $status;
+            $master->master_tanggal = $today;
+            $master->master_qty = $qty > 0 ? round($qty, 3) : null;
+            $master->master_updated_at = $date;
+            $master->master_updated_by = $userId;
+
+            if ($isNew) {
+                $master->master_created_at = $date;
+                $master->master_created_by = $userId;
+            }
+
+            $master->save();
+        } catch (Throwable $e) {
+        }
     }
 
     /**

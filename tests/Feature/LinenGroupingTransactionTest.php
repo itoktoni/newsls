@@ -20,7 +20,7 @@ beforeEach(function () {
     $uniq = strtoupper(uniqid());
     $this->rs = Rs::create(['rs_nama' => 'RS Grouping Noscan', 'rs_code' => 'GRP'.$uniq, 'rs_status' => RsStatusEnum::DEDICATED, 'rs_aktif' => 1]);
     $this->ruangan = Ruangan::create(['ruangan_nama' => 'Ruang Grouping', 'ruangan_code' => 'GRR'.$uniq]);
-    $this->jenis = JenisLinen::create(['jenis_nama' => 'Seprai Grouping '.$uniq]);
+    $this->jenis = JenisLinen::create(['jenis_nama' => 'Seprai Grouping '.$uniq, 'jenis_berat' => 0.5]);
     $this->bahan = JenisBahan::create(['bahan_nama' => 'Katun Grouping '.$uniq]);
     $this->supplier = Supplier::create(['supplier_nama' => 'Supplier Grouping '.$uniq]);
     DB::table('rs_dan_ruangan')->insert(['rs_id' => $this->rs->rs_id, 'ruangan_id' => $this->ruangan->ruangan_id]);
@@ -68,6 +68,12 @@ it('grouping tanpa scan kotor membuat transaksi KOTOR key GRP dan outstanding GU
     expect($out->outstanding_status_transaksi)->toBe('KOTOR');
     expect($out->outstanding_status_proses)->toBe('GUDANG');
     expect((int) $out->outstanding_id_warehouse)->toBe(1);
+
+    $master = DB::table('transaksi_master')->where('master_kode', $trx->transaksi_key)->first();
+    expect($master)->not->toBeNull()
+        ->and((int) $master->master_rs_id)->toBe($this->rs->rs_id)
+        ->and($master->master_status)->toBe('KOTOR')
+        ->and((float) $master->master_qty)->toBe(0.5);
 
     expect(DetailLinen::where('detail_rfid', $this->rfid)->value('detail_status_linen'))->toBe(LinenStatusEnum::GUDANG);
 

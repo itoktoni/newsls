@@ -2,13 +2,22 @@
 
 @php
     $menu = config('menu.sidebar');
+    // Report-only: hanya report, kecuali invoice.
+    $reportOnly = auth()->user()?->role === \App\Enums\RoleEnum::USER;
 @endphp
 
 @foreach($menu as $section)
+    @php
+        $sectionItems = $section['items'];
+        if ($reportOnly) {
+            $sectionItems = array_values(array_filter($sectionItems, fn ($i) => str_starts_with($i['route'], 'report-') && ! str_starts_with($i['route'], 'report-invoice')));
+        }
+    @endphp
+    @if(count($sectionItems) === 0) @continue @endif
     @if($section['label'])
         <div class="px-4 pt-4 pb-1 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">{{ $section['label'] }}</div>
     @endif
-    @foreach($section['items'] as $item)
+    @foreach($sectionItems as $item)
         @php
             $routeName = $item['route'];
             $url = route($routeName);
