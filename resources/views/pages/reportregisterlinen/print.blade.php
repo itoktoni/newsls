@@ -48,6 +48,7 @@
             <tr>
                 <th width="1">No.</th>
                 <th>NO. RFID</th>
+                <th>NO. REGISTER</th>
                 <th>LINEN</th>
                 <th>RUMAH SAKIT</th>
                 <th>RUANGAN</th>
@@ -55,6 +56,7 @@
                 <th>STATUS REGISTRASI</th>
                 <th>TANGGAL REGISTER</th>
                 <th>OPERATOR</th>
+                <th>NOTES</th>
             </tr>
         </thead>
         <tbody>
@@ -62,16 +64,18 @@
             <tr>
                 <td>{{ $loop->iteration }}</td>
                 <td>{{ $table->detail_rfid }}</td>
+                <td>{{ $table->detail_no_register ?? '-' }}</td>
                 <td>{{ $table->jenis_nama ?? '-' }}</td>
-                <td>{{ $table->rs_nama ?? '-' }}</td>
+                <td>{{ $table->rs_nama ?? $table->rs_holder_nama ?? '-' }}</td>
                 <td>{{ $table->ruangan_nama ?? '-' }}</td>
                 <td>{{ $table->detail_status_cuci ?? '-' }}</td>
                 <td>{{ $table->detail_status_register ?? '-' }}</td>
                 <td>{{ formatDate($table->detail_created_at) ?? '-' }}</td>
                 <td>{{ $table->operator_nama ?? '-' }}</td>
+                <td>{{ $table->detail_deskripsi ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="9" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="11" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
     </table>

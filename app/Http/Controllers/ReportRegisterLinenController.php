@@ -78,16 +78,16 @@ class ReportRegisterLinenController extends Controller
         return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode) {
             echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
             echo '<head><meta charset="UTF-8"></head><body>';
-            echo '<table><tr><td colspan="7"><b>DETAIL REGISTER LINEN</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
+            echo '<table><tr><td colspan="9"><b>DETAIL REGISTER LINEN</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
             echo '<td colspan="2" style="text-align:right;">';
             if ($logoAbs) {
                 echo '<img src="'.e($logoAbs).'" alt="Logo" height="60" width="90">';
             }
             echo '</td></tr></table><br>';
             echo '<table border="1"><thead><tr>'
-                .'<th>No.</th><th>NO. RFID</th><th>LINEN</th><th>RUMAH SAKIT</th>'
+                .'<th>No.</th><th>NO. RFID</th><th>NO. REGISTER</th><th>LINEN</th><th>RUMAH SAKIT</th>'
                 .'<th>RUANGAN</th><th>CUCI/RENTAL</th><th>STATUS REGISTRASI</th>'
-                .'<th>TANGGAL REGISTER</th><th>OPERATOR</th>'
+                .'<th>TANGGAL REGISTER</th><th>OPERATOR</th><th>NOTES</th>'
                 .'</tr></thead><tbody>';
 
             $no = 0;
@@ -98,13 +98,15 @@ class ReportRegisterLinenController extends Controller
                         $no++;
                         echo '<tr><td>'.$no.'</td>'
                             .'<td>'.e($table->detail_rfid).'</td>'
+                            .'<td>'.e($table->detail_no_register ?? '-').'</td>'
                             .'<td>'.e($table->jenis_nama ?? '-').'</td>'
-                            .'<td>'.e($table->rs_nama ?? '-').'</td>'
+                            .'<td>'.e($table->rs_nama ?? $table->rs_holder_nama ?? '-').'</td>'
                             .'<td>'.e($table->ruangan_nama ?? '-').'</td>'
                             .'<td>'.e($table->detail_status_cuci ?? '-').'</td>'
                             .'<td>'.e($table->detail_status_register ?? '-').'</td>'
                             .'<td>'.e(formatDate($table->detail_created_at) ?? '-').'</td>'
-                            .'<td>'.e($table->operator_nama ?? '-').'</td></tr>';
+                            .'<td>'.e($table->operator_nama ?? '-').'</td>'
+                            .'<td>'.e($table->detail_deskripsi ?? '-').'</td></tr>';
                     }
                     flush();
                 });
@@ -153,15 +155,18 @@ class ReportRegisterLinenController extends Controller
      */
     private function registerBaseQuery(array $filter)
     {
-        $query = DB::table('config_linen')
-            ->join('detail_linen', 'detail_linen.detail_rfid', '=', 'config_linen.detail_rfid')
+        $query = DB::table('detail_linen')
+            // ponytail: LEFT join supaya FREE (nol baris config_linen) tetap tampil.
+            ->leftJoin('config_linen', 'config_linen.detail_rfid', '=', 'detail_linen.detail_rfid')
             ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
             ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
             ->leftJoin('rs', 'rs.rs_id', '=', 'config_linen.rs_id')
+            ->leftJoin('rs as rs_holder', 'rs_holder.rs_id', '=', 'detail_linen.detail_id_rs')
             ->leftJoin('users', 'users.id', '=', 'detail_linen.detail_created_by');
 
-        // ponytail: isi = guard akses + where; kosong = batasi ke RS milik user.
-        $query = User::applyRsFilter($query, 'config_linen.rs_id', $filter['rs_id'] ?? null);
+        // ponytail: saring pemilik (config) ATAU pemegang (detail) supaya FREE
+        // yang dipegang RS tetap ketemu saat filter rs_id diisi.
+        $query = User::applyRsFilter($query, ['config_linen.rs_id', 'detail_linen.detail_id_rs'], $filter['rs_id'] ?? null);
 
         return $query
             ->when(! empty($filter['jenis_id']), fn ($q) => $q->where('detail_linen.detail_id_jenis', $filter['jenis_id']))
@@ -172,11 +177,14 @@ class ReportRegisterLinenController extends Controller
             ->when(! empty($filter['end_date']), fn ($q) => $q->whereDate('detail_linen.detail_created_at', '<=', $filter['end_date']))
             ->select([
                 'detail_linen.detail_rfid',
+                'detail_linen.detail_no_register',
+                'detail_linen.detail_deskripsi',
                 'detail_linen.detail_status_cuci',
                 'detail_linen.detail_status_register',
                 'detail_linen.detail_created_at',
                 'jenis_linen.jenis_nama as jenis_nama',
                 'rs.rs_nama as rs_nama',
+                'rs_holder.rs_nama as rs_holder_nama',
                 'ruangan.ruangan_nama as ruangan_nama',
                 'users.name as operator_nama',
             ]);
