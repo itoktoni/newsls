@@ -148,7 +148,7 @@ trait BuildsDetailList
             ->leftJoin('rs as rs_scan', 'rs_scan.rs_id', '=', 'transaksi.transaksi_rs_scan')
             ->leftJoin('users', 'users.id', '=', 'transaksi.transaksi_created_by')
             ->where('transaksi.transaksi_status', static::STATUS)
-            ->where('transaksi.transaksi_rs_ori', $filter['rs_id'])
+            ->where('transaksi.transaksi_rs_scan', $filter['rs_id'])
             ->when(! empty($filter['start_date']), fn ($q) => $q->whereDate('transaksi.transaksi_created_at', '>=', $filter['start_date']))
             ->when(! empty($filter['end_date']), fn ($q) => $q->whereDate('transaksi.transaksi_created_at', '<=', $filter['end_date']))
             ->select([

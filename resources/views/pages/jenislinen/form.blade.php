@@ -8,7 +8,7 @@
             @bind($model ?? null)
 
                 <x-input col="6" name="jenis_nama" />
-                <x-input col="6" name="jenis_berat" type="number" />
+                <x-input col="6" name="jenis_berat" type="number" step="any" helper="Berat per pcs dalam Kg, bisa desimal (mis. 0.35)" />
                 <x-select col="6" name="jenis_id_kategori" :options="$kategori" />
                 <x-select col="6" name="jenis_id_rs" :options="$rs" />
                 <x-textarea col="12" name="jenis_deskripsi" />
