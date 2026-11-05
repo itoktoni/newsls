@@ -107,16 +107,13 @@ class PackingDeliveryController extends Controller
 
     /**
      * Sumber kebenaran packing = tabel bersih: baris dengan bersih_delivery
-     * NULL berarti sudah di-packing tapi belum di-delivery. RFID seperti itu
+     * NULL/'' (kosong) berarti sudah di-packing tapi belum di-delivery. RFID seperti itu
      * tidak boleh packing ulang (apalagi ke RS lain) — walau status outstanding
      * sudah berubah di tengah jalan (mis. tertimpa scan QC/grouping).
      */
     private function assertNotPackedInBersih(array $input)
     {
-        $rows = DB::table('bersih')
-            ->whereIn('bersih_rfid', $input['rfids'])
-            ->whereNull('bersih_delivery')
-            ->get(['bersih_rfid', 'bersih_barcode', 'bersih_id_rs']);
+        $rows = $this->undeliveredBersihRows($input['rfids']);
 
         if ($rows->isEmpty()) {
             return null;
@@ -135,6 +132,20 @@ class PackingDeliveryController extends Controller
             'RFID sudah pernah di-packing dan belum di-delivery, tidak bisa packing ulang: '.$detail,
             ['rfid' => ['RFID sudah pernah di-packing dan belum di-delivery: '.$detail]]
         );
+    }
+
+    /**
+     * Baris bersih yang belum di-delivery = delivery NULL atau string kosong.
+     * Cek dua-duanya: data legacy/race bisa menyimpan '' bukan NULL.
+     */
+    private function undeliveredBersihRows(array $rfids)
+    {
+        return DB::table('bersih')
+            ->whereIn('bersih_rfid', $rfids)
+            ->where(function ($q) {
+                $q->whereNull('bersih_delivery')->orWhere('bersih_delivery', '');
+            })
+            ->get(['bersih_rfid', 'bersih_barcode', 'bersih_id_rs']);
     }
 
     /**
@@ -205,9 +216,10 @@ class PackingDeliveryController extends Controller
     {
         DB::beginTransaction();
         try {
-            // Kunci baris outstanding dulu — request bersamaan (double-click /
+            // Kunci baris outstanding + bersih dulu — request bersamaan (double-click /
             // 2 operator) antre di sini, assert di bawah melihat state terbaru.
             Outstanding::whereIn('outstanding_rfid', $input['rfids'])->lockForUpdate()->get();
+            DB::table('bersih')->whereIn('bersih_rfid', $input['rfids'])->lockForUpdate()->get();
 
             if ($err = $this->assertNotPackedInBersih($input)) {
                 DB::rollBack();
@@ -268,11 +280,26 @@ class PackingDeliveryController extends Controller
 
     private function insertBersihPacking(array $input, string $code, string $date, $userId): void
     {
+        // Cek terakhir sebelum insert (masih dalam 1 transaksi + lock): RFID yang
+        // sudah punya baris belum-delivery tidak boleh di-insert lagi — satu RFID
+        // hanya boleh punya 1 baris dengan delivery kosong.
+        $existing = DB::table('bersih')
+            ->whereIn('bersih_rfid', $input['rfids'])
+            ->where(function ($q) {
+                $q->whereNull('bersih_delivery')->orWhere('bersih_delivery', '');
+            })
+            ->pluck('bersih_rfid')
+            ->all();
+        $rfids = array_values(array_diff($input['rfids'], $existing));
+        if (empty($rfids)) {
+            return;
+        }
+
         // ponytail: bulk insert per chunk, bukan 1 query per RFID (N roundtrip).
         $status = $this->bersihStatus($input['status']);
         $barcode = strtoupper($code);
         $rows = [];
-        foreach ($input['rfids'] as $rfid) {
+        foreach ($rfids as $rfid) {
             $rows[] = [
                 'bersih_rfid' => $rfid,
                 'bersih_status' => $status,
@@ -592,7 +619,9 @@ class PackingDeliveryController extends Controller
         DB::table('bersih')
             ->where('bersih_id_rs', $input['rsId'])
             ->where('bersih_status', $this->bersihStatus($input['status']))
-            ->whereNull('bersih_delivery')
+            ->where(function ($q) {
+                $q->whereNull('bersih_delivery')->orWhere('bersih_delivery', '');
+            })
             ->whereIn('bersih_rfid', $rfids)
             ->update([
                 'bersih_delivery' => strtoupper($code),
