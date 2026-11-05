@@ -37,6 +37,10 @@ class PackingDeliveryController extends Controller
             return $err;
         }
 
+        if ($err = $this->assertNoOpenBersih($input)) {
+            return $err;
+        }
+
         if ($err = $this->assertReadyForPacking($input)) {
             return $err;
         }
@@ -110,6 +114,27 @@ class PackingDeliveryController extends Controller
         }
 
         return Notes::validation('RFID sudah di packing: '.implode(', ', $bad), ['rfid' => $bad]);
+    }
+
+    /**
+     * RFID yang masih punya baris bersih dengan delivery kosong (= sudah
+     * di-packing tapi belum di-delivery, walau outstanding-nya sempat
+     * di-grouping balik ke GUDANG) tidak boleh di-packing ulang.
+     */
+    private function assertNoOpenBersih(array $input)
+    {
+        $open = DB::table('bersih')
+            ->whereIn('bersih_rfid', $input['rfids'])
+            ->where(function ($q) {
+                $q->whereNull('bersih_delivery')->orWhere('bersih_delivery', '');
+            })
+            ->pluck('bersih_rfid')
+            ->all();
+        if ($open === []) {
+            return null;
+        }
+
+        return Notes::validation('RFID sudah di packing (belum delivery): '.implode(', ', $open), ['rfid' => $open]);
     }
 
     private function assertReadyForPacking(array $input)
