@@ -9,6 +9,7 @@ use App\Enums\RsStatusEnum;
 use App\Models\ConfigLinen;
 use App\Models\DetailLinen;
 use App\Models\Rs;
+use App\Models\Ruangan;
 use App\Support\DashboardCache;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -33,11 +34,12 @@ use Lorisleiva\Actions\Concerns\AsAction;
  *
  * Aturan kepemilikan (lihat juga App\Models\ConfigLinen):
  *   - FREE      → nol baris config_linen (bebas dipakai RS mana pun),
- *                 ruangan dikosongkan.
+ *                 holder + ruangan default Global BAC / Ruang Global.
  *   - DEDICATED → satu RS pemilik, ruangan disimpan.
- *   - GROUP     → semua anggota group_rs pemilik, ruangan dikosongkan.
- * Holder (detail_id_rs) selalu RS pengirim pertama bila ada — dipakai
- * transaksi sebagai rs_ori untuk flag beda_rs.
+ *   - GROUP     → semua anggota group_rs pemilik, holder + ruangan default
+ *                 Global BAC / Ruang Global.
+ * Holder DEDICATED = RS pengirim pertama — dipakai transaksi sebagai
+ * rs_ori untuk flag beda_rs.
  *
  * Pemakaian: RegisterLinenAction::run($request->validated());
  * Return: payload array {code, status, message, data} — data berisi
@@ -78,15 +80,17 @@ class RegisterLinenAction
         // Type boleh dikirim eksplisit; kalau tidak, disimpulkan dari jumlah RS
         // yang dikirim (0 → FREE, 1 → DEDICATED, ≥2 → GROUP).
         $kepemilikan = $data['status_kepemilikan'] ?? $this->inferOwnership($owners);
-        $sentIds = $owners; // kiriman asli — dipakai untuk holder bila FREE
         $owners = $this->resolveOwners($kepemilikan, $owners);
 
-        // Holder = RS pengirim pertama, SELALU diisi bila ada (null bikin
-        // flag beda_rs jadi YA saat dipakai di RS sendiri). Yang dikosongkan
-        // untuk FREE/GROUP adalah RUANGAN (lokasi): linen bebas/grup tidak
-        // menetap di satu ruangan. DEDICATED menyimpan ruangan apa adanya.
-        $currentRs = ($kepemilikan === RsStatusEnum::FREE ? $sentIds : $owners)[0] ?? null;
-        $ruangan = $kepemilikan === RsStatusEnum::DEDICATED ? ($data['ruangan_id'] ?? null) : null;
+        // Holder GROUP/FREE = milik kolektif → default Global BAC, ruangan
+        // default Ruang Global. DEDICATED ikut RS + ruangan kiriman.
+        // (transaksi_rs_ori ikut holder ini untuk flag beda_rs.)
+        $currentRs = $kepemilikan === RsStatusEnum::DEDICATED
+            ? ($owners[0] ?? null)
+            : $this->globalRsId();
+        $ruangan = $kepemilikan === RsStatusEnum::DEDICATED
+            ? ($data['ruangan_id'] ?? null)
+            : $this->globalRuanganId();
 
         $statusRegister = $data['status_register'] ?? RegisterEnum::REGISTER;
 
@@ -244,6 +248,21 @@ class RegisterLinenAction
         $members = Rs::where('rs_id_group', $groupId)->orderBy('rs_id')->pluck('rs_id')->all();
 
         return array_values(array_unique(array_merge([$rsId], $members)));
+    }
+
+    /**
+     * ID default holder (Global BAC, rs_code BAC) dan ruangan default
+     * (Ruang Global, ruangan_code Global) untuk register GROUP/FREE.
+     * Jatuh ke id 1 bila baris code belum ada (konvensi seed).
+     */
+    private function globalRsId(): ?int
+    {
+        return Rs::where('rs_code', 'BAC')->value('rs_id') ?? 1;
+    }
+
+    private function globalRuanganId(): ?int
+    {
+        return Ruangan::where('ruangan_code', 'Global')->value('ruangan_id') ?? 1;
     }
 
     /**

@@ -142,11 +142,12 @@ return [
 
     'bottom_nav' => [
 
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Left'],
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Kiri'],
+        // Maks 5 item; index 2 = tombol tengah menonjol (hanya ikon).
         ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Home'],
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Kanan'],
-        ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Right'],
+        ['route' => 'detail-linen.getTable', 'icon' => 'qr_code_2', 'label' => 'Linen'],
+        ['route' => 'transaksi.getTable', 'icon' => 'receipt_long', 'label' => 'Transaksi'],
+        ['route' => 'bersih.getTable', 'icon' => 'inventory_2', 'label' => 'Bersih'],
+        ['route' => 'opname.getTable', 'icon' => 'fact_check', 'label' => 'Opname'],
 
     ],
 

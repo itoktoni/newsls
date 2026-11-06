@@ -4,9 +4,12 @@
     $menu = config('menu.sidebar');
     // Report-only: hanya report, kecuali invoice.
     $reportOnly = auth()->user()?->role === \App\Enums\RoleEnum::USER;
+    // Admin: sembunyikan section CMS dan Settings.
+    $adminHide = auth()->user()?->role === \App\Enums\RoleEnum::ADMIN;
 @endphp
 
 @foreach($menu as $section)
+    @if($adminHide && in_array($section['label'], ['CMS', 'Settings'], true)) @continue @endif
     @php
         $sectionItems = $section['items'];
         if ($reportOnly) {
