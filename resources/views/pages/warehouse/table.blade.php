@@ -80,7 +80,7 @@ $asalBadge = fn ($v) => match ($v) {
                             </span>
                         </td>
                         <td>{{ $table->gudang_nama ?? '-' }}</td>
-                        <td class="whitespace-nowrap text-xs">{{ $table->outstanding_updated_at }}</td>
+                        <td class="whitespace-nowrap text-xs">{{ formatDate($table->outstanding_updated_at) ?? '-' }}</td>
                     </tr>
                     @endforeach
                 </x-slot:body>

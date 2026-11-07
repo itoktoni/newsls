@@ -23,10 +23,14 @@ use Plugins\Notes;
  *     (~50rb objek) → memory_limit habis → fatal error saat response sudah
  *     setengah terkirim → JSON terpotong, desktop gagal deserialize.
  *   - seluruh payload di-encode dulu, baru dikirim: satu error = nol byte.
- * Di sini tiap chunk 2.000 baris dibaca dengan query builder (tanpa model),
- * status outstanding/transaksi di-preload per chunk, lalu baris di-yield dan
- * di-flush langsung keluar socket. Memory datar, jadi berapa pun jumlah
- * RFID-nya response tetap lengkap dan tidak menunggu sampai akhir.
+ * Di sini tiap chunk 2.000 baris dibaca dengan query builder (tanpa model)
+ * memakai keyset pagination (`detail_rfid > last`, bukan OFFSET — OFFSET
+ * memaksa MySQL memindai ulang baris yang sudah dikirim sehingga chunk
+ * terakhir paling lambat), filter kepemilikan memakai EXISTS/NOT EXISTS
+ * (berhenti di kecocokan pertama via index, bukan materialisasi IN/NOT IN
+ * atas seluruh `config_linen` tiap chunk), lalu baris di-yield dan di-flush
+ * langsung keluar socket. Memory datar, jadi berapa pun jumlah RFID-nya
+ * response tetap lengkap dan tidak menunggu sampai akhir.
  * Key tambahan `total` dikirim di depan `data` supaya desktop bisa memastikan
  * `data.length == total` (deteksi download terpotong tanpa harus parse gagal).
  */
@@ -64,8 +68,9 @@ class DownloadApiController extends Controller
         }
 
         // Hitung dulu supaya RS kosong dapat envelope error biasa, bukan JSON
-        // setengah jalan.
-        $total = (int) $this->chunkQuery($rsId)->count();
+        // setengah jalan. Satu COUNT atas query yang sama (EXISTS, tanpa
+        // OFFSET) — jauh lebih murah daripada COUNT atas IN/NOT IN.
+        $total = (int) $this->baseQuery($rsId)->count();
         if ($total === 0) {
             return Notes::failed(404, 'Data Tidak Ditemukan !');
         }
@@ -124,17 +129,23 @@ class DownloadApiController extends Controller
 
         $bersih = TransactionType::BERSIH;
         $sekarang = now()->format('Y-m-d H:i:s');
-        $offset = 0;
+        // Keyset pagination: mulai setelah RFID terakhir chunk sebelumnya.
+        // Tiap chunk biaya konstan (index PK), tidak seperti OFFSET yang
+        // memindai ulang (offset + limit) baris setiap iterasi.
+        $lastRfid = null;
 
         while (true) {
-            $chunk = $this->chunkQuery($rsId)
-                ->offset($offset)
-                ->limit(self::CHUNK)
-                ->get();
+            $query = $this->baseQuery($rsId);
+            if ($lastRfid !== null) {
+                $query->where('d.detail_rfid', '>', $lastRfid);
+            }
+            $chunk = $query->limit(self::CHUNK)->get();
 
             if ($chunk->isEmpty()) {
                 return;
             }
+
+            $lastRfid = (string) $chunk->last()->detail_rfid;
 
             $rfids = $chunk->pluck('detail_rfid')->all();
 
@@ -195,8 +206,7 @@ class DownloadApiController extends Controller
                 ];
             }
 
-            $offset += self::CHUNK;
-            unset($outstanding, $adaTransaksi, $rfids, $chunk);
+            unset($outstanding, $adaTransaksi, $rfids, $chunk, $query);
 
             $this->flushChunk();
 
@@ -210,21 +220,28 @@ class DownloadApiController extends Controller
     /**
      * Query dasar baris RFID yang boleh dipakai RS ini: anggota `config_linen`
      * untuk RS tsb, ATAU linen FREE (tidak punya baris config_linen sama sekali).
-     * Urut `detail_rfid` (unique, ada index) supaya offset chunk stabil — tidak
-     * ada baris terlewat/duplikat.
+     *
+     * Memakai EXISTS/NOT EXISTS, bukan IN/NOT IN: tiap baris cukup satu index
+     * lookup yang berhenti di kecocokan pertama (PK `config_linen`), sehingga
+     * tidak ada materialisasi subquery atas seluruh tabel tiap chunk — dan
+     * tidak kena jebakan NULL khas NOT IN. Urut `detail_rfid` (PK, ada index)
+     * supaya keyset pagination stabil — tidak ada baris terlewat/duplikat.
      */
-    private function chunkQuery(int $rsId)
+    private function baseQuery(int $rsId)
     {
-        return DB::table('detail_linen')
+        return DB::table('detail_linen as d')
             ->where(function ($q) use ($rsId) {
-                $q->whereIn('detail_linen.detail_rfid', function ($sub) use ($rsId) {
-                    $sub->select('detail_rfid')->from('config_linen')->where('rs_id', $rsId);
-                })->orWhereNotIn('detail_linen.detail_rfid', function ($sub) {
-                    $sub->select('detail_rfid')->from('config_linen');
+                $q->whereExists(function ($sub) use ($rsId) {
+                    $sub->selectRaw('1')->from('config_linen as c')
+                        ->whereColumn('c.detail_rfid', 'd.detail_rfid')
+                        ->where('c.rs_id', $rsId);
+                })->orWhereNotExists(function ($sub) {
+                    $sub->selectRaw('1')->from('config_linen as c')
+                        ->whereColumn('c.detail_rfid', 'd.detail_rfid');
                 });
             })
-            ->orderBy('detail_rfid')
-            ->select(['detail_rfid', 'detail_id_ruangan', 'detail_id_jenis', 'detail_updated_at']);
+            ->orderBy('d.detail_rfid')
+            ->select(['d.detail_rfid', 'd.detail_id_ruangan', 'd.detail_id_jenis', 'd.detail_updated_at']);
     }
 
     /**

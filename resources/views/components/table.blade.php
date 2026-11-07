@@ -13,7 +13,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="table-hbar bg-surface-container-lowest border-t border-outline-variant" data-hbar style="display:none"><div data-hbar-inner></div></div>
+        <div class="table-hbar bg-surface-container-lowest border-t border-outline-variant on" data-hbar><div data-hbar-inner></div></div>
 
         @if(isset($mobile))
         <div class="lg:hidden">{{ $mobile }}</div>
@@ -67,7 +67,7 @@
         bottom: calc(4rem + 48px);
         z-index: 44;
         height: 16px;
-        overflow-x: auto;
+        overflow-x: scroll;
         overflow-y: hidden;
         scrollbar-width: thin;
     }
@@ -92,41 +92,55 @@
             display: none;
         }
     }
+    /* Tanpa action bar (mis. warehouse): footer scrollbar nempel paling
+       bawah viewport, bukan melayang. Dengan action bar: tetap di atasnya. */
+    body:not(:has(.action-bar)) .table-hbar.on {
+        bottom: 4rem;
+    }
+    @media (min-width: 768px) {
+        body:not(:has(.action-bar)) .table-hbar.on {
+            bottom: 0;
+        }
+    }
 </style>
 <script>
     (function () {
-        function wire(root) {
-            if (!root || root.dataset.hwired) return;
-            var wrap = root.querySelector('[data-twrap]');
-            var bar = root.querySelector('[data-hbar]');
-            var inner = root.querySelector('[data-hbar-inner]');
-            if (!wrap || !bar || !inner) return;
-            root.dataset.hwired = '1';
-            if (!document.querySelector('[data-hbar].on')) {
-                bar.classList.add('on');
-                bar.style.display = '';
-            }
-            var go = function () {
-                var w = wrap.scrollWidth + 'px';
-                if (inner.style.width !== w) inner.style.width = w;
-            };
-            go();
-            bar.addEventListener('scroll', function () {
-                if (wrap.scrollLeft !== bar.scrollLeft) wrap.scrollLeft = bar.scrollLeft;
-            }, { passive: true });
-            wrap.addEventListener('scroll', function () {
-                if (bar.scrollLeft !== wrap.scrollLeft) bar.scrollLeft = wrap.scrollLeft;
-            }, { passive: true });
-            window.addEventListener('resize', go);
-            if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
-            setTimeout(go, 400);
+        function pairs() {
+            var out = [];
+            document.querySelectorAll('[data-twrap]').forEach(function (wrap) {
+                var root = wrap.closest('.form-card') || wrap.parentElement;
+                var bar = root ? root.querySelector('[data-hbar]') : null;
+                var inner = bar ? bar.querySelector('[data-hbar-inner]') : null;
+                if (wrap && bar && inner) out.push({ root: root, wrap: wrap, bar: bar, inner: inner });
+            });
+            return out;
         }
-        function wireAll() {
-            document.querySelectorAll('[data-twrap]').forEach(function (el) {
-                wire(el.closest('.form-card') || el.parentElement);
+        // Samakan lebar isi bar dengan lebar tabel. Tanpa logika tampil/
+        // sembunyi — bar selalu ada seperti action bar.
+        function syncWidth() {
+            pairs().forEach(function (p) {
+                var w = p.wrap.scrollWidth + 'px';
+                if (p.inner.style.width !== w) p.inner.style.width = w;
             });
         }
-        wireAll();
-        document.addEventListener('livewire:navigated', wireAll);
+        function wire() {
+            pairs().forEach(function (p) {
+                if (p.root.dataset.hwired) return;
+                p.root.dataset.hwired = '1';
+                p.bar.addEventListener('scroll', function () {
+                    if (p.wrap.scrollLeft !== p.bar.scrollLeft) p.wrap.scrollLeft = p.bar.scrollLeft;
+                }, { passive: true });
+                p.wrap.addEventListener('scroll', function () {
+                    if (p.bar.scrollLeft !== p.wrap.scrollLeft) p.bar.scrollLeft = p.wrap.scrollLeft;
+                }, { passive: true });
+            });
+            syncWidth();
+        }
+        wire();
+        window.addEventListener('resize', syncWidth);
+        window.addEventListener('load', syncWidth);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncWidth);
+        setTimeout(syncWidth, 400);
+        document.addEventListener('livewire:navigated', wire);
     })();
 </script>

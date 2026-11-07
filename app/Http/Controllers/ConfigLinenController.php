@@ -28,6 +28,15 @@ class ConfigLinenController extends Controller
 
     protected function share($data = [])
     {
+        // Halaman tabel tidak memakai dropdown opsi sama sekali — lewati 2
+        // query berat (pluck 500 RFID + daftar RS) di setiap reload tabel.
+        // Opsi hanya dimuat untuk form (create/update). Default aman: bila
+        // nama route tak dikenal, tetap muat penuh agar form tidak rusak.
+        $routeName = request()->route()?->getName() ?? '';
+        if (str_ends_with($routeName, '.getTable')) {
+            return array_merge(['model' => $this->model], $data);
+        }
+
         $default = [
             'model' => $this->model,
             'rfid' => DetailLinen::query()
@@ -53,7 +62,12 @@ class ConfigLinenController extends Controller
                 'rs.rs_nama as rs_nama',
                 'rs_current.rs_nama as current_nama',
                 'detail_linen.detail_status_kepemilikan as kepemilikan',
-            ]);
+            ])
+            // Urutan deterministik mengikuti PK komposit (detail_rfid, rs_id):
+            // cursor pagination stabil + murni index-order tanpa filesort.
+            // (Sort request dari trait tetap di depan bila user mengklik sort.)
+            ->orderBy('config_linen.detail_rfid')
+            ->orderBy('config_linen.rs_id');
     }
 
     public function getUpdate(GeneralRequest $request, $id)
