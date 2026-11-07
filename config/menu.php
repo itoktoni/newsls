@@ -83,7 +83,7 @@ return [
                 ['route' => 'report-rekap-bersih.getTable', 'icon' => 'summarize', 'label' => 'Rekap Bersih', 'match' => ['report-rekap-bersih.*']],
                 ['route' => 'report-rekap-retur.getTable', 'icon' => 'summarize', 'label' => 'Rekap Retur', 'match' => ['report-rekap-retur.*']],
                 ['route' => 'report-rekap-rewash.getTable', 'icon' => 'summarize', 'label' => 'Rekap Rewash', 'match' => ['report-rekap-rewash.*']],
-                ['route' => 'report-kotor-vs-bersih.getTable', 'icon' => 'compare_arrows', 'label' => 'Kotor vs Bersih', 'match' => ['report-kotor-vs-bersih.*']],
+                // ['route' => 'report-kotor-vs-bersih.getTable', 'icon' => 'compare_arrows', 'label' => 'Kotor vs Bersih', 'match' => ['report-kotor-vs-bersih.*']],
                 // ['route' => 'report-in-vs-out.getTable', 'icon' => 'compare_arrows', 'label' => 'In vs Out', 'match' => ['report-in-vs-out.*']],
             ],
         ],
