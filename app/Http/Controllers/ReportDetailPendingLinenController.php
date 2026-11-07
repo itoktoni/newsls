@@ -93,7 +93,7 @@ class ReportDetailPendingLinenController extends Controller
             echo '<table border="1"><thead><tr>'
                 .'<th>No.</th><th>NO. RFID</th><th>LINEN</th><th>RUMAH SAKIT</th>'
                 .'<th>RUANGAN</th><th>JUMLAH PEMAKAIAN</th><th>TANGGAL KOTOR</th>'
-                .'<th>TANGGAL UPDATE</th><th>LAMA PENDING</th><th>STATUS</th><th>PROSES TERAKHIR</th>'
+                .'<th>TANGGAL UPDATE</th><th>TGL PENDING</th><th>LAMA PENDING</th><th>STATUS</th><th>PROSES TERAKHIR</th>'
                 .'</tr></thead><tbody>';
 
             $no = 0;
@@ -110,6 +110,7 @@ class ReportDetailPendingLinenController extends Controller
                             .'<td>'.e($table->detail_total_bersih ?? 0).'</td>'
                             .'<td>'.e(formatDate($table->outstanding_created_at) ?? '-').'</td>'
                             .'<td>'.e(formatDate($table->outstanding_updated_at) ?? '-').'</td>'
+                            .'<td>'.e(formatDate($table->outstanding_pending_created_at) ?? '-').'</td>'
                             .'<td>'.e($this->lamaPending($table->outstanding_pending_created_at, $table->outstanding_updated_at)).'</td>'
                             .'<td>'.e(TransactionType::getDescription($table->outstanding_status_transaksi ?? '') ?: ($table->outstanding_status_transaksi ?? '-')).'</td>'
                             .'<td>'.e($table->outstanding_status_proses ?? '-').'</td></tr>';

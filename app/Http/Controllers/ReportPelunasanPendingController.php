@@ -101,8 +101,8 @@ class ReportPelunasanPendingController extends Controller
             echo '</tbody></table><br>';
 
             echo '<table border="1"><thead><tr>'
-                .'<th colspan="7">RINCIAN PEMBAYARAN (per delivery)</th>'
-                .'</tr><tr><th>No.</th><th>KODE DELIVERY</th><th>TGL KIRIM</th><th>JENIS LINEN</th>'
+                .'<th colspan="8">RINCIAN PEMBAYARAN (per delivery)</th>'
+                .'</tr><tr><th>No.</th><th>KODE DELIVERY</th><th>TGL KIRIM</th><th>RUMAH SAKIT</th><th>JENIS LINEN</th>'
                 .'<th>JUMLAH</th><th>ALOKASI KE LOT</th><th>KELEBIHAN</th>'
                 .'</tr></thead><tbody>';
             $no = 0;
@@ -112,6 +112,7 @@ class ReportPelunasanPendingController extends Controller
                 echo '<tr><td>'.$no.'</td>'
                     .'<td>'.e($pay['code']).'</td>'
                     .'<td>'.e(formatDate($pay['tanggal']) ?? $pay['tanggal']).'</td>'
+                    .'<td>'.e($pay['rs_nama']).'</td>'
                     .'<td>'.e($pay['jenis_nama']).'</td>'
                     .'<td>'.e($pay['jumlah']).'</td>'
                     .'<td>'.e($alokasi ?: '-').'</td>'
