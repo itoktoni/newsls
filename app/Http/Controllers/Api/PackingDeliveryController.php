@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\LogType;
+use App\Enums\RsStatusEnum;
 use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
@@ -157,6 +158,26 @@ class PackingDeliveryController extends Controller
             $check = DB::table('config_linen')->where('rs_id', $input['rsId'])->whereIn('detail_rfid', $input['rfids'])->count();
             $hasConfig = DB::table('config_linen')->whereIn('detail_rfid', $input['rfids'])->exists();
             if ($hasConfig && $check != $total) {
+                $dest = Rs::where('rs_id', $input['rsId'])->first(['rs_status', 'rs_id_group']);
+                // RS tujuan FREE: bebas terima dari mana saja.
+                if ($dest && $dest->rs_status === RsStatusEnum::FREE) {
+                    return null;
+                }
+                // Satu group (lihat rs_id_group): tiap RFID wajib punya
+                // minimal satu pemilik yang segrup dengan RS tujuan.
+                $group = $dest ? $dest->rs_id_group : null;
+                if ($group !== null) {
+                    $covered = DB::table('config_linen as c')
+                        ->join('rs as r', 'r.rs_id', '=', 'c.rs_id')
+                        ->whereIn('c.detail_rfid', $input['rfids'])
+                        ->where('r.rs_id_group', $group)
+                        ->distinct()
+                        ->count('c.detail_rfid');
+                    if ($covered == $total) {
+                        return null;
+                    }
+                }
+
                 return Notes::validation('Status Kepemilikan RFID Bermasalah!', ['rfid' => ['Status Kepemilikan RFID Bermasalah!']]);
             }
         } catch (\Throwable $e) {

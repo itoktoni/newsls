@@ -18,6 +18,10 @@ use Illuminate\Support\Facades\DB;
  * Proteksi data besar (ala andalan): getPrint menghitung dulu —
  * melebihi REPORT_CHUNK (default 10000) langsung streaming Excel
  * per chunk 1000 + flush, tanpa limit.
+ *
+ * ponytail: fallback Excel otomatis DIMATIKAN — Tampilkan harus selalu
+ * membuka view print (tab baru), bukan download. Tombol Export Excel
+ * tetap tersedia terpisah bagi yang butuh file.
  */
 trait BuildsDetailList
 {
@@ -30,11 +34,7 @@ trait BuildsDetailList
         $validated = $this->validateDetail($request);
         $query = $this->detailBaseQuery($validated);
 
-        $threshold = (int) env('REPORT_CHUNK', 10000);
-        if ($threshold > 0 && (clone $query)->count() > $threshold) {
-            return $this->getExportExcel($request);
-        }
-
+        // Selalu tampilkan view print (tab baru) — tidak ada fallback download.
         $data = (clone $query)->orderBy('transaksi.transaksi_id')->get();
 
         $rs = Rs::where('rs_id', $validated['rs_id'])->firstOrFail();
