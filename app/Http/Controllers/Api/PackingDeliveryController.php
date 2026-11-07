@@ -389,16 +389,34 @@ class PackingDeliveryController extends Controller
             ->where('outstanding_status_transaksi', $input['status'])
             ->get()->keyBy('outstanding_rfid');
         $bad = [];
+        $unknown = [];
         foreach ($input['rfids'] as $rfid) {
             $row = $rows->get($rfid);
             if (! $row) {
-                $bad[] = $rfid.' (tidak/belum packing)';
+                $unknown[] = $rfid;
 
                 continue;
             }
             if ((int) $row->outstanding_rs_scan !== $input['rsId']) {
                 $rsName = Rs::find($row->outstanding_rs_scan)?->rs_nama ?? 'rs#'.$row->outstanding_rs_scan;
                 $bad[] = $rfid.' (packing untuk '.$rsName.')';
+            }
+        }
+        // RFID tidak ketemu di PACKING status ini: cari tahu kondisi
+        // sebenarnya supaya pesan langsung tunjuk solusinya (mis. packing
+        // REGISTER tapi DO pakai Bersih, atau sudah ter-delivery).
+        if ($unknown !== []) {
+            $actual = Outstanding::whereIn('outstanding_rfid', $unknown)->get()->keyBy('outstanding_rfid');
+            foreach ($unknown as $rfid) {
+                $row = $actual->get($rfid);
+                if (! $row) {
+                    $done = DB::table('bersih')->where('bersih_rfid', $rfid)->whereNotNull('bersih_delivery')->orderByDesc('bersih_id')->first();
+                    $bad[] = $done
+                        ? $rfid.' (sudah delivery '.$done->bersih_delivery.')'
+                        : $rfid.' (tidak/belum packing)';
+                } else {
+                    $bad[] = $rfid.' (packing '.$row->outstanding_status_transaksi.'/'.$row->outstanding_status_proses.' — DO pakai status '.$row->outstanding_status_transaksi.')';
+                }
             }
         }
         if ($bad !== []) {
@@ -449,7 +467,17 @@ class PackingDeliveryController extends Controller
             ->where('outstanding_status_transaksi', $input['status'])
             ->count();
         if ($count == 0) {
-            return Notes::validation('RFID belum ada yang di packing!', ['rfid' => ['RFID belum ada yang di packing!']]);
+            // Sebutkan status packing yang sebenarnya ada supaya user tahu
+            // harus DO pakai status apa (mis. packing REGISTER, DO Bersih).
+            $other = Outstanding::where('outstanding_rs_scan', $input['rsId'])
+                ->where('outstanding_status_proses', 'PACKING')
+                ->distinct()->pluck('outstanding_status_transaksi')->all();
+            $hint = $other !== []
+                ? ' (ada packing status: '.implode(', ', $other).' — DO pakai status itu)'
+                : '';
+            $msg = 'RFID belum ada yang di packing untuk status '.$input['status'].'!'.$hint;
+
+            return Notes::validation($msg, ['rfid' => [$msg]]);
         }
 
         return null;
