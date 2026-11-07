@@ -163,15 +163,18 @@ class GroupingController extends Controller
         $flag = 'Normal';
 
         if ($outstanding) {
+            $outstandingExisted = true;
             $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
         } else {
+            $outstandingExisted = false;
             [$outstanding, $flag] = $this->storeNewOutstanding($detail, $rfid, $key, $date, $today, $userId, $statusLinen);
         }
 
-        // Asumsi operasional: grouping = linen kotor tiba di gudang. Kecuali
-        // linen fresh-register (baru didaftar, belum pernah keluar), pastikan
-        // selalu ada baris transaksi KOTOR — buat bila hari ini belum ada.
-        if (! $this->isFreshRegister($detail, $statusLinen, $today)) {
+        // Pokok: outstanding sudah ada = jangan double — tidak insert baris
+        // baru ke transaksi / transaksi_master / outstanding. Cukup refresh
+        // outstanding + tandai grouping. Hanya stay baru (tanpa outstanding)
+        // yang boleh melahirkan transaksi KOTOR bila bukan fresh-register.
+        if (! $outstandingExisted && ! $this->isFreshRegister($detail, $statusLinen, $today)) {
             $flag = $this->ensureGroupingTransaction($detail, $rfid, $key, $date, $today, $userId, $flag);
         }
 
@@ -213,8 +216,10 @@ class GroupingController extends Controller
 
     /**
      * Pastikan ada baris transaksi KOTOR hari ini untuk RFID ini.
-     * Idempoten per hari: bila sudah ada (mis. scan kotor pagi), tidak buat
-     * lagi — penandaan grouped dilakukan pemanggil. Kembalikan flag respons.
+     * Hanya dipanggil untuk stay baru (tanpa outstanding sebelumnya):
+     * idempoten per hari, bila sudah ada (mis. dibuat storeNewOutstanding)
+     * tidak buat lagi — penandaan grouped dilakukan pemanggil.
+     * Kembalikan flag respons.
      *
      * @return string flag status_linen untuk resource desktop
      */
@@ -253,6 +258,8 @@ class GroupingController extends Controller
             'transaksi_updated_by' => $userId,
         ]);
 
+        // ponytail: pemanggil menjamin ini stay baru (tanpa outstanding
+        // sebelumnya), jadi master header selalu dibuat untuk key ini.
         $this->persistMaster($key, $detail->detail_id_rs, TransactionType::KOTOR, $today, $date, $userId);
         $this->touchPending($rfid, TransactionType::KOTOR, $date);
 
