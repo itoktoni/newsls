@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\LinenStatusEnum;
 use App\Enums\LogType;
+use App\Enums\RsStatusEnum;
 use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
@@ -33,8 +34,11 @@ use Throwable;
  *   transaksi KOTOR hari ini — buat baru dengan key prefix GRP bila belum
  *   ada (idempoten per hari, anti dobel-scan).
  * - Outstanding (baru maupun sudah ada, termasuk REGISTER) →
- *   rs_ori, rs_scan & ruangan selalu null: linen di gudang pusat,
- *   warehouse tetap terisi. Asal RS tercatat di baris transaksi.
+ *   rs_ori, rs_scan & ruangan selalu null KECUALI linen DEDICATED
+ *   (detail_status_kepemilikan / rs_status DEDICATED): DEDICATED tetap
+ *   simpan detail_id_rs/detail_id_ruangan agar tidak hilang.
+ *   FREE/GROUP tetap null (gudang pusat), warehouse tetap terisi.
+ *   Asal RS tercatat di baris transaksi.
  * - RFID tak dikenal → Notes::error (bukan 404 mentah).
  */
 class GroupingController extends Controller
@@ -274,24 +278,46 @@ class GroupingController extends Controller
 
     /**
      * Payload outstanding — grouping = linen masuk gudang pusat: RS
-     * (ori/scan) + ruangan SELALU null, kepemilikan apa pun termasuk
-     * REGISTER. Yang menandai asal hanya baris transaksi + warehouse.
+     * (ori/scan) + ruangan null untuk FREE/GROUP, tapi DIPERTAHANKAN
+     * untuk DEDICATED (detail_status_kepemilikan / rs_status DEDICATED)
+     * agar RS + ruangan tidak hilang di outstanding. Warehouse +
+     * transaksi tetap menandai asal.
      */
     private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId): array
     {
+        $isDedicated = $this->isDedicated($detail);
+
         return [
             'outstanding_rfid' => $rfid,
             'outstanding_status_proses' => 'GUDANG',
             'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
             'outstanding_updated_at' => $date,
             'outstanding_updated_by' => $userId,
-            'outstanding_rs_ori' => null,
-            'outstanding_rs_scan' => null,
-            'outstanding_id_ruangan' => null,
+            'outstanding_rs_ori' => $isDedicated ? $detail->detail_id_rs : null,
+            'outstanding_rs_scan' => $isDedicated ? $detail->detail_id_rs : null,
+            'outstanding_id_ruangan' => $isDedicated ? $detail->detail_id_ruangan : null,
             'outstanding_status_hilang' => 'NORMAL',
             'outstanding_hilang_created_at' => null,
             'outstanding_pending_created_at' => null,
         ];
+    }
+
+    /**
+     * RFID dedicated = kepemilikan DEDICATED atau RS-nya bertipe DEDICATED.
+     * Keduanya selaras (register 1 RS ikut tipe RS), cek dua-duanya agar
+     * data lama yang hanya satu sisinya terisi tetap terbawa.
+     */
+    private function isDedicated(DetailLinen $detail): bool
+    {
+        if (($detail->detail_status_kepemilikan ?? null) === RsStatusEnum::DEDICATED) {
+            return true;
+        }
+
+        try {
+            return ($detail->hasRs?->rs_status ?? null) === RsStatusEnum::DEDICATED;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
