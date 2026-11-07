@@ -70,9 +70,9 @@ return [
             'label' => 'Report Detail',
             'items' => [
                 ['route' => 'report-detail-kotor.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Kotor', 'match' => ['report-detail-kotor.*']],
-                ['route' => 'report-grouping.getTable', 'icon' => 'group_work', 'label' => 'Grouping', 'match' => ['report-grouping.*']],
                 ['route' => 'report-detail-retur.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Retur', 'match' => ['report-detail-retur.*']],
                 ['route' => 'report-detail-rewash.getTable', 'icon' => 'receipt_long', 'label' => 'Detail Rewash', 'match' => ['report-detail-rewash.*']],
+                ['route' => 'report-grouping.getTable', 'icon' => 'group_work', 'label' => 'Grouping', 'match' => ['report-grouping.*']],
             ],
         ],
         [
