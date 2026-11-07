@@ -49,6 +49,7 @@ $prosesBadge = fn ($v) => match ($v) {
             <x-slot:advanced>
                 <x-filter-item label="RFID" name="outstanding_rfid" operator="$contains" placeholder="Sebagian RFID..." />
                 <x-filter-item label="RS Scan" name="outstanding_rs_scan" :options="$rsOptions" />
+                <x-filter-item label="RS Ori" name="outstanding_rs_ori" :options="$rsOptions" />
                 <x-filter-item label="Ruangan" name="outstanding_id_ruangan" :options="$ruanganOptions" />
                 <x-filter-item label="Asal (Kotor/Retur/Rewash)" name="outstanding_status_transaksi" :options="$statusOptions" />
                 <x-filter-item label="Proses" name="outstanding_status_proses" :options="$prosesOptions" />
@@ -68,6 +69,7 @@ $prosesBadge = fn ($v) => match ($v) {
                     <th>No.</th>
                     <x-table-sort field="outstanding_rfid" label="NO. RFID" :sortField="$sortField" :sortDir="$sortDir" />
                     <th>Linen</th>
+                    <th>RS Ori</th>
                     <th>RS Scan</th>
                     <th>Ruangan</th>
                     <x-table-sort field="outstanding_status_transaksi" label="Asal" :sortField="$sortField" :sortDir="$sortDir" />
@@ -82,6 +84,7 @@ $prosesBadge = fn ($v) => match ($v) {
                         <td>{{ $i + 1 }}</td>
                         <td class="whitespace-nowrap font-mono text-xs">{{ $table->outstanding_rfid }}</td>
                         <td>{{ $table->linen_nama ?? '-' }}</td>
+                        <td>{{ $table->rs_ori_nama ?? '-' }}</td>
                         <td>{{ $table->rs_nama ?? '-' }}</td>
                         <td>{{ $table->ruangan_nama ?? '-' }}</td>
                         <td>
@@ -125,6 +128,10 @@ $prosesBadge = fn ($v) => match ($v) {
                                 <div class="min-w-0">
                                     <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">Linen</p>
                                     <p class="font-medium text-on-surface truncate">{{ $table->linen_nama ?? '-' }}</p>
+                                </div>
+                                <div class="min-w-0 text-right">
+                                    <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">RS Ori</p>
+                                    <p class="font-medium text-on-surface truncate">{{ $table->rs_ori_nama ?? '-' }}</p>
                                 </div>
                                 <div class="min-w-0 text-right">
                                     <p class="text-[10px] text-on-surface-variant uppercase tracking-wide mb-0.5">RS Scan</p>

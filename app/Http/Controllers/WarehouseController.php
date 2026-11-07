@@ -51,6 +51,7 @@ class WarehouseController extends Controller
         $map = [
             'outstanding_rfid' => 'outstanding.outstanding_rfid',
             'outstanding_rs_scan' => 'outstanding.outstanding_rs_scan',
+            'outstanding_rs_ori' => 'outstanding.outstanding_rs_ori',
             'outstanding_id_ruangan' => 'outstanding.outstanding_id_ruangan',
             'outstanding_status_transaksi' => 'outstanding.outstanding_status_transaksi',
             'outstanding_status_proses' => 'outstanding.outstanding_status_proses',
@@ -59,6 +60,7 @@ class WarehouseController extends Controller
         $fields = [
             'outstanding_rfid' => 'RFID',
             'outstanding_rs_scan' => 'RS Scan',
+            'outstanding_rs_ori' => 'RS Ori',
             'outstanding_id_ruangan' => 'Ruangan',
             'outstanding_status_transaksi' => 'Status Transaksi',
             'outstanding_status_proses' => 'Status Proses',
@@ -97,6 +99,7 @@ class WarehouseController extends Controller
             ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
             ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'outstanding.outstanding_id_ruangan')
             ->leftJoin('rs', 'rs.rs_id', '=', 'outstanding.outstanding_rs_scan')
+            ->leftJoin('rs as rs_ori', 'rs_ori.rs_id', '=', 'outstanding.outstanding_rs_ori')
             ->leftJoin('warehouse', 'warehouse.warehouse_id', '=', 'outstanding.outstanding_id_warehouse')
             ->where(fn ($q) => $q->whereNull('outstanding.outstanding_id_warehouse')->orWhere('outstanding.outstanding_id_warehouse', $gudangId))
             ->addSelect([
@@ -108,6 +111,7 @@ class WarehouseController extends Controller
                 'jenis_linen.jenis_nama as linen_nama',
                 'ruangan.ruangan_nama as ruangan_nama',
                 'rs.rs_nama as rs_nama',
+                'rs_ori.rs_nama as rs_ori_nama',
                 'warehouse.warehouse_nama as gudang_nama',
             ]);
     }
