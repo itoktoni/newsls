@@ -127,11 +127,24 @@
             pairs().forEach(function (p) {
                 if (p.root.dataset.hwired) return;
                 p.root.dataset.hwired = '1';
+                // Lebar viewport bar != lebar viewport tabel (padding sidebar/
+                // kartu), jadi salin posisi secara proporsional, bukan 1:1 —
+                // kalau 1:1 ujung kanan tidak akan pernah tercapai (kepotong).
                 p.bar.addEventListener('scroll', function () {
-                    if (p.wrap.scrollLeft !== p.bar.scrollLeft) p.wrap.scrollLeft = p.bar.scrollLeft;
+                    var bMax = p.bar.scrollWidth - p.bar.clientWidth;
+                    var wMax = p.wrap.scrollWidth - p.wrap.clientWidth;
+                    if (bMax > 0 && wMax > 0) {
+                        var target = Math.round(p.bar.scrollLeft * wMax / bMax);
+                        if (p.wrap.scrollLeft !== target) p.wrap.scrollLeft = target;
+                    }
                 }, { passive: true });
                 p.wrap.addEventListener('scroll', function () {
-                    if (p.bar.scrollLeft !== p.wrap.scrollLeft) p.bar.scrollLeft = p.wrap.scrollLeft;
+                    var bMax = p.bar.scrollWidth - p.bar.clientWidth;
+                    var wMax = p.wrap.scrollWidth - p.wrap.clientWidth;
+                    if (bMax > 0 && wMax > 0) {
+                        var target = Math.round(p.wrap.scrollLeft * bMax / wMax);
+                        if (p.bar.scrollLeft !== target) p.bar.scrollLeft = target;
+                    }
                 }, { passive: true });
             });
             syncWidth();
