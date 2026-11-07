@@ -166,7 +166,11 @@ class GroupingController extends Controller
 
         if ($outstanding) {
             $outstandingExisted = true;
-            $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
+            // Sudah PACKING jangan diturunkan lagi ke GUDANG — pertahankan
+            // status packing (RS/ruangan/timestamp ikut utuh).
+            if (($outstanding->outstanding_status_proses ?? null) !== 'PACKING') {
+                $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
+            }
         } else {
             $outstandingExisted = false;
             [$outstanding, $flag] = $this->storeNewOutstanding($detail, $rfid, $key, $date, $today, $userId, $statusLinen);
