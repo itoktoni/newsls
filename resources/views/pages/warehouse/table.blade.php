@@ -8,6 +8,14 @@ $asalBadge = fn ($v) => match ($v) {
     'REGISTER' => 'bg-gray-100 text-gray-800',
     default => 'bg-gray-100 text-gray-800',
 };
+$prosesBadge = fn ($v) => match ($v) {
+    'SCAN' => 'bg-amber-100 text-amber-800',
+    'GUDANG' => 'bg-green-100 text-green-800',
+    'PACKING' => 'bg-blue-100 text-blue-800',
+    'QC' => 'bg-purple-100 text-purple-800',
+    'REGISTER' => 'bg-gray-100 text-gray-800',
+    default => 'bg-gray-100 text-gray-800',
+};
 ?>
 
 <x-layouts::app>
@@ -43,6 +51,7 @@ $asalBadge = fn ($v) => match ($v) {
                 <x-filter-item label="RS Scan" name="outstanding_rs_scan" :options="$rsOptions" />
                 <x-filter-item label="Ruangan" name="outstanding_id_ruangan" :options="$ruanganOptions" />
                 <x-filter-item label="Asal (Kotor/Retur/Rewash)" name="outstanding_status_transaksi" :options="$statusOptions" />
+                <x-filter-item label="Proses" name="outstanding_status_proses" :options="$prosesOptions" />
             </x-slot:advanced>
         </x-filter>
 
@@ -62,6 +71,7 @@ $asalBadge = fn ($v) => match ($v) {
                     <th>RS Scan</th>
                     <th>Ruangan</th>
                     <x-table-sort field="outstanding_status_transaksi" label="Asal" :sortField="$sortField" :sortDir="$sortDir" />
+                    <x-table-sort field="outstanding_status_proses" label="Proses" :sortField="$sortField" :sortDir="$sortDir" />
                     <th>Gudang</th>
                     <x-table-sort field="outstanding_updated_at" label="Masuk Gudang" :sortField="$sortField" :sortDir="$sortDir" />
                 </x-slot:head>
@@ -79,6 +89,11 @@ $asalBadge = fn ($v) => match ($v) {
                                 {{ $asalLabel($table->outstanding_status_transaksi) }}
                             </span>
                         </td>
+                        <td>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $prosesBadge($table->outstanding_status_proses) }}">
+                                {{ $table->outstanding_status_proses ?? '-' }}
+                            </span>
+                        </td>
                         <td>{{ $table->gudang_nama ?? '-' }}</td>
                         <td class="whitespace-nowrap text-xs">{{ formatDate($table->outstanding_updated_at) ?? '-' }}</td>
                     </tr>
@@ -93,6 +108,9 @@ $asalBadge = fn ($v) => match ($v) {
                             <div class="flex items-center gap-2 mb-2">
                                 <span data-check class="icon-[tabler--circle] size-5 text-base-content/20 shrink-0"></span>
                                 <p class="flex-1 min-w-0 text-sm font-bold font-mono text-on-surface truncate">{{ $table->outstanding_rfid }}</p>
+                                <span class="inline-flex items-center shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $prosesBadge($table->outstanding_status_proses) }}">
+                                    {{ $table->outstanding_status_proses ?? '-' }}
+                                </span>
                                 <span class="inline-flex items-center shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $asalBadge($table->outstanding_status_transaksi) }}">
                                     {{ $asalLabel($table->outstanding_status_transaksi) }}
                                 </span>

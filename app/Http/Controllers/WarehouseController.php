@@ -53,6 +53,7 @@ class WarehouseController extends Controller
             'outstanding_rs_scan' => 'outstanding.outstanding_rs_scan',
             'outstanding_id_ruangan' => 'outstanding.outstanding_id_ruangan',
             'outstanding_status_transaksi' => 'outstanding.outstanding_status_transaksi',
+            'outstanding_status_proses' => 'outstanding.outstanding_status_proses',
             'linen_nama' => 'jenis_linen.jenis_nama',
         ];
         $fields = [
@@ -60,11 +61,13 @@ class WarehouseController extends Controller
             'outstanding_rs_scan' => 'RS Scan',
             'outstanding_id_ruangan' => 'Ruangan',
             'outstanding_status_transaksi' => 'Status Transaksi',
+            'outstanding_status_proses' => 'Status Proses',
             'linen_nama' => 'Linen',
         ];
         $sortMap = [
             'outstanding_rfid' => 'outstanding.outstanding_rfid',
             'outstanding_status_transaksi' => 'outstanding.outstanding_status_transaksi',
+            'outstanding_status_proses' => 'outstanding.outstanding_status_proses',
             'outstanding_updated_at' => 'outstanding.outstanding_updated_at',
         ];
         $data = $this->applySort(
@@ -74,6 +77,7 @@ class WarehouseController extends Controller
 
         return view('pages.warehouse.table', [
             'statusOptions' => TransactionType::getOptions(),
+            'prosesOptions' => ['SCAN' => 'SCAN', 'GUDANG' => 'GUDANG', 'PACKING' => 'PACKING', 'QC' => 'QC', 'REGISTER' => 'REGISTER'],
             'rsOptions' => User::rsOptions(),
             'ruanganOptions' => Ruangan::orderBy('ruangan_nama')->pluck('ruangan_nama', 'ruangan_id')->all(),
             'jenisOptions' => JenisLinen::orderBy('jenis_nama')->pluck('jenis_nama', 'jenis_id')->all(),
