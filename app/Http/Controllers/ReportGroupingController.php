@@ -10,9 +10,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Report Grouping — daftar transaksi yang sudah di-grouping
- * (transaksi_grouping = 'YA', case-insensitive) per RS + periode
- * tanggal grouping.
+ * Report Grouping — daftar transaksi yang lahir dari grouping
+ * (transaksi_grouping = 'YA' + key prefix GRP, case-insensitive) per RS +
+ * periode tanggal grouping. Baris sync kotor (flag 'TIDAK') tidak tampil
+ * walau data lama sempat terflag YA.
  *
  * Bentuk mengikuti ReportDetail*Controller (filter form -> getPrint
  * view tab baru + getExportExcel streaming), tapi tanpa STATUS
@@ -140,6 +141,11 @@ class ReportGroupingController extends Controller
 
     private function groupingBaseQuery(array $filter)
     {
+        // Hanya baris lahir-grouping (key prefix GRP): baris sync kotor
+        // berflag 'TIDAK' dan tidak ikut, termasuk data lama yang sempat
+        // terflag YA sebelum aturan ini.
+        $grpPrefix = (string) env('CODE_GROUPING', 'GRP');
+
         return DB::table('transaksi')
             // LEFT: scan RFID belum register tetap tampil (tanpa master).
             ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'transaksi.transaksi_rfid')
@@ -150,6 +156,7 @@ class ReportGroupingController extends Controller
             ->leftJoin('users', 'users.id', '=', 'transaksi.transaksi_created_by')
             // Case-insensitive: data ditulis 'YA' oleh GroupingController.
             ->whereRaw("UPPER(transaksi.transaksi_grouping) = 'YA'")
+            ->where('transaksi.transaksi_key', 'like', $grpPrefix.'%')
             ->where('transaksi.transaksi_rs_scan', $filter['rs_id'])
             ->when(! empty($filter['start_date']), fn ($q) => $q->whereDate('transaksi.transaksi_grouping_date', '>=', $filter['start_date']))
             ->when(! empty($filter['end_date']), fn ($q) => $q->whereDate('transaksi.transaksi_grouping_date', '<=', $filter['end_date']))

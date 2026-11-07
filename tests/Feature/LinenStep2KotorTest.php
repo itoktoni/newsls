@@ -142,10 +142,14 @@ it('step2 scan kotor via api, cek outstanding, grouping masuk gudang', function 
         expect((int) $out->outstanding_id_warehouse)->toBe(1);
     }
 
-    // Grouping mengisi transaksi_grouping_date untuk baris transaksi RFID itu yang masih kosong
+    // Baris sync kotor (key KTR) TIDAK ikut diflag grouping — hanya baris
+    // lahir-grouping (key GRP) yang boleh YA. Di flow ini grouping tidak
+    // melahirkan baris baru (outstanding sudah ada), jadi semua baris KTR
+    // tetap TIDAK + tanggal grouping null.
     foreach ($rfids as $rfid) {
-        expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->whereNull('transaksi_grouping_date')->count())->toBe(0);
-        expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->where('transaksi_grouping_date', today()->format('Y-m-d'))->exists())->toBeTrue();
+        expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->where('transaksi_grouping', 'YA')->count())->toBe(0);
+        expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->where('transaksi_grouping', 'TIDAK')->count())->toBe(1);
+        expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->whereNotNull('transaksi_grouping_date')->count())->toBe(0);
     }
 
     // 4) Cek stok gudang & viewer bersih (stat Antrean Packing = outstanding SCAN/QC/REGISTER/GUDANG)

@@ -27,8 +27,10 @@ use Throwable;
  *
  * Aturan main:
  * - Grouping = QC lolos = linen masuk gudang utama (GUDANG), simpan/refresh
- *   baris outstanding; tandai semua baris transaksi yang belum di-grouping
- *   (transaksi_grouping = 'YA', transaksi_grouping_date = hari ini).
+ *   baris outstanding; tandai baris transaksi lahir-grouping (key prefix GRP)
+ *   yang belum di-grouping (transaksi_grouping = 'YA',
+ *   transaksi_grouping_date = hari ini). Baris sync kotor (flag 'TIDAK')
+ *   tidak ikut diflag.
  * - Asumsi operasional: grouping = linen kotor tiba di gudang (mungkin tak
  *   terscan di RS). Selain linen fresh-register, selalu pastikan ada baris
  *   transaksi KOTOR hari ini — buat baru dengan key prefix GRP bila belum
@@ -182,10 +184,13 @@ class GroupingController extends Controller
         // tulis ke detail_linen di flow ini (tanpa dead-store status perantara).
         $detail->update(['detail_status_linen' => LinenStatusEnum::GUDANG]);
 
-        // Tandai transaksi RFID ini sudah di-grouping — hanya baris yang
-        // masih kosong (termasuk transaksi hari sebelumnya). 1 query.
+        // Tandai transaksi RFID ini yang lahir dari grouping (key prefix GRP)
+        // sebagai sudah di-grouping — hanya baris yang masih kosong.
+        // Baris sync kotor (flag TIDAK) tidak ikut diflag YA.
+        $grpPrefix = (string) env('CODE_GROUPING', 'GRP');
         Transaksi::where('transaksi_rfid', $rfid)
             ->whereNull('transaksi_grouping_date')
+            ->where('transaksi_key', 'like', $grpPrefix.'%')
             ->update(['transaksi_grouping_date' => $today, 'transaksi_grouping' => 'YA']);
 
         $this->touchOpnameScan($rfid, $outstanding->outstanding_key ?? $key, $date);
