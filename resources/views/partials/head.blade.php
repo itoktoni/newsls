@@ -5,13 +5,13 @@
 
 @php
     $wsName = ($websiteSettings ?? [])['name'] ?? config('app.name', 'Laravel');
-    $faviconUrl = \App\Models\WebsiteSetting::fileUrl(($websiteSettings ?? [])['favicon'] ?? null) ?? '/favicon.ico';
+    $faviconUrl = \App\Models\WebsiteSetting::faviconUrl();
 @endphp
 
 <title>{{ filled($title ?? null) ? $title.' - '.$wsName : $wsName }}</title>
 
 <link rel="icon" href="{{ $faviconUrl }}" sizes="any">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="{{ $faviconUrl }}">
 <link rel="manifest" href="/manifest.json">
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
