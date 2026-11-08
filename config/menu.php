@@ -49,7 +49,7 @@ return [
                 ['route' => 'transaksi.getTable', 'icon' => 'receipt_long', 'label' => 'Transaksi', 'match' => ['transaksi.*']],
                 ['route' => 'bersih.getTable', 'icon' => 'inventory_2', 'label' => 'Bersih', 'match' => ['bersih.*']],
                 ['route' => 'opname.getTable', 'icon' => 'fact_check', 'label' => 'Opname', 'match' => ['opname.*']],
-                ['route' => 'warehouse.getTable', 'icon' => 'warehouse', 'label' => 'Warehouse', 'match' => ['warehouse.*']],
+                ['route' => 'warehouse.getTable', 'icon' => 'warehouse', 'label' => 'Workshop LP', 'match' => ['warehouse.*']],
             ],
         ],
         [

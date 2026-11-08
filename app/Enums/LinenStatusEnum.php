@@ -23,7 +23,7 @@ final class LinenStatusEnum extends Enum
             self::REGISTER => 'Register',
             self::KOTOR => 'Kotor',
             self::BERSIH => 'Bersih',
-            self::GUDANG => 'Gudang',
+            self::GUDANG => 'Gudang LC',
             default => parent::getDescription($value),
         };
     }
