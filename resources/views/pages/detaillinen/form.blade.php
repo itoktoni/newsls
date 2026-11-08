@@ -9,6 +9,11 @@
 
                 <x-input col="6" name="detail_rfid" label="RFID" />
                 <x-input col="6" name="detail_no_register" label="No. Register" readonly helper="Digenerate database saat register via API." />
+                {{-- ponytail: ganti chip = ubah RFID lalu isi alasan (chip mati /
+                     rusak). Field ini HANYA dibaca saat RFID berubah — disimpan
+                     ke ganti_chip.ganti_keterangan, bukan ke detail_linen. --}}
+                <x-textarea col="12" name="ganti_keterangan" label="Alasan Ganti Chip" :value="old('ganti_keterangan')"
+                    helper="Wajib diisi bila RFID diubah (mis. chip mati, tidak terbaca). Kosongkan bila RFID tidak berubah." />
                 <x-select col="6" name="detail_status_kepemilikan" label="Kepemilikan" :options="$milik" />
                 <x-select col="6" name="detail_id_rs" label="Dipakai RS Sekarang" :options="$rs"
                     helper="Current: RS yang sedang memegang linen ini (detail_linen)." />
@@ -77,7 +82,8 @@
                         <th class="py-2 pr-4 font-semibold">RFID Lama</th>
                         <th class="py-2 pr-4 font-semibold">RFID Baru</th>
                         <th class="py-2 pr-4 font-semibold">Tanggal Ganti</th>
-                        <th class="py-2 font-semibold">Diganti Oleh</th>
+                        <th class="py-2 pr-4 font-semibold">Diganti Oleh</th>
+                        <th class="py-2 font-semibold">Keterangan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -86,7 +92,8 @@
                         <td class="py-2 pr-4 font-mono text-xs">{{ $h->ganti_rfid_lama }}</td>
                         <td class="py-2 pr-4 font-mono text-xs font-semibold text-primary">{{ $h->ganti_rfid_baru }}</td>
                         <td class="py-2 pr-4 whitespace-nowrap">{{ formatDate($h->ganti_tanggal, true) ?? '-' }}</td>
-                        <td class="py-2">{{ $h->hasUser?->name ?? ($h->ganti_by ? '#'.$h->ganti_by : '-') }}</td>
+                        <td class="py-2 pr-4">{{ $h->hasUser?->name ?? ($h->ganti_by ? '#'.$h->ganti_by : '-') }}</td>
+                        <td class="py-2">{{ $h->ganti_keterangan ?? '-' }}</td>
                     </tr>
                     @endforeach
                 </tbody>

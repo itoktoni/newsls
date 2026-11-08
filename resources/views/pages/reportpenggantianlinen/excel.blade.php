@@ -6,7 +6,7 @@
 <body>
 <table>
     <tr>
-        <td colspan="8"><b>DETAIL PENGGANTIAN TAG LINEN</b><br><b>RUMAH SAKIT : {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</b><br><b>Periode : {{ formatDate($start) ?? '-' }} - {{ formatDate($end) ?? '-' }}</b></td>
+        <td colspan="9"><b>DETAIL PENGGANTIAN TAG LINEN</b><br><b>RUMAH SAKIT : {{ $rs->rs_nama ?? 'Semua Rumah Sakit' }}</b><br><b>Periode : {{ formatDate($start) ?? '-' }} - {{ formatDate($end) ?? '-' }}</b></td>
         <td colspan="2" style="text-align:right;">
             @if($logoUrl)
             <img src="{{ url($logoUrl) }}" alt="Logo" height="60" width="90">
@@ -27,6 +27,7 @@
             <th>CUCI/RENTAL</th>
             <th>STATUS REGISTRASI</th>
             <th>TANGGAL PENGGANTIAN</th>
+            <th>KETERANGAN</th>
             <th>OPERATOR</th>
         </tr>
     </thead>
@@ -42,10 +43,11 @@
             <td>{{ $table->detail_status_cuci ?? '-' }}</td>
             <td>{{ $table->detail_status_register ?? '-' }}</td>
             <td>{{ formatDate($table->ganti_tanggal) ?? '-' }}</td>
+            <td>{{ $table->ganti_keterangan ?? '-' }}</td>
             <td>{{ $table->operator_nama ?? '-' }}</td>
         </tr>
         @empty
-        <tr><td colspan="10">Tidak ada data.</td></tr>
+        <tr><td colspan="11">Tidak ada data.</td></tr>
         @endforelse
     </tbody>
 </table>
