@@ -29,6 +29,7 @@ class RsApiController extends Controller
     /**
      * GET /api/rs?type=free|dedicated|register — daftar RS + dropdown
      * ruangan/jenis/status, disaring ke RS milik user (pivot rs_dan_user).
+     * type=free = FREE + GROUP (pengiriman bebas), type=dedicated = DEDICATED saja.
      */
     public function index(Request $request)
     {
@@ -39,7 +40,7 @@ class RsApiController extends Controller
         $query = User::scopeRs(Rs::query(), 'rs.rs_id');
 
         if ($type === 'free') {
-            $query->where('rs_status', RsStatusEnum::FREE);
+            $query->whereIn('rs_status', [RsStatusEnum::FREE, RsStatusEnum::GROUP]);
         } elseif ($type === 'dedicated') {
             $query->where('rs_status', RsStatusEnum::DEDICATED);
         } elseif ($type === 'register') {
@@ -98,6 +99,7 @@ class RsApiController extends Controller
             'rs_id' => (int) $rs->rs_id,
             'rs_nama' => $rs->rs_nama,
             'rs_status' => $rs->rs_status,
+            'rs_id_group' => $rs->rs_id_group !== null ? (int) $rs->rs_id_group : null,
             'rs_ruangan' => $rs->rs_ruangan,
             'rs_jenis' => $rs->rs_jenis,
         ]);
@@ -105,7 +107,8 @@ class RsApiController extends Controller
 
     /**
      * Item RS mengikuti andalan: rs_id/rs_nama/rs_status + rs_ruangan/rs_jenis
-     * (yang dibaca RsAllDAO desktop) — kolom RS lain tidak dikirim lagi.
+     * (yang dibaca RsAllDAO desktop) — kolom RS lain tidak dikirim lagi,
+     * kecuali rs_id_group (aturan kirim segrup di packing/delivery).
      */
     private function rsPayload($rs): array
     {
@@ -113,6 +116,7 @@ class RsApiController extends Controller
             'rs_id' => (int) $item->rs_id,
             'rs_nama' => $item->rs_nama,
             'rs_status' => $item->rs_status,
+            'rs_id_group' => $item->rs_id_group !== null ? (int) $item->rs_id_group : null,
             'rs_ruangan' => $item->rs_ruangan,
             'rs_jenis' => $item->rs_jenis,
         ])->values()->all();

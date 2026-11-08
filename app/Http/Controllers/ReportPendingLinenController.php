@@ -75,7 +75,7 @@ class ReportPendingLinenController extends Controller
         return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode) {
             echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
             echo '<head><meta charset="UTF-8"></head><body>';
-            echo '<table><tr><td colspan="7"><b>REKAP PENDING DEDICATED</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
+            echo '<table><tr><td colspan="8"><b>REKAP PENDING DEDICATED</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
             echo '<td colspan="2" style="text-align:right;">';
             if ($logoAbs) {
                 echo '<img src="'.e($logoAbs).'" alt="Logo" height="60" width="90">';
@@ -84,7 +84,7 @@ class ReportPendingLinenController extends Controller
             echo '<table border="1"><thead><tr>'
                 .'<th>No.</th><th>NO. RFID</th><th>LINEN</th><th>RUMAH SAKIT</th>'
                 .'<th>RUANGAN</th><th>JUMLAH PEMAKAIAN</th><th>TRANSAKSI</th>'
-                .'<th>TANGGAL KOTOR</th><th>TANGGAL BERSIH</th>'
+                .'<th>TANGGAL KOTOR</th><th>TANGGAL BERSIH</th><th>DELIVERY</th>'
                 .'</tr></thead><tbody>';
 
             $no = 0;
@@ -101,7 +101,8 @@ class ReportPendingLinenController extends Controller
                             .'<td>'.e($table->detail_total_bersih ?? 0).'</td>'
                             .'<td>'.e($table->pending_transaksi ?? '-').'</td>'
                             .'<td>'.e(formatDate($table->pending_kotor_at) ?? '-').'</td>'
-                            .'<td>'.e(formatDate($table->pending_bersih_at) ?? '-').'</td></tr>';
+                            .'<td>'.e(formatDate($table->pending_bersih_at) ?? '-').'</td>'
+                            .'<td>'.e($table->pending_delivery ?? '-').'</td></tr>';
                     }
                     flush();
                 });
@@ -161,6 +162,7 @@ class ReportPendingLinenController extends Controller
                 'pending.pending_transaksi',
                 'pending.pending_kotor_at',
                 'pending.pending_bersih_at',
+                'pending.pending_delivery',
                 'rs.rs_nama as rs_nama',
                 'ruangan.ruangan_nama as ruangan_nama',
                 'jenis_linen.jenis_nama as jenis_nama',

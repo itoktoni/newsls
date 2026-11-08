@@ -1,9 +1,8 @@
 @props(['empty' => 'No data found.'])
 <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden form-card">
     <div class="p-0">
-        @desktop()
-        <div class="hidden lg:block overflow-x-auto">
-            <table class="w-full border-collapse">
+        <div class="hidden lg:block max-w-full table-scroll" data-twrap>
+            <table class="w-max min-w-full border-collapse">
                 <thead>
                     <tr class="border-b-2 border-outline-variant bg-surface-container">
                         {{ $head }}
@@ -14,16 +13,29 @@
                 </tbody>
             </table>
         </div>
-        @enddesktop()
+        <div class="table-hbar bg-surface-container-lowest border-t border-outline-variant on" data-hbar><div data-hbar-inner></div></div>
 
-        @mobile
         @if(isset($mobile))
         <div class="lg:hidden">{{ $mobile }}</div>
         @endif
-        @endmobile()
     </div>
 </div>
 <style>
+    .table-scroll {
+        overflow-x: scroll;
+        overflow-y: visible;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+    }
+    .table-scroll::-webkit-scrollbar {
+        display: none;
+    }
+    .table-scroll table {
+        width: max-content;
+        min-width: 100%;
+    }
     thead tr th {
         padding: 0.875rem 1.25rem;
         text-align: left;
@@ -48,4 +60,100 @@
     tbody tr:last-child td {
         border-bottom: none;
     }
+    .table-hbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(4rem + 48px);
+        z-index: 44;
+        height: 16px;
+        overflow-x: scroll;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+    }
+    .table-hbar > div {
+        height: 1px;
+    }
+    .table-hbar.on {
+        display: block;
+    }
+    @media (min-width: 768px) {
+        .table-hbar {
+            bottom: 64px;
+        }
+    }
+    @media (min-width: 1024px) {
+        .table-hbar {
+            left: 18rem;
+        }
+    }
+    @media (max-width: 1023.98px) {
+        .table-hbar.on {
+            display: none;
+        }
+    }
+    /* Tanpa action bar (mis. warehouse): footer scrollbar nempel paling
+       bawah viewport, bukan melayang. Dengan action bar: tetap di atasnya. */
+    body:not(:has(.action-bar)) .table-hbar.on {
+        bottom: 4rem;
+    }
+    @media (min-width: 768px) {
+        body:not(:has(.action-bar)) .table-hbar.on {
+            bottom: 0;
+        }
+    }
 </style>
+<script>
+    (function () {
+        function pairs() {
+            var out = [];
+            document.querySelectorAll('[data-twrap]').forEach(function (wrap) {
+                var root = wrap.closest('.form-card') || wrap.parentElement;
+                var bar = root ? root.querySelector('[data-hbar]') : null;
+                var inner = bar ? bar.querySelector('[data-hbar-inner]') : null;
+                if (wrap && bar && inner) out.push({ root: root, wrap: wrap, bar: bar, inner: inner });
+            });
+            return out;
+        }
+        // Samakan lebar isi bar dengan lebar tabel. Tanpa logika tampil/
+        // sembunyi — bar selalu ada seperti action bar.
+        function syncWidth() {
+            pairs().forEach(function (p) {
+                var w = p.wrap.scrollWidth + 'px';
+                if (p.inner.style.width !== w) p.inner.style.width = w;
+            });
+        }
+        function wire() {
+            pairs().forEach(function (p) {
+                if (p.root.dataset.hwired) return;
+                p.root.dataset.hwired = '1';
+                // Lebar viewport bar != lebar viewport tabel (padding sidebar/
+                // kartu), jadi salin posisi secara proporsional, bukan 1:1 —
+                // kalau 1:1 ujung kanan tidak akan pernah tercapai (kepotong).
+                p.bar.addEventListener('scroll', function () {
+                    var bMax = p.bar.scrollWidth - p.bar.clientWidth;
+                    var wMax = p.wrap.scrollWidth - p.wrap.clientWidth;
+                    if (bMax > 0 && wMax > 0) {
+                        var target = Math.round(p.bar.scrollLeft * wMax / bMax);
+                        if (p.wrap.scrollLeft !== target) p.wrap.scrollLeft = target;
+                    }
+                }, { passive: true });
+                p.wrap.addEventListener('scroll', function () {
+                    var bMax = p.bar.scrollWidth - p.bar.clientWidth;
+                    var wMax = p.wrap.scrollWidth - p.wrap.clientWidth;
+                    if (bMax > 0 && wMax > 0) {
+                        var target = Math.round(p.wrap.scrollLeft * bMax / wMax);
+                        if (p.bar.scrollLeft !== target) p.bar.scrollLeft = target;
+                    }
+                }, { passive: true });
+            });
+            syncWidth();
+        }
+        wire();
+        window.addEventListener('resize', syncWidth);
+        window.addEventListener('load', syncWidth);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncWidth);
+        setTimeout(syncWidth, 400);
+        document.addEventListener('livewire:navigated', wire);
+    })();
+</script>

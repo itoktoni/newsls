@@ -56,6 +56,7 @@
                 <th>TRANSAKSI</th>
                 <th>TANGGAL KOTOR</th>
                 <th>TANGGAL BERSIH</th>
+                <th>DELIVERY</th>
             </tr>
         </thead>
         <tbody>
@@ -70,9 +71,10 @@
                 <td>{{ $table->pending_transaksi ?? '-' }}</td>
                 <td>{{ formatDate($table->pending_kotor_at) ?? '-' }}</td>
                 <td>{{ formatDate($table->pending_bersih_at) ?? '-' }}</td>
+                <td>{{ $table->pending_delivery ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="9" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="10" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
     </table>

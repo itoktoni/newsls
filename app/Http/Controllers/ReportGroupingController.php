@@ -1,0 +1,180 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Concerns\ControllerTrait;
+use App\Http\Requests\GeneralRequest;
+use App\Models\Rs;
+use App\Models\WebsiteSetting;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Report Grouping — daftar transaksi yang lahir dari grouping
+ * (transaksi_grouping = 'YA' + key prefix GRP, case-insensitive) per RS +
+ * periode tanggal grouping. Baris sync kotor (flag 'TIDAK') tidak tampil
+ * walau data lama sempat terflag YA.
+ *
+ * Bentuk mengikuti ReportDetail*Controller (filter form -> getPrint
+ * view tab baru + getExportExcel streaming), tapi tanpa STATUS
+ * (grouping melintasi semua status) dan tanpa ringkasan berat.
+ *
+ * Tanpa $this->model (seperti ReportDetailKotorController) sehingga lolos
+ * GeneralRequest::authorize() dan tidak butuh Policy baru.
+ */
+class ReportGroupingController extends Controller
+{
+    use ControllerTrait;
+
+    public const TITLE = 'GROUPING LINEN';
+
+    public const FILE_PREFIX = 'grouping';
+
+    public function getTable(GeneralRequest $request)
+    {
+        // Hanya form filter — hasil dibuka di getPrint (tab baru).
+        return $this->views($this->template(), $this->share());
+    }
+
+    protected function share($data = [])
+    {
+        $default = [
+            'rsOptions' => \App\Models\User::rsOptions(),
+        ];
+
+        return array_merge($default, $data);
+    }
+
+    public function getPrint(Request $request)
+    {
+        set_time_limit(0);
+
+        $validated = $this->validateGrouping($request);
+        $query = $this->groupingBaseQuery($validated);
+
+        // Selalu tampilkan view print (tab baru) — tidak ada fallback download.
+        $data = (clone $query)->orderBy('transaksi.transaksi_id')->get();
+
+        $rs = Rs::where('rs_id', $validated['rs_id'])->firstOrFail();
+
+        return $this->views($this->template(), array_merge($this->share(), [
+            'title' => static::TITLE,
+            'data' => $data,
+            'rs' => $rs,
+            'start' => $validated['start_date'] ?? null,
+            'end' => $validated['end_date'] ?? null,
+        ]));
+    }
+
+    public function getExportExcel(Request $request)
+    {
+        set_time_limit(0);
+
+        $validated = $this->validateGrouping($request);
+
+        $rs = Rs::where('rs_id', $validated['rs_id'])->firstOrFail();
+        $rsNama = $rs->rs_nama ?? 'Semua Rumah Sakit';
+        $logoUrl = WebsiteSetting::fileUrl(config('website.logo'));
+        $logoAbs = $logoUrl ? url($logoUrl) : null;
+        $periode = (formatDate($validated['start_date'] ?? null) ?? '-')
+            .' - '.(formatDate($validated['end_date'] ?? null) ?? '-');
+        $title = static::TITLE;
+
+        $filename = static::FILE_PREFIX.'-'.now()->format('Ymd-His').'.xls';
+
+        return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode, $title) {
+            echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
+            echo '<head><meta charset="UTF-8"></head><body>';
+            echo '<table><tr><td colspan="12"><b>'.e($title).'</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode Grouping : '.e($periode).'</b></td>';
+            echo '<td colspan="2" style="text-align:right;">';
+            if ($logoAbs) {
+                echo '<img src="'.e($logoAbs).'" alt="Logo" height="60" width="90">';
+            }
+            echo '</td></tr></table><br>';
+            echo '<table border="1"><thead><tr>'
+                .'<th>No.</th><th>NO. TRANSAKSI</th><th>NO. RFID</th><th>LINEN</th><th>BERAT (KG)</th>'
+                .'<th>RUMAH SAKIT</th><th>RUANGAN</th><th>LOKASI SCAN</th><th>CUCI/RENTAL</th>'
+                .'<th>JUMLAH PEMAKAIAN</th><th>TGL PENERIMAAN</th><th>TGL GROUPING</th><th>TGL REGISTER</th><th>OPERATOR</th>'
+                .'</tr></thead><tbody>';
+
+            $no = 0;
+            $totalKg = 0.0;
+            $this->groupingBaseQuery($validated)
+                ->orderBy('transaksi.transaksi_id')
+                ->chunk(1000, function ($rows) use (&$no, &$totalKg) {
+                    foreach ($rows as $table) {
+                        $no++;
+                        $totalKg += (float) ($table->jenis_berat ?? 0);
+                        echo '<tr><td>'.$no.'</td>'
+                            .'<td>'.e($table->transaksi_key).'</td>'
+                            .'<td>'.e($table->transaksi_rfid).'</td>'
+                            .'<td>'.e($table->jenis_nama ?? '-').'</td>'
+                            .'<td>'.e($table->jenis_berat ?? '-').'</td>'
+                            .'<td>'.e($table->rs_ori_nama ?? '-').'</td>'
+                            .'<td>'.e($table->ruangan_nama ?? '-').'</td>'
+                            .'<td>'.e($table->rs_scan_nama ?? '-').'</td>'
+                            .'<td>'.e($table->detail_status_cuci ?? '-').'</td>'
+                            .'<td>'.e($table->detail_total_bersih ?? 0).'</td>'
+                            .'<td>'.e(formatDate($table->transaksi_created_at) ?? '-').'</td>'
+                            .'<td>'.e(formatDate($table->transaksi_grouping_date) ?? '-').'</td>'
+                            .'<td>'.e(formatDate($table->detail_created_at) ?? '-').'</td>'
+                            .'<td>'.e($table->operator_nama ?? '-').'</td></tr>';
+                    }
+                    flush();
+                });
+
+            echo '</tbody><tfoot><tr><th colspan="4">Total</th><th>'.$totalKg.'</th><th colspan="9">'.$no.' baris</th></tr></tfoot></table></body></html>';
+        }, $filename, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    private function validateGrouping(Request $request): array
+    {
+        return $request->validate([
+            'rs_id' => 'required|integer|exists:rs,rs_id',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+    }
+
+    private function groupingBaseQuery(array $filter)
+    {
+        // Hanya baris lahir-grouping (key prefix GRP): baris sync kotor
+        // berflag 'TIDAK' dan tidak ikut, termasuk data lama yang sempat
+        // terflag YA sebelum aturan ini.
+        $grpPrefix = (string) env('CODE_GROUPING', 'GRP');
+
+        return DB::table('transaksi')
+            // LEFT: scan RFID belum register tetap tampil (tanpa master).
+            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'transaksi.transaksi_rfid')
+            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'transaksi.transaksi_id_ruangan')
+            ->leftJoin('rs as rs_ori', 'rs_ori.rs_id', '=', 'transaksi.transaksi_rs_ori')
+            ->leftJoin('rs as rs_scan', 'rs_scan.rs_id', '=', 'transaksi.transaksi_rs_scan')
+            ->leftJoin('users', 'users.id', '=', 'transaksi.transaksi_created_by')
+            // Case-insensitive: data ditulis 'YA' oleh GroupingController.
+            ->whereRaw("UPPER(transaksi.transaksi_grouping) = 'YA'")
+            ->where('transaksi.transaksi_key', 'like', $grpPrefix.'%')
+            ->where('transaksi.transaksi_rs_scan', $filter['rs_id'])
+            ->when(! empty($filter['start_date']), fn ($q) => $q->whereDate('transaksi.transaksi_grouping_date', '>=', $filter['start_date']))
+            ->when(! empty($filter['end_date']), fn ($q) => $q->whereDate('transaksi.transaksi_grouping_date', '<=', $filter['end_date']))
+            ->select([
+                'transaksi.transaksi_id',
+                'transaksi.transaksi_key',
+                'transaksi.transaksi_rfid',
+                'transaksi.transaksi_created_at',
+                'transaksi.transaksi_grouping_date',
+                'jenis_linen.jenis_nama as jenis_nama',
+                'jenis_linen.jenis_berat as jenis_berat',
+                'rs_ori.rs_nama as rs_ori_nama',
+                'ruangan.ruangan_nama as ruangan_nama',
+                'rs_scan.rs_nama as rs_scan_nama',
+                'detail_linen.detail_status_cuci',
+                'detail_linen.detail_total_bersih',
+                'detail_linen.detail_created_at',
+                'users.name as operator_nama',
+            ]);
+    }
+}

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\LinenStatusEnum;
 use App\Enums\LogType;
+use App\Enums\RsStatusEnum;
 use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
@@ -26,15 +27,20 @@ use Throwable;
  *
  * Aturan main:
  * - Grouping = QC lolos = linen masuk gudang utama (GUDANG), simpan/refresh
- *   baris outstanding; tandai semua baris transaksi yang belum di-grouping
- *   (transaksi_grouping = 'YA', transaksi_grouping_date = hari ini).
+ *   baris outstanding; tandai baris transaksi lahir-grouping (key prefix GRP)
+ *   yang belum di-grouping (transaksi_grouping = 'YA',
+ *   transaksi_grouping_date = hari ini). Baris sync kotor (flag 'TIDAK')
+ *   tidak ikut diflag.
  * - Asumsi operasional: grouping = linen kotor tiba di gudang (mungkin tak
  *   terscan di RS). Selain linen fresh-register, selalu pastikan ada baris
  *   transaksi KOTOR hari ini — buat baru dengan key prefix GRP bila belum
  *   ada (idempoten per hari, anti dobel-scan).
  * - Outstanding (baru maupun sudah ada, termasuk REGISTER) →
- *   rs_ori, rs_scan & ruangan selalu null: linen di gudang pusat,
- *   warehouse tetap terisi. Asal RS tercatat di baris transaksi.
+ *   rs_ori, rs_scan & ruangan selalu null KECUALI linen DEDICATED
+ *   (detail_status_kepemilikan / rs_status DEDICATED): DEDICATED tetap
+ *   simpan detail_id_rs/detail_id_ruangan agar tidak hilang.
+ *   FREE/GROUP tetap null (gudang pusat), warehouse tetap terisi.
+ *   Asal RS tercatat di baris transaksi.
  * - RFID tak dikenal → Notes::error (bukan 404 mentah).
  */
 class GroupingController extends Controller
@@ -159,15 +165,22 @@ class GroupingController extends Controller
         $flag = 'Normal';
 
         if ($outstanding) {
-            $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
+            $outstandingExisted = true;
+            // Sudah PACKING jangan diturunkan lagi ke GUDANG — pertahankan
+            // status packing (RS/ruangan/timestamp ikut utuh).
+            if (($outstanding->outstanding_status_proses ?? null) !== 'PACKING') {
+                $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
+            }
         } else {
+            $outstandingExisted = false;
             [$outstanding, $flag] = $this->storeNewOutstanding($detail, $rfid, $key, $date, $today, $userId, $statusLinen);
         }
 
-        // Asumsi operasional: grouping = linen kotor tiba di gudang. Kecuali
-        // linen fresh-register (baru didaftar, belum pernah keluar), pastikan
-        // selalu ada baris transaksi KOTOR — buat bila hari ini belum ada.
-        if (! $this->isFreshRegister($detail, $statusLinen, $today)) {
+        // Pokok: outstanding sudah ada = jangan double — tidak insert baris
+        // baru ke transaksi / transaksi_master / outstanding. Cukup refresh
+        // outstanding + tandai grouping. Hanya stay baru (tanpa outstanding)
+        // yang boleh melahirkan transaksi KOTOR bila bukan fresh-register.
+        if (! $outstandingExisted && ! $this->isFreshRegister($detail, $statusLinen, $today)) {
             $flag = $this->ensureGroupingTransaction($detail, $rfid, $key, $date, $today, $userId, $flag);
         }
 
@@ -175,10 +188,13 @@ class GroupingController extends Controller
         // tulis ke detail_linen di flow ini (tanpa dead-store status perantara).
         $detail->update(['detail_status_linen' => LinenStatusEnum::GUDANG]);
 
-        // Tandai transaksi RFID ini sudah di-grouping — hanya baris yang
-        // masih kosong (termasuk transaksi hari sebelumnya). 1 query.
+        // Tandai transaksi RFID ini yang lahir dari grouping (key prefix GRP)
+        // sebagai sudah di-grouping — hanya baris yang masih kosong.
+        // Baris sync kotor (flag TIDAK) tidak ikut diflag YA.
+        $grpPrefix = (string) env('CODE_GROUPING', 'GRP');
         Transaksi::where('transaksi_rfid', $rfid)
             ->whereNull('transaksi_grouping_date')
+            ->where('transaksi_key', 'like', $grpPrefix.'%')
             ->update(['transaksi_grouping_date' => $today, 'transaksi_grouping' => 'YA']);
 
         $this->touchOpnameScan($rfid, $outstanding->outstanding_key ?? $key, $date);
@@ -209,8 +225,10 @@ class GroupingController extends Controller
 
     /**
      * Pastikan ada baris transaksi KOTOR hari ini untuk RFID ini.
-     * Idempoten per hari: bila sudah ada (mis. scan kotor pagi), tidak buat
-     * lagi — penandaan grouped dilakukan pemanggil. Kembalikan flag respons.
+     * Hanya dipanggil untuk stay baru (tanpa outstanding sebelumnya):
+     * idempoten per hari, bila sudah ada (mis. dibuat storeNewOutstanding)
+     * tidak buat lagi — penandaan grouped dilakukan pemanggil.
+     * Kembalikan flag respons.
      *
      * @return string flag status_linen untuk resource desktop
      */
@@ -249,6 +267,8 @@ class GroupingController extends Controller
             'transaksi_updated_by' => $userId,
         ]);
 
+        // ponytail: pemanggil menjamin ini stay baru (tanpa outstanding
+        // sebelumnya), jadi master header selalu dibuat untuk key ini.
         $this->persistMaster($key, $detail->detail_id_rs, TransactionType::KOTOR, $today, $date, $userId);
         $this->touchPending($rfid, TransactionType::KOTOR, $date);
 
@@ -274,24 +294,46 @@ class GroupingController extends Controller
 
     /**
      * Payload outstanding — grouping = linen masuk gudang pusat: RS
-     * (ori/scan) + ruangan SELALU null, kepemilikan apa pun termasuk
-     * REGISTER. Yang menandai asal hanya baris transaksi + warehouse.
+     * (ori/scan) + ruangan null untuk FREE/GROUP, tapi DIPERTAHANKAN
+     * untuk DEDICATED (detail_status_kepemilikan / rs_status DEDICATED)
+     * agar RS + ruangan tidak hilang di outstanding. Warehouse +
+     * transaksi tetap menandai asal.
      */
     private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId): array
     {
+        $isDedicated = $this->isDedicated($detail);
+
         return [
             'outstanding_rfid' => $rfid,
             'outstanding_status_proses' => 'GUDANG',
             'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
             'outstanding_updated_at' => $date,
             'outstanding_updated_by' => $userId,
-            'outstanding_rs_ori' => null,
-            'outstanding_rs_scan' => null,
-            'outstanding_id_ruangan' => null,
+            'outstanding_rs_ori' => $isDedicated ? $detail->detail_id_rs : null,
+            'outstanding_rs_scan' => $isDedicated ? $detail->detail_id_rs : null,
+            'outstanding_id_ruangan' => $isDedicated ? $detail->detail_id_ruangan : null,
             'outstanding_status_hilang' => 'NORMAL',
             'outstanding_hilang_created_at' => null,
             'outstanding_pending_created_at' => null,
         ];
+    }
+
+    /**
+     * RFID dedicated = kepemilikan DEDICATED atau RS-nya bertipe DEDICATED.
+     * Keduanya selaras (register 1 RS ikut tipe RS), cek dua-duanya agar
+     * data lama yang hanya satu sisinya terisi tetap terbawa.
+     */
+    private function isDedicated(DetailLinen $detail): bool
+    {
+        if (($detail->detail_status_kepemilikan ?? null) === RsStatusEnum::DEDICATED) {
+            return true;
+        }
+
+        try {
+            return ($detail->hasRs?->rs_status ?? null) === RsStatusEnum::DEDICATED;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**

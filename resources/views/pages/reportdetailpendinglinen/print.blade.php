@@ -58,6 +58,7 @@
                 <th>JUMLAH PEMAKAIAN</th>
                 <th>TANGGAL KOTOR</th>
                 <th>TANGGAL UPDATE</th>
+                <th>TGL PENDING</th>
                 <th>LAMA PENDING</th>
                 <th>STATUS</th>
                 <th>PROSES TERAKHIR</th>
@@ -74,12 +75,13 @@
                 <td class="num">{{ $table->detail_total_bersih ?? 0 }}</td>
                 <td>{{ formatDate($table->outstanding_created_at) ?? '-' }}</td>
                 <td>{{ formatDate($table->outstanding_updated_at) ?? '-' }}</td>
+                <td>{{ formatDate($table->outstanding_pending_created_at) ?? '-' }}</td>
                 <td>{{ ($table->outstanding_pending_created_at ?? $table->outstanding_updated_at) ? (int) floor(\Illuminate\Support\Carbon::parse($table->outstanding_pending_created_at ?? $table->outstanding_updated_at)->diffInDays(now())).' Hari' : '0 Hari' }}</td>
                 <td>{{ \App\Enums\TransactionType::getDescription($table->outstanding_status_transaksi ?? '') ?: ($table->outstanding_status_transaksi ?? '-') }}</td>
                 <td>{{ $table->outstanding_status_proses ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="11" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="12" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
     </table>

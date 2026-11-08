@@ -65,8 +65,8 @@
 
         {{-- Profile Dropdown --}}
         <div class="relative" x-data="{ open: false }" @click.away="open = false">
-            <button class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden border border-outline-variant hover:ring-2 hover:ring-primary/20 transition-all" @click="open = !open">
-                <span class="material-symbols-outlined text-[18px] text-on-secondary-container">person</span>
+            <button class="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden border border-outline-variant hover:ring-2 hover:ring-primary/20 transition-all" @click="open = !open">
+                <span class="material-symbols-outlined text-[18px] text-on-primary">person</span>
             </button>
 
             <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 transform -translate-y-2" x-transition:enter-end="opacity-100 transform translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100 transform translate-y-0" x-transition:leave-end="opacity-0 transform -translate-y-2" class="absolute right-0 top-full mt-2 w-64 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg overflow-hidden z-50">

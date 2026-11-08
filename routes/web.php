@@ -61,6 +61,7 @@ Route::middleware(['auth', 'verified', 'access'])->group(function () {
         Route::auto('/report-rekap-retur', 'ReportRekapReturController', ['name' => 'report-rekap-retur', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-rekap-rewash', 'ReportRekapRewashController', ['name' => 'report-rekap-rewash', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-detail-kotor', 'ReportDetailKotorController', ['name' => 'report-detail-kotor', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
+        Route::auto('/report-grouping', 'ReportGroupingController', ['name' => 'report-grouping', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-detail-retur', 'ReportDetailReturController', ['name' => 'report-detail-retur', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-detail-rewash', 'ReportDetailRewashController', ['name' => 'report-detail-rewash', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);
         Route::auto('/report-detail-pengiriman-bersih', 'ReportDetailPengirimanBersihController', ['name' => 'report-detail-pengiriman-bersih', 'only' => ['getTable', 'getPrint', 'getExportExcel']]);

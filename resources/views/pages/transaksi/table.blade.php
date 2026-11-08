@@ -112,39 +112,4 @@
     <input type="hidden" class="module" value="{{ Str::beforeLast(request()->route()->uri(), '/') }}">
     <script src="/js/table.js"></script>
     <script>initTable('{{ $sortField }}', '{{ $sortDir }}');</script>
-    <style>
-        .top-x-scroll { height: 14px; }
-        .top-x-scroll > div { height: 1px; }
-    </style>
-    <script>
-        (function () {
-            function wireTopScroll() {
-                var wrap = document.querySelector('.form-card .overflow-x-auto:not(.top-x-scroll)');
-                if (!wrap || wrap.previousElementSibling?.classList?.contains('top-x-scroll')) return;
-                var top = document.createElement('div');
-                top.className = 'overflow-x-auto top-x-scroll hidden lg:block';
-                var inner = document.createElement('div');
-                top.appendChild(inner);
-                wrap.parentNode.insertBefore(top, wrap);
-                var syncWidth = function () { inner.style.width = wrap.scrollWidth + 'px'; };
-                syncWidth();
-                var lock = false;
-                top.addEventListener('scroll', function () {
-                    if (lock) return;
-                    lock = true;
-                    wrap.scrollLeft = top.scrollLeft;
-                    lock = false;
-                });
-                wrap.addEventListener('scroll', function () {
-                    if (lock) return;
-                    lock = true;
-                    top.scrollLeft = wrap.scrollLeft;
-                    lock = false;
-                });
-                window.addEventListener('resize', syncWidth);
-            }
-            wireTopScroll();
-            document.addEventListener('livewire:navigated', wireTopScroll);
-        })();
-    </script>
 </x-layouts::app>
