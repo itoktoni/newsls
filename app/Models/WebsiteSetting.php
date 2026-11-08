@@ -42,6 +42,24 @@ class WebsiteSetting
         return '/'.ltrim($path, '/');
     }
 
+    /**
+     * URL favicon versi cache-buster (?v=filemtime) — dipakai SEMUA layout
+     * (login/auth + dashboard) supaya favicon baru langsung kepakai di semua
+     * halaman. Browser caching favicon sangat agresif; tanpa ini tab lama
+     * (mis. login) tetap menampilkan ikon lama walau file sudah diganti.
+     */
+    public static function faviconUrl(): string
+    {
+        $url = static::fileUrl(static::merged()['favicon'] ?? null) ?? '/favicon.ico';
+        $file = public_path(ltrim(parse_url($url, PHP_URL_PATH) ?? '', '/'));
+
+        if ($file !== '' && is_file($file)) {
+            $url .= (str_contains($url, '?') ? '&' : '?').'v='.filemtime($file);
+        }
+
+        return $url;
+    }
+
     public static function generatePalette(string $hex): array
     {
         $hex = ltrim($hex, '#');

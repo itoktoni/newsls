@@ -10,10 +10,11 @@
     <meta name="user-id" content="{{ auth()->id() }}"/>
     @endauth
     @php
-        $faviconUrl = \App\Models\WebsiteSetting::fileUrl(\App\Models\WebsiteSetting::merged()['favicon'] ?? null) ?? '/favicon.ico';
+        $faviconUrl = \App\Models\WebsiteSetting::faviconUrl();
     @endphp
     <title>{{ config('website.name', $title ?? 'CMS') }}</title>
     <link rel="icon" href="{{ $faviconUrl }}" sizes="any">
+    <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>

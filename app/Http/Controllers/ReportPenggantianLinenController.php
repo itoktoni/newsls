@@ -109,6 +109,7 @@ class ReportPenggantianLinenController extends Controller
                 'ganti_chip.ganti_rfid_lama',
                 'ganti_chip.ganti_rfid_baru',
                 'ganti_chip.ganti_tanggal',
+                'ganti_chip.ganti_keterangan',
                 'jenis_linen.jenis_nama as jenis_nama',
                 'rs.rs_nama as rs_nama',
                 'ruangan.ruangan_nama as ruangan_nama',

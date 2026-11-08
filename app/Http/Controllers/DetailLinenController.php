@@ -135,6 +135,10 @@ class DetailLinenController extends Controller
             throw ValidationException::withMessages(['detail_rfid' => 'RFID sudah terdaftar.']);
         }
 
+        if ($isRfidChange && trim((string) $request->input('ganti_keterangan')) === '') {
+            throw ValidationException::withMessages(['ganti_keterangan' => 'Alasan ganti chip wajib diisi (mis. chip mati, tidak terbaca).']);
+        }
+
         $payload = DB::transaction(function () use ($request, $id, $newRfid, $rsIds, $isRfidChange) {
             $payload = UpdateAction::run($request, $id, $this->model);
 
@@ -154,6 +158,7 @@ class DetailLinenController extends Controller
                     'ganti_rfid_baru' => $newRfid,
                     'ganti_tanggal' => now(),
                     'ganti_by' => auth()->id(),
+                    'ganti_keterangan' => $request->input('ganti_keterangan'),
                 ]);
 
                 $this->logGantiChip((string) $id, $newRfid, $counts, $payload['data'] ?? null);
@@ -199,6 +204,8 @@ class DetailLinenController extends Controller
      * - transaksi.transaksi_rfid (history — ikut pindah agar join tetap nyambung)
      * - outstanding.outstanding_rfid (PK stok laundry)
      * - bersih.bersih_rfid (packing/delivery — sumber laporan pengiriman)
+     * - pending.pending_rfid (antrean nyangkut di laundry — tanpa ini
+     *   report pending tetap menagih RFID mati yang sudah diganti)
      * - opname_detail.opname_detail_rfid (hasil stock opname)
      *
      * ganti_chip + activity_log TIDAK di-rewrite (itu histori rantai A→B→C).
@@ -213,6 +220,7 @@ class DetailLinenController extends Controller
             'transaksi' => 0,
             'outstanding' => 0,
             'bersih' => 0,
+            'pending' => 0,
             'opname_detail' => 0,
         ];
 
@@ -244,6 +252,11 @@ class DetailLinenController extends Controller
         if (Schema::hasTable('bersih')) {
             $counts['bersih'] = DB::table('bersih')
                 ->where('bersih_rfid', $old)->update(['bersih_rfid' => $new]);
+        }
+
+        if (Schema::hasTable('pending')) {
+            $counts['pending'] = DB::table('pending')
+                ->where('pending_rfid', $old)->update(['pending_rfid' => $new]);
         }
 
         if (Schema::hasTable('opname_detail')) {

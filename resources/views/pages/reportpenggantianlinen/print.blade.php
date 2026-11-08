@@ -55,6 +55,7 @@
                 <th>CUCI/RENTAL</th>
                 <th>STATUS REGISTRASI</th>
                 <th>TANGGAL PENGGANTIAN</th>
+                <th>KETERANGAN</th>
                 <th>OPERATOR</th>
             </tr>
         </thead>
@@ -70,10 +71,11 @@
                 <td>{{ $table->detail_status_cuci ?? '-' }}</td>
                 <td>{{ $table->detail_status_register ?? '-' }}</td>
                 <td>{{ formatDate($table->ganti_tanggal) ?? '-' }}</td>
+                <td>{{ $table->ganti_keterangan ?? '-' }}</td>
                 <td>{{ $table->operator_nama ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="10" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="11" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
     </table>
