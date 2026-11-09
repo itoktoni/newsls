@@ -9,6 +9,7 @@ use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
+use App\Models\Rs;
 use App\Models\Transaksi;
 use App\Models\TransaksiMaster;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -169,7 +170,7 @@ class GroupingController extends Controller
             // Sudah PACKING jangan diturunkan lagi ke GUDANG — pertahankan
             // status packing (RS/ruangan/timestamp ikut utuh).
             if (($outstanding->outstanding_status_proses ?? null) !== 'PACKING') {
-                $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId));
+                $outstanding->update($this->outstandingData($detail, $rfid, $date, $userId, $outstanding));
             }
         } else {
             $outstandingExisted = false;
@@ -295,13 +296,31 @@ class GroupingController extends Controller
     /**
      * Payload outstanding — grouping = linen masuk gudang pusat: RS
      * (ori/scan) + ruangan null untuk FREE/GROUP, tapi DIPERTAHANKAN
-     * untuk DEDICATED (detail_status_kepemilikan / rs_status DEDICATED)
-     * agar RS + ruangan tidak hilang di outstanding. Warehouse +
-     * transaksi tetap menandai asal.
+     * untuk DEDICATED (detail_status_kepemilikan / rs.rs_status DEDICATED
+     * / ada pemilik config_linen yang DEDICATED) agar RS + ruangan tidak
+     * hilang (tidak di-reset) di outstanding. Warehouse + transaksi tetap
+     * menandai asal. Untuk DEDICATED, nilai detail yang null fallback ke
+     * outstanding lama supaya tidak ikut ke-reset null.
      */
-    private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId): array
+    private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId, ?Outstanding $existing = null): array
     {
         $isDedicated = $this->isDedicated($detail);
+
+        if ($isDedicated) {
+            return [
+                'outstanding_rfid' => $rfid,
+                'outstanding_status_proses' => 'GUDANG',
+                'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
+                'outstanding_updated_at' => $date,
+                'outstanding_updated_by' => $userId,
+                'outstanding_rs_ori' => $detail->detail_id_rs ?? $existing?->outstanding_rs_ori,
+                'outstanding_rs_scan' => $detail->detail_id_rs ?? $existing?->outstanding_rs_scan,
+                'outstanding_id_ruangan' => $detail->detail_id_ruangan ?? $existing?->outstanding_id_ruangan,
+                'outstanding_status_hilang' => 'NORMAL',
+                'outstanding_hilang_created_at' => null,
+                'outstanding_pending_created_at' => null,
+            ];
+        }
 
         return [
             'outstanding_rfid' => $rfid,
@@ -309,9 +328,9 @@ class GroupingController extends Controller
             'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
             'outstanding_updated_at' => $date,
             'outstanding_updated_by' => $userId,
-            'outstanding_rs_ori' => $isDedicated ? $detail->detail_id_rs : null,
-            'outstanding_rs_scan' => $isDedicated ? $detail->detail_id_rs : null,
-            'outstanding_id_ruangan' => $isDedicated ? $detail->detail_id_ruangan : null,
+            'outstanding_rs_ori' => null,
+            'outstanding_rs_scan' => null,
+            'outstanding_id_ruangan' => null,
             'outstanding_status_hilang' => 'NORMAL',
             'outstanding_hilang_created_at' => null,
             'outstanding_pending_created_at' => null,
@@ -319,21 +338,58 @@ class GroupingController extends Controller
     }
 
     /**
-     * RFID dedicated = kepemilikan DEDICATED atau RS-nya bertipe DEDICATED.
-     * Keduanya selaras (register 1 RS ikut tipe RS), cek dua-duanya agar
-     * data lama yang hanya satu sisinya terisi tetap terbawa.
+     * RFID dedicated = kepemilikan DEDICATED atau RS-nya (rs.rs_status via
+     * detail_id_rs) bertipe DEDICATED atau salah satu pemilik config_linen
+     * bertipe DEDICATED. Cek tiga sisi agar data lama yang hanya satu
+     * sisinya terisi tetap terbawa. Perbandingan dinormalisasi
+     * (trim + uppercase) supaya 'dedicated'/'Dedicated' tetap cocok.
+     * Acuan utama = tabel rs kolom rs_status.
      */
     private function isDedicated(DetailLinen $detail): bool
     {
-        if (($detail->detail_status_kepemilikan ?? null) === RsStatusEnum::DEDICATED) {
+        $norm = fn ($v) => $v === null ? null : strtoupper(trim((string) $v));
+
+        if ($norm($detail->detail_status_kepemilikan ?? null) === RsStatusEnum::DEDICATED) {
             return true;
         }
 
+        // 1) Relasi loaded (cepat, tanpa query tambahan).
         try {
-            return ($detail->hasRs?->rs_status ?? null) === RsStatusEnum::DEDICATED;
+            if ($norm($detail->hasRs?->rs_status ?? null) === RsStatusEnum::DEDICATED) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // lanjut ke query langsung di bawah
+        }
+
+        // 2) Tabel rs langsung via detail_id_rs (anti relasi basi/null).
+        try {
+            if ($detail->detail_id_rs !== null) {
+                $rsStatus = Rs::where('rs_id', $detail->detail_id_rs)->value('rs_status');
+
+                if ($norm($rsStatus) === RsStatusEnum::DEDICATED) {
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
+            // abaikan, lanjut ke cek config
+        }
+
+        // 3) Relasi config_linen: RFID yang punya pemilik RS DEDICATED
+        // (GROUP multi-owner yang salah satu anggotanya dedicated).
+        try {
+            $ownerIds = DB::table('config_linen')->where('detail_rfid', $detail->detail_rfid)->pluck('rs_id')->all();
+
+            if ($ownerIds !== []) {
+                return Rs::whereIn('rs_id', $ownerIds)
+                    ->pluck('rs_status')
+                    ->contains(fn ($s) => $norm($s) === RsStatusEnum::DEDICATED);
+            }
         } catch (\Throwable $e) {
             return false;
         }
+
+        return false;
     }
 
     /**
