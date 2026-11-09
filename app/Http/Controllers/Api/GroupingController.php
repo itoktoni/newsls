@@ -37,10 +37,10 @@ use Throwable;
  *   transaksi KOTOR hari ini — buat baru dengan key prefix GRP bila belum
  *   ada (idempoten per hari, anti dobel-scan).
  * - Outstanding (baru maupun sudah ada, termasuk REGISTER) →
- *   rs_ori, rs_scan & ruangan selalu null KECUALI linen DEDICATED
- *   (detail_status_kepemilikan / rs_status DEDICATED): DEDICATED tetap
- *   simpan detail_id_rs/detail_id_ruangan agar tidak hilang.
- *   FREE/GROUP tetap null (gudang pusat), warehouse tetap terisi.
+ *   hanya FREE yang di-null (rs_ori + ruangan, rs_scan tetap agar tidak
+ *   hilang dari antrean packing per RS — tiruan legacy andalan).
+ *   DEDICATED/GROUP/unknown selalu simpan detail_id_rs/detail_id_ruangan
+ *   (fallback ke outstanding lama bila detail null) agar tidak ke-reset.
  *   Asal RS tercatat di baris transaksi.
  * - RFID tak dikenal → Notes::error (bukan 404 mentah).
  */
@@ -294,28 +294,25 @@ class GroupingController extends Controller
     }
 
     /**
-     * Payload outstanding — grouping = linen masuk gudang pusat: RS
-     * (ori/scan) + ruangan null untuk FREE/GROUP, tapi DIPERTAHANKAN
-     * untuk DEDICATED (detail_status_kepemilikan / rs.rs_status DEDICATED
-     * / ada pemilik config_linen yang DEDICATED) agar RS + ruangan tidak
-     * hilang (tidak di-reset) di outstanding. Warehouse + transaksi tetap
-     * menandai asal. Untuk DEDICATED, nilai detail yang null fallback ke
-     * outstanding lama supaya tidak ikut ke-reset null.
+     * Payload outstanding — tiruan legacy andalan (routes/api.php grouping):
+     * hanya FREE yang di-null (rs_ori + ruangan; rs_scan tetap detail agar
+     * tidak hilang dari antrean packing per RS). DEDICATED + GROUP + unknown
+     * DIPERTAHANKAN dari detail (fallback ke outstanding lama bila detail
+     * null supaya tidak ke-reset null). Warehouse + transaksi tetap
+     * menandai asal.
      */
     private function outstandingData(DetailLinen $detail, string $rfid, string $date, int $userId, ?Outstanding $existing = null): array
     {
-        $isDedicated = $this->isDedicated($detail);
-
-        if ($isDedicated) {
+        if ($this->isFree($detail)) {
             return [
                 'outstanding_rfid' => $rfid,
                 'outstanding_status_proses' => 'GUDANG',
                 'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
                 'outstanding_updated_at' => $date,
                 'outstanding_updated_by' => $userId,
-                'outstanding_rs_ori' => $detail->detail_id_rs ?? $existing?->outstanding_rs_ori,
+                'outstanding_rs_ori' => null,
                 'outstanding_rs_scan' => $detail->detail_id_rs ?? $existing?->outstanding_rs_scan,
-                'outstanding_id_ruangan' => $detail->detail_id_ruangan ?? $existing?->outstanding_id_ruangan,
+                'outstanding_id_ruangan' => null,
                 'outstanding_status_hilang' => 'NORMAL',
                 'outstanding_hilang_created_at' => null,
                 'outstanding_pending_created_at' => null,
@@ -328,13 +325,25 @@ class GroupingController extends Controller
             'outstanding_id_warehouse' => (int) env('GUDANG_UTAMA_ID', 1),
             'outstanding_updated_at' => $date,
             'outstanding_updated_by' => $userId,
-            'outstanding_rs_ori' => null,
-            'outstanding_rs_scan' => null,
-            'outstanding_id_ruangan' => null,
+            'outstanding_rs_ori' => $detail->detail_id_rs ?? $existing?->outstanding_rs_ori,
+            'outstanding_rs_scan' => $detail->detail_id_rs ?? $existing?->outstanding_rs_scan,
+            'outstanding_id_ruangan' => $detail->detail_id_ruangan ?? $existing?->outstanding_id_ruangan,
             'outstanding_status_hilang' => 'NORMAL',
             'outstanding_hilang_created_at' => null,
             'outstanding_pending_created_at' => null,
         ];
+    }
+
+    /**
+     * FREE = satu-satunya kepemilikan yang boleh di-null saat grouping
+     * (legacy andalan: `detail_status_kepemilikan == FREE`). Null/unknown
+     * dianggap bukan FREE (dipertahankan) agar data lama tidak ikut reset.
+     */
+    private function isFree(DetailLinen $detail): bool
+    {
+        $v = $detail->detail_status_kepemilikan ?? null;
+
+        return $v !== null && strtoupper(trim((string) $v)) === 'FREE';
     }
 
     /**
