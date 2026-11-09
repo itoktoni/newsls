@@ -52,10 +52,13 @@ class RsApiController extends Controller
         $rs = $query->with(['hasRuangan', 'hasJenis'])->get();
         $allowed = User::allowedRsIds();
 
-        // bahan & supplier
+        // bahan & supplier (master global, tidak per-RS).
         $bahan = JenisBahan::select('bahan_id', 'bahan_nama')->get();
         $supplier = Supplier::select('supplier_id', 'supplier_nama')->get();
-        $jenis = JenisLinen::select('jenis_id', 'jenis_nama')->get();
+        // ponytail: daftar jenis datar ikut hak akses (pivot rs_dan_jenis milik
+        // RS user) seperti web — bukan semua jenis. Fallback semua bila pivot
+        // kosong/belum dirawat supaya combo tidak mendadak kosong.
+        $jenis = $this->jenisList($allowed);
 
         // Kembalikan envelope Notes agar desktop deserialize ke RsAllDAO.Rootobject (status/code/name/message/data + extra)
         return Notes::data($this->rsPayload($rs), [
@@ -157,6 +160,25 @@ class RsApiController extends Controller
         }
 
         return $ruangan;
+    }
+
+    /**
+     * Daftar jenis datar untuk combo desktop — disaring ke jenis yang dipakai
+     * RS milik user (pivot rs_dan_jenis), fallback semua bila user boleh
+     * semua (admin/developer) atau pivot belum diisi.
+     */
+    private function jenisList(?array $allowed)
+    {
+        $query = JenisLinen::select('jenis_id', 'jenis_nama')->orderBy('jenis_nama');
+
+        if ($allowed !== null) {
+            $scoped = DB::table('rs_dan_jenis')->whereIn('rs_id', $allowed)->distinct()->pluck('jenis_id');
+            if ($scoped->isNotEmpty()) {
+                $query->whereIn('jenis_id', $scoped);
+            }
+        }
+
+        return $query->get();
     }
 
     /**

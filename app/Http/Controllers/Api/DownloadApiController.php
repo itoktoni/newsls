@@ -37,6 +37,43 @@ use Plugins\Notes;
 class DownloadApiController extends Controller
 {
     /**
+     * Pastikan index pendukung download ada (sekali per proses PHP).
+     * Tanpa file migrasi: cek information_schema, buat bila belum ada,
+     * semua dibungkus try/catch supaya tidak pernah menggagalkan sync.
+     */
+    private static bool $indexesEnsured = false;
+
+    private function ensureDownloadIndexes(): void
+    {
+        if (self::$indexesEnsured) {
+            return;
+        }
+        self::$indexesEnsured = true;
+
+        try {
+            $schema = DB::connection()->getDatabaseName();
+            // Index membantu bila kolom jadi leftmost (seq 1) — bukan sekadar
+            // muncul di posisi kedua (mis. PK (detail_rfid, rs_id) tidak
+            // mempercepat where rs_id = ?).
+            $hasLeftmost = fn (string $table, string $column) => DB::table('information_schema.statistics')
+                ->where('table_schema', $schema)
+                ->where('table_name', $table)
+                ->where('column_name', $column)
+                ->where('seq_in_index', 1)
+                ->exists();
+
+            if (! $hasLeftmost('transaksi', 'transaksi_rfid')) {
+                DB::statement('CREATE INDEX transaksi_rfid_index ON transaksi (transaksi_rfid)');
+            }
+            if (! $hasLeftmost('config_linen', 'rs_id')) {
+                DB::statement('CREATE INDEX config_linen_rs_id_detail_rfid_index ON config_linen (rs_id, detail_rfid)');
+            }
+        } catch (\Throwable $e) {
+            // Abaikan: download tetap jalan, hanya lebih lambat.
+        }
+    }
+
+    /**
      * Baris per chunk. Kecil = memory datar + flush lebih cepat sampai ke
      * desktop; 2.000 dipilih supaya `whereIn` untuk outstanding/transaksi
      * juga tetap ramping.
@@ -66,6 +103,14 @@ class DownloadApiController extends Controller
         if ($rs === null) {
             return Notes::failed(404, 'Rumah sakit tidak ditemukan.');
         }
+
+        // ponytail: download 12rb+ RFID per chunk menanyakan "2000 RFID ini
+        // ada transaksinya?" (whereIn + distinct). Tanpa index di
+        // transaksi(transaksi_rfid) tiap chunk = full scan → makin banyak
+        // data makin lemot. Tambahan file migrasi dilarang, jadi index
+        // dipastikan di sini (sekali per proses, gagal = abaikan, lanjut
+        // tanpa index). Berlaku juga untuk kotor harian (todayExisting).
+        $this->ensureDownloadIndexes();
 
         // Hitung dulu supaya RS kosong dapat envelope error biasa, bukan JSON
         // setengah jalan. Satu COUNT atas query yang sama (EXISTS, tanpa

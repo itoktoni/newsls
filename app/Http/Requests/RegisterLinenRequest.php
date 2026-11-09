@@ -41,7 +41,9 @@ class RegisterLinenRequest extends FormRequest
             'jenis_id' => 'required|integer|exists:jenis_linen,jenis_id',
             'bahan_id' => 'nullable|integer|exists:jenis_bahan,bahan_id',
             'supplier_id' => 'nullable|integer|exists:supplier,supplier_id',
-            'status_cuci' => ['required', Rule::in(CuciEnum::getValues())],
+            // Opsional (tidak wajib): supplier/bahan/status tidak dikirim
+            // desktop register (hanya jenis + RS + ruangan yang wajib).
+            'status_cuci' => ['nullable', Rule::in(CuciEnum::getValues())],
 
             'status_register' => ['nullable', Rule::in(RegisterEnum::getValues())],
             'status_kepemilikan' => ['nullable', Rule::in(RsStatusEnum::getValues())],
@@ -74,7 +76,6 @@ class RegisterLinenRequest extends FormRequest
             'bahan_id.exists' => 'Jenis bahan tidak ditemukan.',
             'supplier_id.required' => 'Supplier wajib diisi.',
             'supplier_id.exists' => 'Supplier tidak ditemukan.',
-            'status_cuci.required' => 'Status cuci wajib diisi.',
             'status_cuci.in' => 'Status cuci harus salah satu dari: '.implode(', ', CuciEnum::getValues()).'.',
             'status_register.in' => 'Status register harus salah satu dari: '.implode(', ', RegisterEnum::getValues()).'.',
             'status_kepemilikan.in' => 'Status kepemilikan harus salah satu dari: '.implode(', ', RsStatusEnum::getValues()).'.',
