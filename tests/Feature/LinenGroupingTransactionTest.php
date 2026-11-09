@@ -87,6 +87,10 @@ it('grouping tanpa scan kotor membuat transaksi KOTOR key GRP dan outstanding GU
     expect((int) $out->outstanding_rs_ori)->toBe($this->rs->rs_id);
     expect((int) $out->outstanding_rs_scan)->toBe($this->rs->rs_id);
     expect((int) $out->outstanding_id_ruangan)->toBe($this->ruangan->ruangan_id);
+
+    // Tandai grouping di outstanding (kolom warisan, jangan null).
+    expect($out->transaksi_grouping)->toBe('YA');
+    expect($out->transaksi_grouping_date)->toBe(today()->format('Y-m-d'));
 });
 
 /**
@@ -115,4 +119,82 @@ it('grouping menerima hex mentah untuk RFID yang tersimpan sebagai teks ASCII', 
     expect(DB::table('outstanding')->where('outstanding_rfid', $ascii)->count())->toBe(1);
     expect(DB::table('outstanding')->where('outstanding_rfid', $hex)->count())->toBe(0);
     expect(DB::table('transaksi')->where('transaksi_rfid', $ascii)->count())->toBe(1);
+});
+
+/**
+ * Regresi: linen BERSIH milik RS dedicated yang di-grouping langsung
+ * (tanpa scan kotor) — outstanding wajib ada, RS asal tidak hilang
+ * (rs_scan tetap), dan flag grouping terisi (tidak null).
+ * FREE: rs_ori + ruangan null (gudang pusat), tapi rs_scan asal disimpan
+ * (tiruan legacy andalan: hanya FREE yang di-null, rs_scan dipertahankan).
+ */
+it('grouping linen FREE menyimpan rs_scan asal dan menandai grouping', function () {
+    $rfid = 'GRPFREE-'.strtoupper(uniqid());
+    DetailLinen::create([
+        'detail_rfid' => $rfid, 'detail_id_rs' => $this->rs->rs_id, 'detail_id_ruangan' => $this->ruangan->ruangan_id,
+        'detail_id_jenis' => $this->jenis->jenis_id, 'detail_id_bahan' => $this->bahan->bahan_id, 'detail_id_supplier' => $this->supplier->supplier_id,
+        'detail_status_cuci' => CuciEnum::CUCI, 'detail_status_kepemilikan' => RsStatusEnum::FREE,
+        'detail_status_register' => RegisterEnum::REGISTER, 'detail_status_linen' => LinenStatusEnum::BERSIH,
+        'detail_report' => now()->subDays(2)->format('Y-m-d'),
+        'detail_total_bersih' => 1, 'detail_created_by' => $this->admin->id,
+    ]);
+    // FREE = nol baris config_linen.
+
+    $this->withToken($this->token)->getJson("/api/grouping/{$rfid}")->assertOk();
+
+    $out = DB::table('outstanding')->where('outstanding_rfid', $rfid)->first();
+    expect($out)->not->toBeNull();
+    expect($out->outstanding_rs_ori)->toBeNull();
+    expect((int) $out->outstanding_rs_scan)->toBe($this->rs->rs_id);
+    expect($out->outstanding_id_ruangan)->toBeNull();
+    expect($out->outstanding_status_proses)->toBe('GUDANG');
+    expect($out->transaksi_grouping)->toBe('YA');
+    expect($out->transaksi_grouping_date)->toBe(today()->format('Y-m-d'));
+
+    // Stay baru = transaksi ikut dibuat SEKALIGUS (satu tempat).
+    $trx = DB::table('transaksi')->where('transaksi_rfid', $rfid)->first();
+    expect($trx)->not->toBeNull();
+    expect($trx->transaksi_status)->toBe('KOTOR');
+    expect(str_starts_with($trx->transaksi_key, 'GRP'))->toBeTrue();
+    expect($trx->transaksi_grouping)->toBe('YA');
+    expect($trx->transaksi_grouping_date)->toBe(today()->format('Y-m-d'));
+});
+
+/**
+ * Regresi aturan pokok: RFID belum ada di outstanding → grouping insert
+ * SEKALIGUS ke outstanding + transaksi. Fresh REGISTER ikut dibuatkan
+ * transaksi REGISTER (bukan KOTOR — linennya memang belum pernah kotor).
+ */
+it('grouping linen fresh REGISTER membuat outstanding dan transaksi REGISTER', function () {
+    $rfid = 'GRPREG-'.strtoupper(uniqid());
+    DetailLinen::create([
+        'detail_rfid' => $rfid, 'detail_id_rs' => $this->rs->rs_id, 'detail_id_ruangan' => $this->ruangan->ruangan_id,
+        'detail_id_jenis' => $this->jenis->jenis_id, 'detail_id_bahan' => $this->bahan->bahan_id, 'detail_id_supplier' => $this->supplier->supplier_id,
+        'detail_status_cuci' => CuciEnum::CUCI, 'detail_status_kepemilikan' => RsStatusEnum::DEDICATED,
+        'detail_status_register' => RegisterEnum::REGISTER, 'detail_status_linen' => LinenStatusEnum::REGISTER,
+        'detail_total_bersih' => 0, 'detail_created_by' => $this->admin->id,
+    ]);
+    DB::table('config_linen')->insert(['detail_rfid' => $rfid, 'rs_id' => $this->rs->rs_id]);
+
+    $this->withToken($this->token)->getJson("/api/grouping/{$rfid}")
+        ->assertOk()
+        ->assertJson(['rfid' => $rfid, 'status_linen' => 'REGISTER']);
+
+    $out = DB::table('outstanding')->where('outstanding_rfid', $rfid)->first();
+    expect($out)->not->toBeNull();
+    expect($out->outstanding_status_transaksi)->toBe('REGISTER');
+    expect($out->outstanding_status_proses)->toBe('GUDANG');
+    expect((int) $out->outstanding_rs_ori)->toBe($this->rs->rs_id);
+    expect((int) $out->outstanding_rs_scan)->toBe($this->rs->rs_id);
+    expect((int) $out->outstanding_id_ruangan)->toBe($this->ruangan->ruangan_id);
+
+    $trx = DB::table('transaksi')->where('transaksi_rfid', $rfid)->first();
+    expect($trx)->not->toBeNull();
+    expect($trx->transaksi_status)->toBe('REGISTER');
+    expect($trx->transaksi_grouping)->toBe('YA');
+
+    // Grouping kedua: idempoten, tidak nambah baris.
+    $this->withToken($this->token)->getJson("/api/grouping/{$rfid}")->assertOk();
+    expect(DB::table('transaksi')->where('transaksi_rfid', $rfid)->count())->toBe(1);
+    expect(DB::table('outstanding')->where('outstanding_rfid', $rfid)->count())->toBe(1);
 });

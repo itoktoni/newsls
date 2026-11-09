@@ -100,7 +100,7 @@ class ReportRegisterLinenController extends Controller
                             .'<td>'.e($table->detail_rfid).'</td>'
                             .'<td>'.e($table->detail_no_register ?? '-').'</td>'
                             .'<td>'.e($table->jenis_nama ?? '-').'</td>'
-                            .'<td>'.e($table->rs_nama ?? $table->rs_holder_nama ?? '-').'</td>'
+                            .'<td>'.e($table->pemilik_nama ?? $table->rs_holder_nama ?? '-').'</td>'
                             .'<td>'.e($table->ruangan_nama ?? '-').'</td>'
                             .'<td>'.e($table->detail_status_cuci ?? '-').'</td>'
                             .'<td>'.e($table->detail_status_register ?? '-').'</td>'
@@ -149,24 +149,31 @@ class ReportRegisterLinenController extends Controller
     }
 
     /**
-     * Ala andalan getConfig(): dari config_linen (pemilik MASTER) join
-     * detail_linen — bukan detail_id_rs (pemegang sekarang). Linen GROUP
-     * milik 2 RS tampil 2 baris (satu per pemilik), seperti view_config_linen.
+     * Satu baris per RFID: pemilik (MASTER config_linen, bisa banyak RS)
+     * digabung via subquery GROUP_CONCAT — tanpa join yang menggandakan
+     * baris untuk linen GROUP. Filter RS cocok bila RS = pemegang
+     * (detail_id_rs) ATAU salah satu pemilik (EXISTS config_linen).
      */
     private function registerBaseQuery(array $filter)
     {
+        // ponytail: pola yang sama dipakai DetailLinenController::getData —
+        // subquery korelasi supaya tetap satu baris per RFID.
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        $concat = $isSqlite
+            ? "group_concat(rs.rs_nama, ', ')"
+            : 'GROUP_CONCAT(rs.rs_nama ORDER BY rs.rs_nama SEPARATOR ", ")';
+        $pemilik = DB::table('config_linen')
+            ->selectRaw($concat)
+            ->join('rs', 'rs.rs_id', '=', 'config_linen.rs_id')
+            ->whereColumn('config_linen.detail_rfid', 'detail_linen.detail_rfid');
+
         $query = DB::table('detail_linen')
-            // ponytail: LEFT join supaya FREE (nol baris config_linen) tetap tampil.
-            ->leftJoin('config_linen', 'config_linen.detail_rfid', '=', 'detail_linen.detail_rfid')
             ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
             ->leftJoin('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
-            ->leftJoin('rs', 'rs.rs_id', '=', 'config_linen.rs_id')
             ->leftJoin('rs as rs_holder', 'rs_holder.rs_id', '=', 'detail_linen.detail_id_rs')
             ->leftJoin('users', 'users.id', '=', 'detail_linen.detail_created_by');
 
-        // ponytail: saring pemilik (config) ATAU pemegang (detail) supaya FREE
-        // yang dipegang RS tetap ketemu saat filter rs_id diisi.
-        $query = User::applyRsFilter($query, ['config_linen.rs_id', 'detail_linen.detail_id_rs'], $filter['rs_id'] ?? null);
+        $this->applyRegisterRsFilter($query, $filter['rs_id'] ?? null);
 
         return $query
             ->when(! empty($filter['jenis_id']), fn ($q) => $q->where('detail_linen.detail_id_jenis', $filter['jenis_id']))
@@ -183,10 +190,47 @@ class ReportRegisterLinenController extends Controller
                 'detail_linen.detail_status_register',
                 'detail_linen.detail_created_at',
                 'jenis_linen.jenis_nama as jenis_nama',
-                'rs.rs_nama as rs_nama',
+                'pemilik_nama' => $pemilik,
                 'rs_holder.rs_nama as rs_holder_nama',
                 'ruangan.ruangan_nama as ruangan_nama',
                 'users.name as operator_nama',
             ]);
+    }
+
+    /**
+     * Filter RS: RS = pemegang (detail_id_rs) ATAU salah satu pemilik
+     * (EXISTS config_linen) — tanpa join supaya RFID tidak ganda.
+     * Tanpa rs_id: batasi ke RS milik user (admin/developer = semua).
+     */
+    private function applyRegisterRsFilter($query, mixed $rsId): void
+    {
+        $ownerExists = function ($q) use ($rsId) {
+            $q->select(DB::raw(1))->from('config_linen')
+                ->whereColumn('config_linen.detail_rfid', 'detail_linen.detail_rfid')
+                ->where('config_linen.rs_id', (int) $rsId);
+        };
+
+        if ($rsId !== null && $rsId !== '') {
+            User::ensureRsAccess((int) $rsId);
+            $query->where(function ($q) use ($rsId, $ownerExists) {
+                $q->where('detail_linen.detail_id_rs', (int) $rsId)
+                    ->orWhereExists($ownerExists);
+            });
+
+            return;
+        }
+
+        $ids = User::allowedRsIds();
+        if ($ids === null) {
+            return;
+        }
+        $query->where(function ($q) use ($ids) {
+            $q->whereIn('detail_linen.detail_id_rs', $ids)
+                ->orWhereExists(function ($e) use ($ids) {
+                    $e->select(DB::raw(1))->from('config_linen')
+                        ->whereColumn('config_linen.detail_rfid', 'detail_linen.detail_rfid')
+                        ->whereIn('config_linen.rs_id', $ids);
+                });
+        });
     }
 }

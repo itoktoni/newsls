@@ -76,7 +76,7 @@ class TransaksiApiController extends Controller
             $this->persistMaster($ctx, $statusTransaksi);
             $this->persistOutstanding($rows['outstanding'], $ctx['outstandingExisting'], $ctx['now'], $ctx['userId']);
             $this->refreshExistingOutstanding($ctx, $statusTransaksi, $statusProcess);
-            $this->markDetailsAsKotor($rows['toKotor'], $ctx['now']);
+            $this->markDetailsAsDirty($rows['toDirty'], $ctx['now']);
             $this->logTransactions($rows['transaksi'], $request, $ctx['details']->all());
 
             DB::commit();
@@ -141,8 +141,13 @@ class TransaksiApiController extends Controller
             'userId' => auth()->id() ?? $request->user()?->id,
             'details' => DetailLinen::whereIn('detail_rfid', $rfids)->get()->keyBy('detail_rfid'),
             'outstandingExisting' => Outstanding::whereIn('outstanding_rfid', $rfids)->get()->keyBy('outstanding_rfid'),
+            // ponytail: dedup harian = 1x sync scan (KOTOR/REJECT/REWASH) per
+            // RFID — baris status REGISTER dikecualikan karena itu jejak
+            // grouping (bukan hasil scan): scan kotor sesudah grouping di
+            // hari yang sama harus tetap tercatat sebagai transaksi baru.
             'todayExisting' => Transaksi::whereDate('transaksi_created_at', today())
                 ->whereIn('transaksi_rfid', $rfids)
+                ->where('transaksi_status', '!=', 'REGISTER')
                 ->pluck('transaksi_rfid')
                 ->flip()
                 ->all(),
@@ -157,7 +162,7 @@ class TransaksiApiController extends Controller
     {
         $transaksi = [];
         $outstanding = [];
-        $toKotor = [];
+        $toDirty = [];
 
         foreach ($ctx['rfids'] as $rfid) {
             $detail = $ctx['details'][$rfid] ?? null;
@@ -173,7 +178,7 @@ class TransaksiApiController extends Controller
             }
 
             if ($detail) {
-                $this->buildForRegistered($rfid, $detail, $out, $ctx, $statusTransaksi, $statusProcess, $transaksi, $outstanding, $toKotor);
+                $this->buildForRegistered($rfid, $detail, $out, $ctx, $statusTransaksi, $statusProcess, $transaksi, $outstanding, $toDirty);
             } else {
                 $this->buildForUnregistered($rfid, $out, $ctx, $statusTransaksi, $statusProcess, $transaksi, $outstanding);
             }
@@ -181,7 +186,7 @@ class TransaksiApiController extends Controller
 
         $transaksi = collect($transaksi)->unique('transaksi_rfid')->values()->all();
 
-        return compact('transaksi', 'outstanding', 'toKotor');
+        return compact('transaksi', 'outstanding', 'toDirty');
     }
 
     /**
@@ -208,7 +213,7 @@ class TransaksiApiController extends Controller
         return true;
     }
 
-    private function buildForRegistered(string $rfid, $detail, $out, array $ctx, string $statusTransaksi, string $statusProcess, array &$transaksi, array &$outstanding, array &$toKotor): void
+    private function buildForRegistered(string $rfid, $detail, $out, array $ctx, string $statusTransaksi, string $statusProcess, array &$transaksi, array &$outstanding, array &$toDirty): void
     {
         $bedaRs = $ctx['rsScan'] == $detail->detail_id_rs ? 'TIDAK' : 'YA';
 
@@ -247,9 +252,10 @@ class TransaksiApiController extends Controller
             ];
         }
 
-        if ($statusTransaksi === TransactionType::KOTOR) {
-            $toKotor[] = $rfid;
-        }
+        // andalan (TransaksiController): SEMUA linen yang lolos sync
+        // ditandai KOTOR — berlaku untuk scan kotor/retur/rewash, karena
+        // ketiganya berarti linen kembali kotor ke laundry.
+        $toDirty[] = $rfid;
     }
 
     private function buildForUnregistered(string $rfid, $out, array $ctx, string $statusTransaksi, string $statusProcess, array &$transaksi, array &$outstanding): void
@@ -411,12 +417,17 @@ class TransaksiApiController extends Controller
         }
     }
 
-    private function markDetailsAsKotor(array $toKotor, string $now): void
+    /**
+     * Tandai linen hasil scan sebagai KOTOR — untuk SEMUA tipe scan
+     * (kotor/retur/rewash), tiruan andalan yang meng-update seluruh RFID
+     * lolos sync ke KOTOR.
+     */
+    private function markDetailsAsDirty(array $toDirty, string $now): void
     {
-        if (empty($toKotor)) {
+        if (empty($toDirty)) {
             return;
         }
-        foreach (array_chunk(array_unique($toKotor), 2000) as $chunk) {
+        foreach (array_chunk(array_unique($toDirty), 2000) as $chunk) {
             DetailLinen::whereIn('detail_rfid', $chunk)->update([
                 'detail_updated_at' => $now,
                 'detail_status_linen' => 'KOTOR',

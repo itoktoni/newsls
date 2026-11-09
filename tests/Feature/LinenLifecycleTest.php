@@ -431,8 +431,11 @@ it('selesaikan siklus lengkap registrasi → ganti chip → grouping → packing
     // maupun transaksi baru.
     expect(Outstanding::whereIn('outstanding_rfid', $rfids)->count())->toBe(0);
     expect(Transaksi::where('transaksi_key', $kotorKeyDedup)->count())->toBe(0);
-    // Jumlah transaksi KOTOR hari ini tetap 3 (dari scan siklus kedua)
-    $todayCount = Transaksi::whereIn('transaksi_rfid', $rfids)->whereDate('transaksi_created_at', today())->count();
+    // Jumlah transaksi KOTOR hari ini tetap 3 (dari scan siklus kedua).
+    // Grouping stay-baru juga mencatat transaksi REGISTER di hari yang sama
+    // (aturan grouping: belum ada outstanding → insert outstanding + transaksi),
+    // jadi guard dedup ini dihitung dari yang KOTOR saja.
+    $todayCount = Transaksi::whereIn('transaksi_rfid', $rfids)->where('transaksi_status', 'KOTOR')->whereDate('transaksi_created_at', today())->count();
     expect($todayCount)->toBe(3);
 
     // Negative: packing RFID yang tidak ada di Outstanding harus ditolak

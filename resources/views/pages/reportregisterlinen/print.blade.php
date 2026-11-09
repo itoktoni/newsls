@@ -66,7 +66,7 @@
                 <td>{{ $table->detail_rfid }}</td>
                 <td>{{ $table->detail_no_register ?? '-' }}</td>
                 <td>{{ $table->jenis_nama ?? '-' }}</td>
-                <td>{{ $table->rs_nama ?? $table->rs_holder_nama ?? '-' }}</td>
+                <td>{{ $table->pemilik_nama ?? $table->rs_holder_nama ?? '-' }}</td>
                 <td>{{ $table->ruangan_nama ?? '-' }}</td>
                 <td>{{ $table->detail_status_cuci ?? '-' }}</td>
                 <td>{{ $table->detail_status_register ?? '-' }}</td>

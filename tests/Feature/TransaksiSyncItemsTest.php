@@ -105,4 +105,7 @@ it('retur memakai status REJECT di items', function () {
     expect($res->json('data.0.status_transaksi'))->toBe('REJECT')
         ->and($res->json('data.0.status_sync'))->toBe(1)
         ->and(collect($res->json('data'))->where('status_sync', 1)->count())->toBe(1);
+
+    // andalan: linen lolos scan retur ditandai KOTOR (sama seperti kotor/rewash).
+    expect(DetailLinen::where('detail_rfid', $this->rfidA)->value('detail_status_linen'))->toBe('KOTOR');
 });

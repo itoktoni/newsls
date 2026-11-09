@@ -58,6 +58,8 @@ return new class extends Migration
                 $table->dateTime('outstanding_hilang_created_at')->nullable();
                 $table->dateTime('outstanding_hilang_updated_at')->nullable();
                 $table->integer('outstanding_id_warehouse')->nullable();
+                $table->string('transaksi_grouping')->nullable();
+                $table->date('transaksi_grouping_date')->nullable();
             });
         }
 
