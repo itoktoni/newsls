@@ -22,7 +22,10 @@
     @endif
     @foreach($sectionItems as $item)
         @php
-            $routeName = $item['route'];
+            // Link Dashboard diarahkan langsung ke dashboard sesuai role
+            // (dashboard.admin/rs/laundry), bukan ke route /dashboard yang
+            // hanya me-redirect (302) sehingga klik wire:navigate terasa mati.
+            $routeName = $item['route'] === 'dashboard' ? dashboardHomeRoute() : $item['route'];
             $url = route($routeName);
             $matchRoutes = $item['match'] ?? [];
             $isActive = request()->routeIs($routeName)

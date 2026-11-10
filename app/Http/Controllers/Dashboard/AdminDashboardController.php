@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Charts\DashboardChart;
+use App\Concerns\ResolvesDashboardRole;
 use App\Enums\LinenStatusEnum;
-use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\JenisLinen;
@@ -21,9 +21,11 @@ use Illuminate\View\View;
 
 class AdminDashboardController extends Controller
 {
+    use ResolvesDashboardRole;
+
     public function __invoke(Request $request, DashboardChart $chart): RedirectResponse|View
     {
-        if (! in_array($request->user()?->role, [RoleEnum::ADMIN, RoleEnum::DEVELOPER], true)) {
+        if (static::defaultDashboardRoute($request->user()?->role) !== 'dashboard.admin') {
             flash()->info('Halaman dashboard tidak sesuai peran Anda — dialihkan ke dashboard default.');
 
             return redirect()->route('dashboard');

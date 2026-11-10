@@ -143,7 +143,7 @@
                 <button type="submit" class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity">
                     Save Settings
                 </button>
-                <a href="{{ route('dashboard') }}" wire:navigate class="text-sm text-on-surface-variant hover:text-on-surface">
+                <a href="{{ dashboardHomeUrl() }}" wire:navigate class="text-sm text-on-surface-variant hover:text-on-surface">
                     Cancel
                 </a>
             </div>

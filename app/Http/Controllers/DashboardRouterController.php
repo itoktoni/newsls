@@ -11,6 +11,6 @@ class DashboardRouterController extends Controller
 
     public function __invoke(): RedirectResponse
     {
-        return redirect()->route($this->defaultDashboardRoute(auth()->user()?->role));
+        return redirect()->route(static::defaultDashboardRoute(auth()->user()?->role));
     }
 }

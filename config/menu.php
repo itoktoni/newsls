@@ -18,7 +18,7 @@ return [
         [
             'label' => null,
             'items' => [
-                ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Dashboard'],
+                ['route' => 'dashboard', 'icon' => 'home', 'label' => 'Dashboard', 'match' => ['dashboard', 'dashboard.*']],
             ],
         ],
         [

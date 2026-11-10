@@ -84,4 +84,17 @@ return [
     ],
 
     'footer_text' => env('WEBSITE_FOOTER_TEXT', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend Publik (CMS)
+    |--------------------------------------------------------------------------
+    |
+    | Jika true, halaman depan publik (/) dimatikan dan dialihkan ke login.
+    | Dipakai juga oleh layout header: logo mengarah ke dashboard sesuai role
+    | saat frontend mati, atau ke base URL (APP_URL) saat frontend hidup.
+    |
+    */
+
+    'frontend_disabled' => env('DISABLE_FRONTEND', false),
 ];

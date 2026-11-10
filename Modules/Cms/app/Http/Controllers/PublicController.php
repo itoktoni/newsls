@@ -30,7 +30,7 @@ class PublicController extends Controller
 
     public function index()
     {
-        if (env('DISABLE_FRONTEND', false)) {
+        if (config('website.frontend_disabled', false)) {
             return redirect()->route('login');
         }
 

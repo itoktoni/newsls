@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Charts\DashboardChart;
+use App\Concerns\ResolvesDashboardRole;
 use App\Enums\LinenStatusEnum;
-use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
@@ -18,9 +18,11 @@ use Illuminate\View\View;
 
 class LaundryDashboardController extends Controller
 {
+    use ResolvesDashboardRole;
+
     public function __invoke(Request $request, DashboardChart $chart): RedirectResponse|View
     {
-        if ($request->user()?->role !== RoleEnum::LAUNDRY) {
+        if (static::defaultDashboardRoute($request->user()?->role) !== 'dashboard.laundry') {
             flash()->info('Halaman dashboard tidak sesuai peran Anda — dialihkan ke dashboard default.');
 
             return redirect()->route('dashboard');

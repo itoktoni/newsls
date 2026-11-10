@@ -7,7 +7,14 @@
         <button type="button" class="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-surface-container transition-colors md:inline-flex" aria-label="Toggle sidebar" @click="sidebarOpen = !sidebarOpen">
             <span class="material-symbols-outlined text-[22px] text-on-surface-variant">menu</span>
         </button>
-        <a href="{{ url('/') }}" class="min-w-0 truncate font-headline-md text-headline-md font-bold text-primary" wire:navigate>
+        @php
+            // Frontend publik mati (DISABLE_FRONTEND=true, mis. artssims.com):
+            // logo mengarah ke dashboard sesuai role (SPA, wire:navigate aman).
+            // Frontend hidup: logo ke base URL (APP_URL) sebagai navigasi penuh
+            // karena halaman CMS publik bukan halaman Livewire.
+            $brandUrl = config('website.frontend_disabled') ? dashboardHomeUrl() : url('/');
+        @endphp
+        <a href="{{ $brandUrl }}" @if(config('website.frontend_disabled')) wire:navigate @endif class="min-w-0 truncate font-headline-md text-headline-md font-bold text-primary">
             {{ config('website.name', config('app.name', 'Laravel')) }}
         </a>
     </div>

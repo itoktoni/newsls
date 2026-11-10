@@ -538,6 +538,32 @@ function renderFieldInput($fName, $fType, $fValue, $fieldName, $fLabel, $fieldDe
 }
 
 /**
+ * Nama route dashboard sesuai role user yang login.
+ *
+ * Single source of truth tetap App\Concerns\ResolvesDashboardRole
+ * (dipakai DashboardRouterController) — helper ini hanya delegasi
+ * agar Blade tidak perlu menduplikasi mapping role.
+ */
+function dashboardHomeRoute(): string
+{
+    return \App\Http\Controllers\DashboardRouterController::defaultDashboardRoute(auth()->user()?->role);
+}
+
+/**
+ * URL dashboard sesuai role user yang login.
+ *
+ * Dipakai link sidebar / bottom-nav / breadcrumb "Dashboard|Home" agar
+ * langsung menuju halaman akhir (dashboard.admin/rs/laundry atau report
+ * untuk role user), bukan ke route /dashboard yang hanya me-redirect
+ * (302). Link ke route redirect + wire:navigate terlihat "tidak bisa
+ * diklik" karena navigasi SPA tidak menyelesaikan redirect tersebut.
+ */
+function dashboardHomeUrl(): string
+{
+    return route(dashboardHomeRoute());
+}
+
+/**
  * Flash a toast message to the session for the next request.
  *
  * Supports both simple form:

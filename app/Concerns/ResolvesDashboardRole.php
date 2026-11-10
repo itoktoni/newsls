@@ -6,7 +6,7 @@ use App\Enums\RoleEnum;
 
 trait ResolvesDashboardRole
 {
-    public function defaultDashboardRoute(?string $role): string
+    public static function defaultDashboardRoute(?string $role): string
     {
         return match ($role) {
             RoleEnum::ADMIN, RoleEnum::DEVELOPER => 'dashboard.admin',

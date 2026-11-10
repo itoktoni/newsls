@@ -47,7 +47,7 @@ it('maps roles to default dashboard route names', function () {
         ->and($r->defaultDashboardRoute(RoleEnum::DEVELOPER))->toBe('dashboard.admin')
         ->and($r->defaultDashboardRoute(RoleEnum::RS))->toBe('dashboard.rs')
         ->and($r->defaultDashboardRoute(RoleEnum::LAUNDRY))->toBe('dashboard.laundry')
-        ->and($r->defaultDashboardRoute(RoleEnum::USER))->toBe('dashboard.laundry')
+        ->and($r->defaultDashboardRoute(RoleEnum::USER))->toBe('report-rekap-kotor.getTable')
         ->and($r->defaultDashboardRoute(RoleEnum::EDITOR))->toBe('dashboard.laundry')
         ->and($r->defaultDashboardRoute(null))->toBe('dashboard.laundry')
         ->and($r->defaultDashboardRoute('gak-ada'))->toBe('dashboard.laundry');
@@ -86,7 +86,7 @@ it('routes each role default dashboard to matching content', function () {
 
 it('falls back legacy and unknown roles to laundry dashboard', function () {
     $this->actingAs($this->legacy)->get('/dashboard')
-        ->assertRedirect(route('dashboard.laundry'));
+        ->assertRedirect(route('report-rekap-kotor.getTable'));
 
     $user = User::create([
         'name' => 'X', 'email' => 'x@example.com',
@@ -118,6 +118,18 @@ it('allows direct path for matching role', function () {
     $this->actingAs($this->rsUser)->get('/dashboard/rs')
         ->assertOk()->assertSee('Dashboard Rumah Sakit', false);
     $this->actingAs($this->laundry)->get('/dashboard/laundry')
+        ->assertOk()->assertSee('Dashboard Petugas Laundry', false);
+});
+
+it('does not redirect-loop editor role on laundry dashboard', function () {
+    $editor = User::create([
+        'name' => 'E', 'email' => 'e@example.com',
+        'password' => Hash::make('password123'), 'role' => 'editor',
+        'verified_at' => now(), 'email_verified_at' => now(),
+    ]);
+    $this->actingAs($editor)->get('/dashboard')
+        ->assertRedirect(route('dashboard.laundry'));
+    $this->actingAs($editor)->get('/dashboard/laundry')
         ->assertOk()->assertSee('Dashboard Petugas Laundry', false);
 });
 

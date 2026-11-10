@@ -6,9 +6,11 @@
     <div class="flex items-center justify-around h-16 px-2">
         @foreach($bottomNav as $index => $item)
             @php
-                $routeName = $item['route'];
+                // Sama seperti sidebar: Dashboard langsung ke halaman akhir sesuai role.
+                $routeName = $item['route'] === 'dashboard' ? dashboardHomeRoute() : $item['route'];
                 $url = route($routeName);
-                $isActive = request()->routeIs($routeName) || request()->routeIs($routeName . '.*');
+                $isActive = request()->routeIs($routeName) || request()->routeIs($routeName . '.*')
+                    || ($item['route'] === 'dashboard' && request()->routeIs('dashboard*'));
                 $isCenter = $index === 2;
             @endphp
 

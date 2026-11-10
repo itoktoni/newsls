@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Concerns\ResolvesDashboardRole;
 use App\Enums\LinenStatusEnum;
-use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
@@ -16,9 +16,11 @@ use Illuminate\View\View;
 
 class RsDashboardController extends Controller
 {
+    use ResolvesDashboardRole;
+
     public function __invoke(Request $request): RedirectResponse|View
     {
-        if ($request->user()?->role !== RoleEnum::RS) {
+        if (static::defaultDashboardRoute($request->user()?->role) !== 'dashboard.rs') {
             flash()->info('Halaman dashboard tidak sesuai peran Anda — dialihkan ke dashboard default.');
 
             return redirect()->route('dashboard');
