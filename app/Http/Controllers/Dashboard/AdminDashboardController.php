@@ -32,8 +32,10 @@ class AdminDashboardController extends Controller
         }
 
         $scope = DashboardCache::userScope();
+        $rsId = $request->integer('rs_id') ?: null;
+        $rsOptions = Rs::orderBy('rs_nama')->pluck('rs_nama', 'rs_id')->all();
 
-        $payload = DashboardCache::remember($scope, 'admin:stats:v3', function () {
+        $payload = DashboardCache::remember($scope, 'admin:stats:v3:rs-'.($rsId ?? 'all'), function () use ($rsId) {
             $gudangId = Warehouse::utamaId();
 
             $kotorBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR);
@@ -42,7 +44,9 @@ class AdminDashboardController extends Controller
             $kpi = [
                 'register' => DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER)->count(),
                 'kotor' => (clone $kotorBase)->count(),
-                'pending' => Outstanding::whereNotNull('outstanding_pending_created_at')->count(),
+                'total_register' => $rsId
+                    ? \App\Models\ConfigLinen::where('rs_id', $rsId)->count()
+                    : DetailLinen::count(),
                 'bersih' => (clone $bersihBase)->count(),
                 'outstanding' => Outstanding::count(),
                 'warehouse' => Outstanding::where('outstanding_status_proses', 'GUDANG')
@@ -100,6 +104,8 @@ class AdminDashboardController extends Controller
         return view('dashboard.admin', [
             'title' => 'Dashboard Admin',
             'kpi' => $payload['kpi'],
+            'rsId' => $rsId,
+            'rsOptions' => $rsOptions,
             'sebaran' => collect($payload['sebaran']),
             'health' => $payload['health'],
             'opname' => $payload['opname'],

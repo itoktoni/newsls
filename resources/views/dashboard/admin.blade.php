@@ -1,5 +1,7 @@
 <?php
 /** @var array $kpi */
+/** @var int|null $rsId */
+/** @var array $rsOptions */
 /** @var \Illuminate\Support\Collection $sebaran */
 /** @var array $health */
 /** @var array $opname */
@@ -22,12 +24,22 @@ $badgeClass = fn (string $level) => match ($level) {
         ]" />
 
         <div>
+        <div class="flex items-center justify-between flex-wrap gap-2 pb-4">
             <p class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest mb-2">KPI Global</p>
+            <form method="GET" action="{{ route('dashboard.admin') }}" class="flex items-center gap-2">
+                <select name="rs_id" onchange="this.form.submit()" class="text-sm border border-outline-variant rounded-lg px-3 py-1.5 bg-surface">
+                    <option value="">Semua RS</option>
+                    @foreach ($rsOptions as $id => $nama)
+                        <option value="{{ $id }}" @selected((int) ($rsId ?? 0) === (int) $id)>{{ $nama }}</option>
+                    @endforeach
+                </select>
+            </form>
+        </div>
             <x-stat-widget :items="[
                 ['value' => number_format($kpi['kotor']), 'label' => 'Kotor', 'icon_name' => 'local_laundry_service', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning', 'badge' => formatQty($kpi['kotor_kg'] ?? 0).' kg'],
                 ['value' => number_format($kpi['warehouse']), 'label' => 'Gudang', 'icon_name' => 'warehouse', 'bg_color' => 'bg-warning/10', 'icon_color' => 'text-warning'],
                 ['value' => number_format($kpi['bersih']), 'label' => 'Bersih', 'icon_name' => 'task_alt', 'bg_color' => 'bg-success/10', 'icon_color' => 'text-success', 'badge' => formatQty($kpi['bersih_kg'] ?? 0).' kg'],
-                ['value' => number_format($kpi['pending']), 'label' => 'Pending', 'icon_name' => 'pending_actions', 'bg_color' => 'bg-info/10', 'icon_color' => 'text-info'],
+                ['value' => number_format($kpi['total_register']), 'label' => 'Total Register' . ($rsId ? ' (RS)' : ''), 'icon_name' => 'app_registration', 'bg_color' => 'bg-info/10', 'icon_color' => 'text-info'],
             ]" />
         </div>
 
