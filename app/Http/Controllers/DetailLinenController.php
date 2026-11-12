@@ -180,18 +180,93 @@ class DetailLinenController extends Controller
 
     public function getDelete(GeneralRequest $request, $id)
     {
-        ConfigLinen::clearRfid($id);
+        $id = trim((string) $id);
+        $payload = DB::transaction(function () use ($id) {
+            $this->model->findOrFail($id);
+            $this->clearRfidChildren($id);
+            $this->model->findOrFail($id)->delete();
+            \App\Support\DashboardCache::flush();
 
-        return $this->traitGetDelete($request, $id);
+            return ['code' => 200, 'status' => true, 'message' => TOAST_SUCCESS, 'data' => ['id' => $id]];
+        });
+
+        return $this->response($payload, null, 'delete');
     }
 
     public function postDelete(GeneralRequest $request)
     {
-        foreach ((array) $request->input('ids', []) as $rfid) {
-            ConfigLinen::clearRfid($rfid);
+        $ids = array_values(array_unique(array_filter(array_map(
+            fn ($v) => trim((string) $v),
+            (array) $request->input('ids', [])
+        ))));
+
+        if ($ids === []) {
+            return $this->response(['code' => 422, 'status' => false, 'message' => TOAST_FAILED, 'data' => 'Tidak ada RFID yang dipilih.'], null, 'delete');
         }
 
-        return $this->traitPostDelete($request);
+        $payload = DB::transaction(function () use ($ids) {
+            foreach ($ids as $rfid) {
+                if (! $this->model->where($this->model->getKeyName(), $rfid)->exists()) {
+                    continue;
+                }
+                $this->clearRfidChildren($rfid);
+                $this->model->where($this->model->getKeyName(), $rfid)->first()?->delete();
+            }
+            \App\Support\DashboardCache::flush();
+
+            return ['code' => 200, 'status' => true, 'message' => TOAST_SUCCESS, 'data' => $ids];
+        });
+
+        return $this->response($payload, null, 'delete');
+    }
+
+    /**
+     * ponytail: hapus SEMUA baris anak yang menyimpan RFID sebelum master
+     * detail_linen dihapus. Tanpa ini, DB produksi yang punya FK restrict
+     * (legacy, dibuat manual di luar migrasi repo) menolak DELETE master
+     * dengan 1451 Cannot delete parent row — tombol hapus terlihat
+     * "tidak terhapus" (redirect back + flash error, baris tetap ada).
+     * Urutan: anak dulu, master terakhir, dalam satu transaksi.
+     *
+     * Cakupan (semua tabel ber-RFID):
+     * - config_linen.detail_rfid (master kepemilikan)
+     * - outstanding.outstanding_rfid (stok laundry)
+     * - pending.pending_rfid (antrean nyangkut)
+     * - bersih.bersih_rfid (packing/delivery)
+     * - transaksi.transaksi_rfid (history kotor/retur/rewash)
+     * - opname_detail.opname_detail_rfid (hasil stock opname)
+     * - ganti_chip.ganti_rfid_lama / ganti_rfid_baru (riwayat ganti chip)
+     *
+     * activity_log SENGAJA tidak dihapus (audit trail; event deleted
+     * justru harus tersisa sebagai bukti, lihat DetailLinenActivityLogTest).
+     * Tabel cetak hanya registry kode tanpa kolom RFID — tidak ikut.
+     */
+    private function clearRfidChildren(string $rfid): void
+    {
+        if (Schema::hasTable('config_linen')) {
+            DB::table('config_linen')->where('detail_rfid', $rfid)->delete();
+        }
+        if (Schema::hasTable('outstanding')) {
+            DB::table('outstanding')->where('outstanding_rfid', $rfid)->delete();
+        }
+        if (Schema::hasTable('pending')) {
+            DB::table('pending')->where('pending_rfid', $rfid)->delete();
+        }
+        if (Schema::hasTable('bersih')) {
+            DB::table('bersih')->where('bersih_rfid', $rfid)->delete();
+        }
+        if (Schema::hasTable('transaksi')) {
+            DB::table('transaksi')->where('transaksi_rfid', $rfid)->delete();
+        }
+        if (Schema::hasTable('opname_detail')) {
+            DB::table('opname_detail')->where('opname_detail_rfid', $rfid)->delete();
+        }
+        if (Schema::hasTable('ganti_chip')) {
+            DB::table('ganti_chip')
+                ->where('ganti_rfid_lama', $rfid)
+                ->orWhere('ganti_rfid_baru', $rfid)
+                ->delete();
+        }
     }
 
     /**
