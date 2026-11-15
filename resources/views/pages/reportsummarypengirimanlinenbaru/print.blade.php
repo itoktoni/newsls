@@ -45,13 +45,16 @@
 
 <div class="table-responsive" id="table_data">
     <table class="data">
+        @php($showBerat = config('laundry.berat_kalkulasi', true))
         <thead>
             <tr>
                 <th width="1">No.</th>
                 <th>NO. DO</th>
                 <th>RUMAH SAKIT</th>
                 <th class="num">TOTAL</th>
+                @if($showBerat)
                 <th class="num">BERAT (KG)</th>
+                @endif
                 <th>TANGGAL DO</th>
                 <th>OPERATOR</th>
             </tr>
@@ -63,21 +66,31 @@
                 <td>{{ $table['do'] }}</td>
                 <td>{{ $table['rs'] }}</td>
                 <td class="num"><b>{{ $table['total'] }}</b></td>
+                @if($showBerat)
                 <td class="num"><b>{{ formatQty($table['kg'] ?? 0) }}</b></td>
+                @endif
                 <td>{{ $table['tanggal'] }}</td>
                 <td>{{ $table['operator'] }}</td>
             </tr>
             @empty
-            <tr><td colspan="7" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="{{ $showBerat ? 7 : 6 }}" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
         <tfoot>
+            @if($showBerat)
             <tr>
                 <th colspan="3" style="text-align:right;">Total:</th>
                 <th class="num">{{ array_sum(array_column($data, 'total')) }}</th>
                 <th class="num">{{ formatQty(array_sum(array_column($data, 'kg'))) }}</th>
                 <th colspan="2"></th>
             </tr>
+            @else
+            <tr>
+                <th colspan="3" style="text-align:right;">Total:</th>
+                <th class="num">{{ array_sum(array_column($data, 'total')) }}</th>
+                <th colspan="2"></th>
+            </tr>
+            @endif
         </tfoot>
     </table>
 </div>

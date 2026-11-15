@@ -15,10 +15,11 @@
     </tr>
 </table>
 <br>
+@php($showBerat = config('laundry.berat_kalkulasi', true))
 <table border="1">
-    <tr><th colspan="4">RINGKASAN BERAT TIMBANGAN ({{ $berat['n_transaksi'] ?? 0 }} transaksi, ditimbang: {{ $berat['n_timbang'] ?? 0 }})</th></tr>
-    <tr><th>Kotor Timbangan (Kg)</th><th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th></tr>
-    <tr><td>{{ ($berat['kotor'] ?? null) !== null ? $berat['kotor'] : 'belum ditimbang' }}</td><td>{{ $berat['bersih'] ?? 0 }}</td><td>{{ ($berat['selisih'] ?? null) !== null ? $berat['selisih'] : '-' }}</td><td>{{ $berat['n_transaksi'] ?? 0 }}</td></tr>
+    <tr><th colspan="{{ $showBerat ? 4 : 1 }}">RINGKASAN BERAT TIMBANGAN ({{ $berat['n_transaksi'] ?? 0 }} transaksi, ditimbang: {{ $berat['n_timbang'] ?? 0 }})</th></tr>
+    <tr><th>Kotor Timbangan (Kg)</th>@if($showBerat)<th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th>@endif</tr>
+    <tr><td>{{ ($berat['kotor'] ?? null) !== null ? $berat['kotor'] : 'belum ditimbang' }}</td>@if($showBerat)<td>{{ $berat['bersih'] ?? 0 }}</td><td>{{ ($berat['selisih'] ?? null) !== null ? $berat['selisih'] : '-' }}</td><td>{{ $berat['n_transaksi'] ?? 0 }}</td>@endif</tr>
 </table>
 <br>
 <table border="1">
@@ -30,7 +31,9 @@
             <th>{{ $locName }}</th>
             @endforeach
             <th>Total Rewash (Pcs)</th>
+            @if($showBerat)
             <th>(Kg) Rewash</th>
+            @endif
         </tr>
     </thead>
     <tbody>
@@ -42,10 +45,12 @@
             <td>{{ $matrix[$jenisKey][$locKey] ?? 0 }}</td>
             @endforeach
             <td>{{ $rowTotal[$jenisKey] ?? 0 }}</td>
+            @if($showBerat)
             <td>{{ $rowKg[$jenisKey] ?? 0 }}</td>
+            @endif
         </tr>
         @empty
-        <tr><td colspan="{{ count($locations) + 4 }}">Tidak ada data.</td></tr>
+        <tr><td colspan="{{ count($locations) + ($showBerat ? 4 : 3) }}">Tidak ada data.</td></tr>
         @endforelse
     </tbody>
     <tfoot>
@@ -55,7 +60,9 @@
             <th>{{ $colTotal[$locKey] ?? 0 }}</th>
             @endforeach
             <th>{{ $grandQty }}</th>
+            @if($showBerat)
             <th>{{ $grandKg }}</th>
+            @endif
         </tr>
     </tfoot>
 </table>

@@ -42,20 +42,25 @@
     </tr>
 </table>
 
+@php($showBerat = config('laundry.berat_kalkulasi', true))
 <table class="data" style="margin-bottom:10px;">
     <thead>
-        <tr><th colspan="4" style="text-align:left;">RINGKASAN BERAT TIMBANGAN ({{ $berat['n_transaksi'] ?? 0 }} transaksi, ditimbang: {{ $berat['n_timbang'] ?? 0 }})</th></tr>
-        <tr><th>Kotor Timbangan (Kg)</th><th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th></tr>
+        <tr><th colspan="{{ $showBerat ? 4 : 1 }}" style="text-align:left;">RINGKASAN BERAT TIMBANGAN ({{ $berat['n_transaksi'] ?? 0 }} transaksi, ditimbang: {{ $berat['n_timbang'] ?? 0 }})</th></tr>
+        <tr><th>Kotor Timbangan (Kg)</th>@if($showBerat)<th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th>@endif</tr>
     </thead>
     <tbody>
         <tr>
             <td class="num">{{ ($berat['kotor'] ?? null) !== null ? formatQty($berat['kotor']) : 'belum ditimbang' }}</td>
+            @if($showBerat)
             <td class="num">{{ formatQty($berat['bersih'] ?? 0) }}</td>
             <td class="num">{{ ($berat['selisih'] ?? null) !== null ? formatQty($berat['selisih']) : '-' }}</td>
             <td class="num">{{ $berat['n_transaksi'] ?? 0 }}</td>
+            @endif
         </tr>
     </tbody>
 </table>
+
+<br>
 
 <br>
 
@@ -69,7 +74,9 @@
                 <th>{{ $locName }}</th>
                 @endforeach
                 <th class="num">Total Rewash (Pcs)</th>
+                @if($showBerat)
                 <th class="num">(Kg) Rewash</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -81,10 +88,12 @@
                 <td class="num">{{ $matrix[$jenisKey][$locKey] ?? 0 }}</td>
                 @endforeach
                 <td class="num"><b>{{ $rowTotal[$jenisKey] ?? 0 }}</b></td>
+                @if($showBerat)
                 <td class="num"><b>{{ formatQty($rowKg[$jenisKey] ?? 0) }}</b></td>
+                @endif
             </tr>
             @empty
-            <tr><td colspan="{{ count($locations) + 4 }}" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="{{ count($locations) + ($showBerat ? 4 : 3) }}" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
         <tfoot>
@@ -94,7 +103,9 @@
                 <th class="num">{{ $colTotal[$locKey] ?? 0 }}</th>
                 @endforeach
                 <th class="num">{{ $grandQty }}</th>
+                @if($showBerat)
                 <th class="num">{{ formatQty($grandKg) }}</th>
+                @endif
             </tr>
         </tfoot>
     </table>

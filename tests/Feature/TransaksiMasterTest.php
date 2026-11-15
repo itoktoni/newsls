@@ -120,6 +120,7 @@ it('web transaksi master list dan show', function () {
 });
 
 it('report selisih berat dan rekap kotor memuat ringkasan berat', function () {
+    config()->set('laundry.berat_kalkulasi', true);
     $uniq = strtoupper(uniqid());
     $keys = ["TMSEL-A-{$uniq}", "TMSEL-B-{$uniq}"];
 
@@ -229,6 +230,7 @@ it('dashboard admin laundry rs menampilkan bobot kg', function () {
 });
 
 it('report summary pengiriman memuat berat per DO', function () {
+    config()->set('laundry.berat_kalkulasi', true);
     $rfids = ['TMSEL-B1', 'TMSEL-B2'];
     foreach ($rfids as $rfid) {
         DetailLinen::updateOrCreate(['detail_rfid' => $rfid], [

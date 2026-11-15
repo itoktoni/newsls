@@ -15,10 +15,11 @@
     </tr>
 </table>
 <br>
+@php($showBerat = config('laundry.berat_kalkulasi', true))
 <table border="1">
-    <tr><th colspan="4">RINGKASAN ({{ $total['n_transaksi'] }} transaksi, ditimbang: {{ $total['n_timbang'] }})</th></tr>
-    <tr><th>Kotor Timbangan (Kg)</th><th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th></tr>
-    <tr><td>{{ $total['kotor'] ?? 'belum ditimbang' }}</td><td>{{ $total['bersih'] }}</td><td>{{ $total['selisih'] ?? '-' }}</td><td>{{ $total['n_transaksi'] }}</td></tr>
+    <tr><th colspan="{{ $showBerat ? 4 : 1 }}">RINGKASAN ({{ $total['n_transaksi'] }} transaksi, ditimbang: {{ $total['n_timbang'] }})</th></tr>
+    <tr><th>Kotor Timbangan (Kg)</th>@if($showBerat)<th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th>@endif</tr>
+    <tr><td>{{ $total['kotor'] ?? 'belum ditimbang' }}</td>@if($showBerat)<td>{{ $total['bersih'] }}</td><td>{{ $total['selisih'] ?? '-' }}</td><td>{{ $total['n_transaksi'] }}</td>@endif</tr>
 </table>
 <br>
 <table border="1">
@@ -32,8 +33,10 @@
             <th>Status</th>
             <th>N RFID</th>
             <th>Kotor (Kg)</th>
+            @if($showBerat)
             <th>Bersih (Kg)</th>
             <th>Selisih (Kg)</th>
+            @endif
         </tr>
     </thead>
     <tbody>
@@ -47,11 +50,13 @@
             <td>{{ $row->master_status }}</td>
             <td>{{ $row->n_rfid }}</td>
             <td>{{ $row->master_qty ?? 'belum ditimbang' }}</td>
+            @if($showBerat)
             <td>{{ $row->bersih ?? 0 }}</td>
             <td>{{ $row->selisih ?? '-' }}</td>
+            @endif
         </tr>
         @empty
-        <tr><td colspan="10">Tidak ada data.</td></tr>
+        <tr><td colspan="{{ $showBerat ? 10 : 8 }}">Tidak ada data.</td></tr>
         @endforelse
     </tbody>
     <tfoot>
@@ -59,8 +64,10 @@
             <th colspan="6">Total:</th>
             <th>{{ $data->sum('n_rfid') }}</th>
             <th>{{ $total['kotor'] ?? '-' }}</th>
+            @if($showBerat)
             <th>{{ $total['bersih'] }}</th>
             <th>{{ $total['selisih'] ?? '-' }}</th>
+            @endif
         </tr>
     </tfoot>
 </table>

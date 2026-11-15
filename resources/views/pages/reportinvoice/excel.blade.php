@@ -23,6 +23,7 @@
 </table>
 <br>
 <table border="1">
+    @php($showBerat = config('laundry.berat_kalkulasi', true))
     <thead>
         <tr>
             <th>No.</th>
@@ -32,9 +33,13 @@
             @endforeach
             <th>Type</th>
             <th>Harga</th>
+            @if($showBerat)
             <th>Berat (KG)</th>
+            @endif
             <th>QTY</th>
+            @if($showBerat)
             <th>Total Estimasi (Kg)</th>
+            @endif
             <th>Total (Rupiah)</th>
         </tr>
     </thead>
@@ -48,13 +53,17 @@
             @endforeach
             <td>{{ $cuci[$jenisKey] ?? '-' }}</td>
             <td>{{ $harga }}</td>
+            @if($showBerat)
             <td>{{ $berat[$jenisKey] ?? 0 }}</td>
+            @endif
             <td>{{ $rowQty[$jenisKey] ?? 0 }}</td>
+            @if($showBerat)
             <td>{{ $rowKg[$jenisKey] ?? 0 }}</td>
+            @endif
             <td>{{ round($rowRp[$jenisKey] ?? 0) }}</td>
         </tr>
         @empty
-        <tr><td colspan="{{ count($dates) + 8 }}">Tidak ada data.</td></tr>
+        <tr><td colspan="{{ $showBerat ? count($dates) + 8 : count($dates) + 6 }}">Tidak ada data.</td></tr>
         @endforelse
         <tr>
             <td>-</td>
@@ -64,23 +73,31 @@
             @endforeach
             <td>-</td>
             <td>{{ $harga }}</td>
+            @if($showBerat)
             <td>-</td>
+            @endif
             <td>-</td>
+            @if($showBerat)
             <td>{{ $timbangan ?? 'belum ditimbang' }}</td>
+            @endif
             <td>{{ $rpTimbangan !== null ? round($rpTimbangan) : '-' }}</td>
         </tr>
     </tbody>
     <tfoot>
         <tr>
-            <th colspan="{{ count($dates) + 5 }}">TOTAL ESTIMASI</th>
+            <th colspan="{{ $showBerat ? count($dates) + 5 : count($dates) + 4 }}">TOTAL ESTIMASI</th>
             <th>{{ $sumQty }}</th>
+            @if($showBerat)
             <th>{{ $sumKg }}</th>
+            @endif
             <th>{{ round($sumRp) }}</th>
         </tr>
         <tr>
-            <th colspan="{{ count($dates) + 5 }}">TOTAL TIMBANGAN (master_qty)</th>
+            <th colspan="{{ $showBerat ? count($dates) + 5 : count($dates) + 4 }}">TOTAL TIMBANGAN (master_qty)</th>
             <th>-</th>
+            @if($showBerat)
             <th>{{ $timbangan ?? 'belum ditimbang' }}</th>
+            @endif
             <th>{{ $rpTimbangan !== null ? round($rpTimbangan) : '-' }}</th>
         </tr>
     </tfoot>

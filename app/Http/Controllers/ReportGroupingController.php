@@ -82,7 +82,9 @@ class ReportGroupingController extends Controller
 
         $filename = static::FILE_PREFIX.'-'.now()->format('Ymd-His').'.xls';
 
-        return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode, $title) {
+        $showBerat = config('laundry.berat_kalkulasi', true);
+
+        return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode, $title, $showBerat) {
             echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
             echo '<head><meta charset="UTF-8"></head><body>';
             echo '<table><tr><td colspan="12"><b>'.e($title).'</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode Grouping : '.e($periode).'</b></td>';
@@ -92,7 +94,7 @@ class ReportGroupingController extends Controller
             }
             echo '</td></tr></table><br>';
             echo '<table border="1"><thead><tr>'
-                .'<th>No.</th><th>NO. TRANSAKSI</th><th>NO. RFID</th><th>LINEN</th><th>BERAT (KG)</th>'
+                .'<th>No.</th><th>NO. TRANSAKSI</th><th>NO. RFID</th><th>LINEN</th>'.($showBerat ? '<th>BERAT (KG)</th>' : '')
                 .'<th>RUMAH SAKIT</th><th>RUANGAN</th><th>LOKASI SCAN</th><th>CUCI/RENTAL</th>'
                 .'<th>JUMLAH PEMAKAIAN</th><th>TGL PENERIMAAN</th><th>TGL GROUPING</th><th>TGL REGISTER</th><th>OPERATOR</th>'
                 .'</tr></thead><tbody>';
@@ -101,7 +103,7 @@ class ReportGroupingController extends Controller
             $totalKg = 0.0;
             $this->groupingBaseQuery($validated)
                 ->orderBy('transaksi.transaksi_id')
-                ->chunk(1000, function ($rows) use (&$no, &$totalKg) {
+                ->chunk(1000, function ($rows) use (&$no, &$totalKg, $showBerat) {
                     foreach ($rows as $table) {
                         $no++;
                         $totalKg += (float) ($table->jenis_berat ?? 0);
@@ -109,7 +111,7 @@ class ReportGroupingController extends Controller
                             .'<td>'.e($table->transaksi_key).'</td>'
                             .'<td>'.e($table->transaksi_rfid).'</td>'
                             .'<td>'.e($table->jenis_nama ?? '-').'</td>'
-                            .'<td>'.e($table->jenis_berat ?? '-').'</td>'
+                            .($showBerat ? '<td>'.e($table->jenis_berat ?? '-').'</td>' : '')
                             .'<td>'.e($table->rs_ori_nama ?? '-').'</td>'
                             .'<td>'.e($table->ruangan_nama ?? '-').'</td>'
                             .'<td>'.e($table->rs_scan_nama ?? '-').'</td>'
@@ -123,7 +125,11 @@ class ReportGroupingController extends Controller
                     flush();
                 });
 
-            echo '</tbody><tfoot><tr><th colspan="4">Total</th><th>'.$totalKg.'</th><th colspan="9">'.$no.' baris</th></tr></tfoot></table></body></html>';
+            if ($showBerat) {
+                echo '</tbody><tfoot><tr><th colspan="4">Total</th><th>'.$totalKg.'</th><th colspan="9">'.$no.' baris</th></tr></tfoot></table></body></html>';
+            } else {
+                echo '</tbody><tfoot><tr><th colspan="3">Total</th><th colspan="10">'.$no.' pcs linen</th></tr></tfoot></table></body></html>';
+            }
         }, $filename, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',

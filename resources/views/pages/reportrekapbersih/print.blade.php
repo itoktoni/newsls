@@ -42,6 +42,8 @@
     </tr>
 </table>
 
+@php($showBerat = config('laundry.berat_kalkulasi', true))
+
 <br>
 
 <div class="table-responsive" id="table_data">
@@ -54,7 +56,9 @@
                 <th>{{ $locName }}</th>
                 @endforeach
                 <th class="num">Total Bersih (Pcs)</th>
+                @if($showBerat)
                 <th class="num">(Kg) Bersih</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -66,10 +70,12 @@
                 <td class="num">{{ $matrix[$jenisKey][$locKey] ?? 0 }}</td>
                 @endforeach
                 <td class="num"><b>{{ $rowTotal[$jenisKey] ?? 0 }}</b></td>
+                @if($showBerat)
                 <td class="num"><b>{{ formatQty($rowKg[$jenisKey] ?? 0) }}</b></td>
+                @endif
             </tr>
             @empty
-            <tr><td colspan="{{ count($locations) + 4 }}" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="{{ count($locations) + ($showBerat ? 4 : 3) }}" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
         <tfoot>
@@ -79,7 +85,9 @@
                 <th class="num">{{ $colTotal[$locKey] ?? 0 }}</th>
                 @endforeach
                 <th class="num">{{ $grandQty }}</th>
+                @if($showBerat)
                 <th class="num">{{ formatQty($grandKg) }}</th>
+                @endif
             </tr>
         </tfoot>
     </table>

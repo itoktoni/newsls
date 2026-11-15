@@ -43,13 +43,16 @@
 
 <div class="table-responsive" id="table_data">
     <table class="data">
+        @php($showBerat = config('laundry.berat_kalkulasi', true))
         <thead>
             <tr>
                 <th width="1">No.</th>
                 <th>NO. RFID</th>
                 <th>KATEGORI LINEN</th>
                 <th>LINEN</th>
+                @if($showBerat)
                 <th>BERAT</th>
+                @endif
                 <th>RUMAH SAKIT</th>
                 <th>RUANGAN</th>
                 <th>CUCI/RENTAL</th>
@@ -70,7 +73,9 @@
                 <td>{{ $table->detail_rfid }}</td>
                 <td>{{ $table->kategori_nama ?? '-' }}</td>
                 <td>{{ $table->jenis_nama ?? '-' }}</td>
+                @if($showBerat)
                 <td>{{ $table->jenis_berat ?? '-' }}</td>
+                @endif
                 <td>{{ $table->rs_nama ?? '-' }}</td>
                 <td>{{ $table->ruangan_nama ?? '-' }}</td>
                 <td>{{ $table->detail_status_cuci ?? '-' }}</td>
@@ -84,7 +89,7 @@
                 <td>{{ $table->operator_nama ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="16" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="{{ $showBerat ? 16 : 15 }}" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
     </table>

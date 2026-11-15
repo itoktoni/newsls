@@ -41,16 +41,19 @@
 </table>
 
 <table class="data" style="margin-bottom:10px;">
+    @php($showBerat = config('laundry.berat_kalkulasi', true))
     <thead>
-        <tr><th colspan="4" style="text-align:left;">RINGKASAN BERAT TIMBANGAN</th></tr>
-        <tr><th>Kotor Timbangan (Kg)</th><th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th></tr>
+        <tr><th colspan="{{ $showBerat ? 4 : 1 }}" style="text-align:left;">RINGKASAN BERAT TIMBANGAN</th></tr>
+        <tr><th>Kotor Timbangan (Kg)</th>@if($showBerat)<th>Bersih Hitung (Kg)</th><th>Selisih (Kg)</th><th>N Transaksi</th>@endif</tr>
     </thead>
     <tbody>
         <tr>
             <td class="num">{{ ($berat['kotor'] ?? null) !== null ? formatQty($berat['kotor']) : 'belum ditimbang' }}</td>
+            @if($showBerat)
             <td class="num">{{ formatQty($berat['bersih'] ?? 0) }}</td>
             <td class="num">{{ ($berat['selisih'] ?? null) !== null ? formatQty($berat['selisih']) : '-' }}</td>
             <td class="num">{{ $berat['n_transaksi'] ?? 0 }} (ditimbang: {{ $berat['n_timbang'] ?? 0 }})</td>
+            @endif
         </tr>
     </tbody>
 </table>
@@ -59,13 +62,16 @@
 
 <div class="table-responsive" id="table_data">
     <table class="data">
+        @php($showBerat = config('laundry.berat_kalkulasi', true))
         <thead>
             <tr>
                 <th width="1">No.</th>
                 <th>NO. TRANSAKSI</th>
                 <th>NO. RFID</th>
                 <th>LINEN</th>
+                @if($showBerat)
                 <th class="num">BERAT (KG)</th>
+                @endif
                 <th>RUMAH SAKIT</th>
                 <th>RUANGAN</th>
                 <th>LOKASI SCAN</th>
@@ -83,7 +89,9 @@
                 <td>{{ $table->transaksi_key }}</td>
                 <td>{{ $table->transaksi_rfid }}</td>
                 <td>{{ $table->jenis_nama ?? '-' }}</td>
+                @if($showBerat)
                 <td class="num">{{ $table->jenis_berat !== null ? formatQty($table->jenis_berat) : '-' }}</td>
+                @endif
                 <td>{{ $table->rs_ori_nama ?? '-' }}</td>
                 <td>{{ $table->ruangan_nama ?? '-' }}</td>
                 <td>{{ $table->rs_scan_nama ?? '-' }}</td>
@@ -94,15 +102,22 @@
                 <td>{{ $table->operator_nama ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="13" style="text-align:center;">Tidak ada data.</td></tr>
+            <tr><td colspan="{{ $showBerat ? 13 : 12 }}" style="text-align:center;">Tidak ada data.</td></tr>
             @endforelse
         </tbody>
         <tfoot>
+            @if($showBerat)
             <tr>
                 <th colspan="4" style="text-align:right;">Total:</th>
                 <th class="num">{{ formatQty($data->sum(fn ($r) => (float) ($r->jenis_berat ?? 0))) }}</th>
                 <th colspan="8" style="text-align:left;">{{ $data->count() }} baris</th>
             </tr>
+            @else
+            <tr>
+                <th colspan="3" style="text-align:right;">Total:</th>
+                <th colspan="9" style="text-align:left;">{{ $data->count() }} baris</th>
+            </tr>
+            @endif
         </tfoot>
     </table>
 </div>

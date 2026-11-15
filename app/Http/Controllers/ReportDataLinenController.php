@@ -82,7 +82,9 @@ class ReportDataLinenController extends Controller
 
         $filename = 'report-data-linen-'.now()->format('Ymd-His').'.xls';
 
-        return response()->streamDownload(function () use ($request, $rsNama, $logoAbs) {
+        $showBerat = config('laundry.berat_kalkulasi', true);
+
+        return response()->streamDownload(function () use ($request, $rsNama, $logoAbs, $showBerat) {
             echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
             echo '<head><meta charset="UTF-8"></head><body>';
             echo '<table><tr><td colspan="14"><b>MASTER DATA LINEN</b></td><td colspan="2">';
@@ -93,7 +95,7 @@ class ReportDataLinenController extends Controller
             echo '<tr><td colspan="16"><b>RUMAH SAKIT : '.e($rsNama).'</b></td></tr></table><br>';
             echo '<table border="1"><thead><tr>'
                 .'<th>No.</th><th>NO. RFID</th><th>KATEGORI LINEN</th><th>LINEN</th>'
-                .'<th>BERAT</th><th>RUMAH SAKIT</th><th>RUANGAN</th><th>CUCI/RENTAL</th>'
+                .($showBerat ? '<th>BERAT</th>' : '').'<th>RUMAH SAKIT</th><th>RUANGAN</th><th>CUCI/RENTAL</th>'
                 .'<th>JUMLAH BERSIH</th><th>JUMLAH REJECT</th><th>JUMLAH REWASH</th>'
                 .'<th>POSISI TERAKHIR</th><th>TGL POSISI TERAKHIR</th><th>STATUS REGISTER</th>'
                 .'<th>TGL REGISTRASI</th><th>OPERATOR REGISTRASI</th>'
@@ -102,14 +104,14 @@ class ReportDataLinenController extends Controller
             $no = 0;
             $this->baseQuery($request)
                 ->orderBy('detail_linen.detail_rfid')
-                ->chunk(1000, function ($rows) use (&$no) {
+                ->chunk(1000, function ($rows) use (&$no, $showBerat) {
                     foreach ($rows as $table) {
                         $no++;
                         echo '<tr><td>'.$no.'</td>'
                             .'<td>'.e($table->detail_rfid).'</td>'
                             .'<td>'.e($table->kategori_nama ?? '-').'</td>'
                             .'<td>'.e($table->jenis_nama ?? '-').'</td>'
-                            .'<td>'.e($table->jenis_berat ?? '-').'</td>'
+                            .($showBerat ? '<td>'.e($table->jenis_berat ?? '-').'</td>' : '')
                             .'<td>'.e($table->rs_nama ?? '-').'</td>'
                             .'<td>'.e($table->ruangan_nama ?? '-').'</td>'
                             .'<td>'.e($table->detail_status_cuci ?? '-').'</td>'

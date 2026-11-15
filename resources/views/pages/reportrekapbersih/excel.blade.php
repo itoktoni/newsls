@@ -15,6 +15,7 @@
     </tr>
 </table>
 <br>
+@php($showBerat = config('laundry.berat_kalkulasi', true))
 <table border="1">
     <thead>
         <tr>
@@ -24,7 +25,9 @@
             <th>{{ $locName }}</th>
             @endforeach
             <th>Total Bersih (Pcs)</th>
+            @if($showBerat)
             <th>(Kg) Bersih</th>
+            @endif
         </tr>
     </thead>
     <tbody>
@@ -36,10 +39,12 @@
             <td>{{ $matrix[$jenisKey][$locKey] ?? 0 }}</td>
             @endforeach
             <td>{{ $rowTotal[$jenisKey] ?? 0 }}</td>
+            @if($showBerat)
             <td>{{ $rowKg[$jenisKey] ?? 0 }}</td>
+            @endif
         </tr>
         @empty
-        <tr><td colspan="{{ count($locations) + 4 }}">Tidak ada data.</td></tr>
+        <tr><td colspan="{{ count($locations) + ($showBerat ? 4 : 3) }}">Tidak ada data.</td></tr>
         @endforelse
     </tbody>
     <tfoot>
@@ -49,7 +54,9 @@
             <th>{{ $colTotal[$locKey] ?? 0 }}</th>
             @endforeach
             <th>{{ $grandQty }}</th>
+            @if($showBerat)
             <th>{{ $grandKg }}</th>
+            @endif
         </tr>
     </tfoot>
 </table>

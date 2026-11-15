@@ -5,6 +5,7 @@
 
     <div class="content mt-4 lg:mt-0 space-y-4">
         <x-card :label="'Master ' . $master->master_kode">
+            @php($showBerat = config('laundry.berat_kalkulasi', true))
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm col-span-12">
                 <div>
                     <p class="text-[11px] uppercase tracking-wide text-on-surface-variant">Kode Transaksi</p>
@@ -38,6 +39,7 @@
                     <p class="text-[11px] uppercase tracking-wide text-on-surface-variant">Berat Kotor (Timbangan)</p>
                     <p class="font-medium">{{ $master->master_qty !== null ? formatQty($master->master_qty).' kg' : 'belum ditimbang' }}</p>
                 </div>
+                @if($showBerat)
                 <div>
                     <p class="text-[11px] uppercase tracking-wide text-on-surface-variant">Berat Bersih (Σ Jenis × Berat)</p>
                     <p class="font-medium">{{ formatQty($beratBersih ?? 0).' kg' }}</p>
@@ -46,6 +48,7 @@
                     <p class="text-[11px] uppercase tracking-wide text-on-surface-variant">Selisih (Kotor − Bersih)</p>
                     <p class="font-medium">{{ $master->master_qty !== null ? formatQty($master->master_qty - ($beratBersih ?? 0)).' kg' : '-' }}</p>
                 </div>
+                @endif
             </div>
         </x-card>
 
@@ -54,7 +57,9 @@
                 <th>No.</th>
                 <th>NO. RFID</th>
                 <th>LINEN</th>
+                @if($showBerat)
                 <th class="num">BERAT (KG)</th>
+                @endif
                 <th>RUMAH SAKIT</th>
                 <th>RUANGAN</th>
                 <th>LOKASI SCAN</th>
@@ -67,7 +72,9 @@
                     <td>{{ $details->firstItem() + $i }}</td>
                     <td class="font-mono text-xs">{{ $row->transaksi_rfid }}</td>
                     <td>{{ $row->linen_nama ?? '-' }}</td>
+                    @if($showBerat)
                     <td class="num">{{ $row->jenis_berat !== null ? formatQty($row->jenis_berat) : '-' }}</td>
+                    @endif
                     <td>{{ $row->rs_ori_nama ?? $row->transaksi_rs_ori ?? '-' }}</td>
                     <td>{{ $row->ruangan_nama ?? '-' }}</td>
                     <td>{{ $row->rs_scan_nama ?? $row->transaksi_rs_scan ?? '-' }}</td>

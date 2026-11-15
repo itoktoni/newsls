@@ -77,7 +77,9 @@ trait BuildsDetailList
             $validated['end_date'] ?? null
         );
 
-        return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode, $title, $berat) {
+        $showBerat = config('laundry.berat_kalkulasi', true);
+
+        return response()->streamDownload(function () use ($validated, $rsNama, $logoAbs, $periode, $title, $berat, $showBerat) {
             echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
             echo '<head><meta charset="UTF-8"></head><body>';
             echo '<table><tr><td colspan="11"><b>'.e($title).'</b><br><b>RUMAH SAKIT : '.e($rsNama).'</b><br><b>Periode : '.e($periode).'</b></td>';
@@ -86,13 +88,18 @@ trait BuildsDetailList
                 echo '<img src="'.e($logoAbs).'" alt="Logo" height="60" width="90">';
             }
             echo '</td></tr></table><br>';
-            echo '<table border="1"><tr><td colspan="13"><b>RINGKASAN BERAT TIMBANGAN</b> ('.e(($berat['n_transaksi'] ?? 0).' transaksi, ditimbang: '.($berat['n_timbang'] ?? 0)).')</td></tr>'
+            $ringkasCol = $showBerat ? 13 : 6;
+            echo '<table border="1"><tr><td colspan="'.$ringkasCol.'"><b>RINGKASAN BERAT TIMBANGAN</b> ('.e(($berat['n_transaksi'] ?? 0).' transaksi, ditimbang: '.($berat['n_timbang'] ?? 0)).')</td></tr>'
                 .'<tr><td colspan="3"><b>Kotor Timbangan (Kg)</b></td><td colspan="3">'.e(($berat['kotor'] ?? null) !== null ? $berat['kotor'] : 'belum ditimbang').'</td>'
-                .'<td colspan="3"><b>Bersih Hitung (Kg)</b></td><td colspan="4">'.e($berat['bersih'] ?? 0).'</td></tr>'
-                .'<tr><td colspan="3"><b>Selisih (Kg)</b></td><td colspan="3">'.e(($berat['selisih'] ?? null) !== null ? $berat['selisih'] : '-').'</td>'
-                .'<td colspan="3"><b>N Transaksi</b></td><td colspan="4">'.e($berat['n_transaksi'] ?? 0).'</td></tr></table><br>';
+                .($showBerat ? '<td colspan="3"><b>Bersih Hitung (Kg)</b></td><td colspan="4">'.e($berat['bersih'] ?? 0).'</td>' : '')
+                .'</tr>'
+                .($showBerat
+                    ? '<tr><td colspan="3"><b>Selisih (Kg)</b></td><td colspan="3">'.e(($berat['selisih'] ?? null) !== null ? $berat['selisih'] : '-').'</td>'
+                        .'<td colspan="3"><b>N Transaksi</b></td><td colspan="4">'.e($berat['n_transaksi'] ?? 0).'</td></tr>'
+                    : '')
+                .'</table><br>';
             echo '<table border="1"><thead><tr>'
-                .'<th>No.</th><th>NO. TRANSAKSI</th><th>NO. RFID</th><th>LINEN</th><th>BERAT (KG)</th>'
+                .'<th>No.</th><th>NO. TRANSAKSI</th><th>NO. RFID</th><th>LINEN</th>'.($showBerat ? '<th>BERAT (KG)</th>' : '')
                 .'<th>RUMAH SAKIT</th><th>RUANGAN</th><th>LOKASI SCAN</th><th>CUCI/RENTAL</th>'
                 .'<th>JUMLAH PEMAKAIAN</th><th>TGL PENERIMAAN</th><th>TGL REGISTER</th><th>OPERATOR</th>'
                 .'</tr></thead><tbody>';
@@ -101,7 +108,7 @@ trait BuildsDetailList
             $totalKg = 0.0;
             $this->detailBaseQuery($validated)
                 ->orderBy('transaksi.transaksi_id')
-                ->chunk(1000, function ($rows) use (&$no, &$totalKg) {
+                ->chunk(1000, function ($rows) use (&$no, &$totalKg, $showBerat) {
                     foreach ($rows as $table) {
                         $no++;
                         $totalKg += (float) ($table->jenis_berat ?? 0);
@@ -109,7 +116,7 @@ trait BuildsDetailList
                             .'<td>'.e($table->transaksi_key).'</td>'
                             .'<td>'.e($table->transaksi_rfid).'</td>'
                             .'<td>'.e($table->jenis_nama ?? '-').'</td>'
-                            .'<td>'.e($table->jenis_berat ?? '-').'</td>'
+                            .($showBerat ? '<td>'.e($table->jenis_berat ?? '-').'</td>' : '')
                             .'<td>'.e($table->rs_ori_nama ?? '-').'</td>'
                             .'<td>'.e($table->ruangan_nama ?? '-').'</td>'
                             .'<td>'.e($table->rs_scan_nama ?? '-').'</td>'
@@ -122,7 +129,11 @@ trait BuildsDetailList
                     flush();
                 });
 
-            echo '</tbody><tfoot><tr><th colspan="4">Total</th><th>'.$totalKg.'</th><th colspan="8">'.$no.' baris</th></tr></tfoot></table></body></html>';
+            if ($showBerat) {
+                echo '</tbody><tfoot><tr><th colspan="4">Total</th><th>'.$totalKg.'</th><th colspan="8">'.$no.' baris</th></tr></tfoot></table></body></html>';
+            } else {
+                echo '</tbody><tfoot><tr><th colspan="3">Total</th><th colspan="9">'.$no.' pcs linen</th></tr></tfoot></table></body></html>';
+            }
         }, $filename, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
