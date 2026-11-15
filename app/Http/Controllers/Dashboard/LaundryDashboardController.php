@@ -34,7 +34,7 @@ class LaundryDashboardController extends Controller
             $gudangId = Warehouse::utamaId();
 
             $kotorBase = User::scopeRs(
-                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR),
+                DetailLinen::query()->whereIn('detail_status_linen', [LinenStatusEnum::KOTOR, LinenStatusEnum::GUDANG]),
                 'detail_linen.detail_id_rs'
             );
 

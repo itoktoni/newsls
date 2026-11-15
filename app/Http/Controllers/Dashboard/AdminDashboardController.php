@@ -38,7 +38,7 @@ class AdminDashboardController extends Controller
         $payload = DashboardCache::remember($scope, 'admin:stats:v3:rs-'.($rsId ?? 'all'), function () use ($rsId) {
             $gudangId = Warehouse::utamaId();
 
-            $kotorBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::KOTOR);
+            $kotorBase = DetailLinen::query()->whereIn('detail_status_linen', [LinenStatusEnum::KOTOR, LinenStatusEnum::GUDANG]);
             $bersihBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH);
 
             $kpi = [

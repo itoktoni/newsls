@@ -80,7 +80,7 @@ class DashboardChart
         return DashboardCache::remember('global', 'chart:statusLinenDonut', function () {
             return [
                 DetailLinen::where('detail_status_linen', 'REGISTER')->count(),
-                DetailLinen::where('detail_status_linen', 'KOTOR')->count(),
+                DetailLinen::whereIn('detail_status_linen', ['KOTOR', 'GUDANG'])->count(),
                 DetailLinen::where('detail_status_linen', 'BERSIH')->count(),
             ];
         });
