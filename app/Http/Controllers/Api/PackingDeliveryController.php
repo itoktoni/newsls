@@ -64,12 +64,12 @@ class PackingDeliveryController extends Controller
             'rfid' => 'required|array|min:1',
             'rfid.*' => 'required|string',
             'rs_id' => 'required|integer|exists:rs,rs_id',
-            'ruangan_id' => 'required|integer|exists:ruangan,ruangan_id',
+            // 'ruangan_id' => 'required|integer|exists:ruangan,ruangan_id',
             'status_transaksi' => 'required|string',
         ], [
             'rfid.required' => 'Kirim minimal satu RFID.',
             'rs_id.required' => 'RS wajib dipilih.',
-            'ruangan_id.required' => 'Ruangan wajib dipilih.',
+            // 'ruangan_id.required' => 'Ruangan wajib dipilih.',
             'status_transaksi.required' => 'Status transaksi wajib diisi.',
         ]);
         if ($v->fails()) {
