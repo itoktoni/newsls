@@ -15,15 +15,17 @@
     </tr>
 </table>
 <br>
+@php($showBerat = config('laundry.berat_kalkulasi', true))
 <table border="1">
     <tr><th>Ringkasan Berat</th><th>Kg</th><th>Rupiah</th></tr>
     <tr><td>Timbangan (SUM transaksi_master.master_qty{{ $nTimbang ? ' — '.$nTimbang.' batch ditimbang' : '' }})</td><td>{{ $timbangan ?? 'belum ditimbang' }}</td><td>{{ $rpTimbangan !== null ? round($rpTimbangan) : '-' }}</td></tr>
+    @if($showBerat)
     <tr><td>Estimasi (qty transaksi x jenis_berat)</td><td>{{ $estimasiKg ?? $sumKg }}</td><td>{{ round($rpEstimasi ?? $sumRp) }}</td></tr>
     <tr><td>Selisih (Timbangan - Estimasi)</td><td>{{ $selisihKg ?? '-' }}</td><td>-</td></tr>
+    @endif
 </table>
 <br>
 <table border="1">
-    @php($showBerat = config('laundry.berat_kalkulasi', true))
     <thead>
         <tr>
             <th>No.</th>
@@ -77,9 +79,7 @@
             <td>-</td>
             @endif
             <td>-</td>
-            @if($showBerat)
             <td>{{ $timbangan ?? 'belum ditimbang' }}</td>
-            @endif
             <td>{{ $rpTimbangan !== null ? round($rpTimbangan) : '-' }}</td>
         </tr>
     </tbody>
@@ -93,11 +93,9 @@
             <th>{{ round($sumRp) }}</th>
         </tr>
         <tr>
-            <th colspan="{{ $showBerat ? count($dates) + 5 : count($dates) + 4 }}">TOTAL TIMBANGAN (master_qty)</th>
+            <th colspan="{{ $showBerat ? count($dates) + 5 : count($dates) + 3 }}">TOTAL TIMBANGAN (master_qty)</th>
             <th>-</th>
-            @if($showBerat)
             <th>{{ $timbangan ?? 'belum ditimbang' }}</th>
-            @endif
             <th>{{ $rpTimbangan !== null ? round($rpTimbangan) : '-' }}</th>
         </tr>
     </tfoot>

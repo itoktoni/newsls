@@ -44,20 +44,22 @@
 
 <br>
 
+@php($showBerat = config('laundry.berat_kalkulasi', true))
 <table class="data" style="width:auto;margin-bottom:12px;">
     <thead>
         <tr><th>Ringkasan Berat</th><th class="num">Kg</th><th class="num">Rupiah</th></tr>
     </thead>
     <tbody>
         <tr><td>Timbangan (SUM transaksi_master.master_qty{{ $nTimbang ? ' — '.$nTimbang.' batch ditimbang' : '' }})</td><td class="num">{{ $timbangan !== null ? formatQty($timbangan) : 'belum ditimbang' }}</td><td class="num">{{ $rpTimbangan !== null ? formatAngka((int) round($rpTimbangan)) : '-' }}</td></tr>
+        @if($showBerat)
         <tr><td>Estimasi (Σ qty transaksi × jenis_linen.jenis_berat)</td><td class="num">{{ formatQty($estimasiKg ?? $sumKg) }}</td><td class="num">{{ formatAngka((int) round($rpEstimasi ?? $sumRp)) }}</td></tr>
         <tr><td>Selisih (Timbangan − Estimasi)</td><td class="num">{{ $selisihKg !== null ? formatQty($selisihKg) : '-' }}</td><td class="num">-</td></tr>
+        @endif
     </tbody>
 </table>
 
 <div class="table-responsive" id="table_data">
     <table class="data">
-        @php($showBerat = config('laundry.berat_kalkulasi', true))
         <thead>
             <tr>
                 <th width="1">No.</th>
@@ -111,9 +113,7 @@
                 <td>-</td>
                 @endif
                 <td>-</td>
-                @if($showBerat)
                 <td class="num">{{ $timbangan !== null ? formatQty($timbangan) : 'belum ditimbang' }}</td>
-                @endif
                 <td class="num">{{ $rpTimbangan !== null ? formatAngka((int) round($rpTimbangan)) : '-' }}</td>
             </tr>
         </tbody>
@@ -127,11 +127,9 @@
                 <th class="num">{{ formatAngka((int) round($sumRp)) }}</th>
             </tr>
             <tr>
-                <th colspan="{{ $showBerat ? count($dates) + 5 : count($dates) + 4 }}" style="text-align:right;">TOTAL TIMBANGAN (master_qty)</th>
+                <th colspan="{{ $showBerat ? count($dates) + 5 : count($dates) + 3 }}" style="text-align:right;">TOTAL TIMBANGAN (master_qty)</th>
                 <th class="num">-</th>
-                @if($showBerat)
                 <th class="num">{{ $timbangan !== null ? formatQty($timbangan) : 'belum ditimbang' }}</th>
-                @endif
                 <th class="num">{{ $rpTimbangan !== null ? formatAngka((int) round($rpTimbangan)) : '-' }}</th>
             </tr>
         </tfoot>
