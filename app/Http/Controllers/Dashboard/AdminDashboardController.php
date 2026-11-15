@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Charts\DashboardChart;
 use App\Concerns\ResolvesDashboardRole;
 use App\Enums\LinenStatusEnum;
+use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\JenisLinen;
@@ -12,11 +13,13 @@ use App\Models\Opname;
 use App\Models\Outstanding;
 use App\Models\Rs;
 use App\Models\Ruangan;
+use App\Models\Transaksi;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Support\DashboardCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class AdminDashboardController extends Controller
@@ -38,26 +41,50 @@ class AdminDashboardController extends Controller
         $payload = DashboardCache::remember($scope, 'admin:stats:v3:rs-'.($rsId ?? 'all'), function () use ($rsId) {
             $gudangId = Warehouse::utamaId();
 
-            $kotorBase = DetailLinen::query()->whereIn('detail_status_linen', [LinenStatusEnum::KOTOR, LinenStatusEnum::GUDANG]);
-            $bersihBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH);
+            // Kotor = baris transaksi KOTOR hari ini (sama dengan sumber
+            // report kotor). Bersih = baris tabel bersih hari ini.
+            // Register = posisi detail REGISTER. Filter rs_id ditaati bila ada.
+            $kotorBase = Transaksi::query()
+                ->where('transaksi.transaksi_status', TransactionType::KOTOR)
+                ->whereDate('transaksi.transaksi_created_at', today());
+            $bersihBase = DB::table('bersih')
+                ->where('bersih.bersih_status', 'BERSIH')
+                ->whereDate('bersih.bersih_created_at', today());
+            $registerBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::REGISTER);
+            $outstandingBase = Outstanding::query();
+            $sebaranBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH);
+            $totalRegisterBase = $rsId
+                ? \App\Models\ConfigLinen::where('rs_id', $rsId)
+                : DetailLinen::query();
+
+            if ($rsId) {
+                $kotorBase->where(function ($q) use ($rsId) {
+                    $q->where('transaksi.transaksi_rs_ori', $rsId)
+                        ->orWhere('transaksi.transaksi_rs_scan', $rsId);
+                });
+                $bersihBase->where('bersih.bersih_id_rs', $rsId);
+                $registerBase->where('detail_linen.detail_id_rs', $rsId);
+                $outstandingBase->where('outstanding.outstanding_rs_scan', $rsId);
+                $sebaranBase->where('detail_linen.detail_id_rs', $rsId);
+            }
 
             $kpi = [
-                'register' => DetailLinen::where('detail_status_linen', LinenStatusEnum::REGISTER)->count(),
+                'register' => (clone $registerBase)->count(),
                 'kotor' => (clone $kotorBase)->count(),
                 'total_register' => $rsId
-                    ? \App\Models\ConfigLinen::where('rs_id', $rsId)->count()
+                    ? (clone $totalRegisterBase)->count()
                     : DetailLinen::count(),
                 'bersih' => (clone $bersihBase)->count(),
-                'outstanding' => Outstanding::count(),
-                'warehouse' => Outstanding::where('outstanding_status_proses', 'GUDANG')
+                'outstanding' => (clone $outstandingBase)->count(),
+                'warehouse' => (clone $outstandingBase)
+                    ->where('outstanding_status_proses', 'GUDANG')
                     ->where('outstanding_id_warehouse', $gudangId)
                     ->count(),
-                'kotor_kg' => DashboardCache::sumBerat($kotorBase),
-                'bersih_kg' => DashboardCache::sumBerat($bersihBase),
+                'kotor_kg' => DashboardCache::sumBeratTransaksi($kotorBase),
+                'bersih_kg' => DashboardCache::sumBeratBersih($bersihBase),
             ];
 
-            $sebaran = DetailLinen::query()
-                ->where('detail_status_linen', LinenStatusEnum::BERSIH)
+            $sebaran = $sebaranBase
                 ->join('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
                 ->selectRaw('detail_linen.detail_id_ruangan as ruangan_id, ruangan.ruangan_nama, COUNT(*) as stok')
                 ->groupBy('detail_linen.detail_id_ruangan', 'ruangan.ruangan_nama')

@@ -44,8 +44,9 @@ it('grouping linen beredar: transaksi KOTOR tercatat dan KPI dashboard kotor iku
         ->and(DetailLinen::where('detail_rfid', $rfid)->value('detail_status_linen'))->toBe(LinenStatusEnum::GUDANG);
 
     // KPI kotor dashboard admin harus menghitungnya (tidak 0).
+    // Filter rs_id wajib ditaati: cakupan RS ini tepat 1 linen.
     $res = $this->actingAs($admin)->get('/dashboard/admin?rs_id='.$rs->rs_id)->assertOk();
-    expect($res->viewData('kpi')['kotor'] ?? 0)->toBeGreaterThanOrEqual(1);
+    expect($res->viewData('kpi')['kotor'] ?? 0)->toBe(1);
 
     // Bersih-bersih.
     DB::table('outstanding')->where('outstanding_rfid', $rfid)->delete();

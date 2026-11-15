@@ -202,11 +202,22 @@ it('dashboard admin laundry rs menampilkan bobot kg', function () {
             'detail_id_rs' => $this->rs->rs_id, 'detail_id_ruangan' => $this->ruangan->ruangan_id,
             'detail_id_jenis' => $this->jenis->jenis_id, 'detail_id_bahan' => $this->bahan->bahan_id,
             'detail_id_supplier' => $this->supplier->supplier_id,
-            'detail_status_linen' => LinenStatusEnum::KOTOR,
+            'detail_status_linen' => LinenStatusEnum::BERSIH,
+            'detail_updated_at' => now()->subDays(2),
             'detail_status_register' => RegisterEnum::REGISTER,
             'detail_status_kepemilikan' => RsStatusEnum::DEDICATED,
         ]);
     }
+    DB::table('outstanding')->whereIn('outstanding_rfid', $rfids)->delete();
+    DB::table('transaksi')->whereIn('transaksi_rfid', $rfids)->whereDate('transaksi_created_at', today())->delete();
+    // detail_updated_at tidak fillable + auto-touch Eloquent → set lewat query builder.
+    DetailLinen::whereIn('detail_rfid', $rfids)->update(['detail_updated_at' => now()->subDays(2)]);
+
+    // KPI kotor dihitung dari baris transaksi KOTOR hari ini — scan dulu.
+    $key = 'TMASTER-'.strtoupper(uniqid());
+    $this->withToken($this->token)->postJson('/api/kotor', [
+        'rfid' => $rfids, 'rs_id' => $this->rs->rs_id, 'key' => $key,
+    ])->assertOk();
 
     // 2 RFID kotor x 0,5 kg = 1 kg tampil sebagai badge di dashboard admin.
     $this->actingAs($this->admin)->get('/dashboard/admin')->assertOk()->assertSee('1 kg');
@@ -216,6 +227,20 @@ it('dashboard admin laundry rs menampilkan bobot kg', function () {
         'verified_at' => now(), 'email_verified_at' => now(),
     ]);
     DB::table('rs_dan_user')->updateOrInsert(['user_id' => $laundry->id, 'rs_id' => $this->rs->rs_id], []);
+
+    // Badge bersih dihitung dari tabel bersih hari ini (hasil delivery) —
+    // tulis baris bersihnya supaya badge 1 kg muncul.
+    foreach ($rfids as $rfid) {
+        DB::table('bersih')->updateOrInsert(['bersih_rfid' => $rfid], [
+            'bersih_status' => 'BERSIH', 'bersih_id_rs' => $this->rs->rs_id,
+            'bersih_id_ruangan' => $this->ruangan->ruangan_id,
+            'bersih_barcode' => 'BC-TMSEL-'.$rfid, 'bersih_delivery' => 'DO-TMSEL',
+            'bersih_report' => today()->format('Y-m-d'),
+            'bersih_created_at' => now(), 'bersih_updated_at' => now(),
+            'bersih_created_by' => $this->admin->id,
+        ]);
+    }
+
     $this->actingAs($laundry)->get('/dashboard/laundry')->assertOk()->assertSee('1 kg');
 
     $rsUser = User::updateOrCreate(['email' => 'tmaster-rs@bka.test'], [
@@ -226,6 +251,7 @@ it('dashboard admin laundry rs menampilkan bobot kg', function () {
     $this->actingAs($rsUser)->get('/dashboard/rs')->assertOk()->assertSee('1 kg');
 
     DB::table('bersih')->whereIn('bersih_rfid', $rfids)->delete();
+    DB::table('outstanding')->whereIn('outstanding_rfid', $rfids)->delete();
     DetailLinen::whereIn('detail_rfid', $rfids)->delete();
 });
 

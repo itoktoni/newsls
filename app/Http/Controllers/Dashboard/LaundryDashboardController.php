@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Dashboard;
 use App\Charts\DashboardChart;
 use App\Concerns\ResolvesDashboardRole;
 use App\Enums\LinenStatusEnum;
+use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
+use App\Models\Transaksi;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Support\DashboardCache;
@@ -33,9 +35,19 @@ class LaundryDashboardController extends Controller
         $payload = DashboardCache::remember($scope, 'laundry:stats:v2', function () {
             $gudangId = Warehouse::utamaId();
 
+            // Kotor = baris transaksi KOTOR hari ini (sama dengan sumber
+            // report kotor). Bersih = baris tabel bersih hari ini.
             $kotorBase = User::scopeRs(
-                DetailLinen::query()->whereIn('detail_status_linen', [LinenStatusEnum::KOTOR, LinenStatusEnum::GUDANG]),
-                'detail_linen.detail_id_rs'
+                Transaksi::query()
+                    ->where('transaksi.transaksi_status', TransactionType::KOTOR)
+                    ->whereDate('transaksi.transaksi_created_at', today()),
+                ['transaksi.transaksi_rs_ori', 'transaksi.transaksi_rs_scan']
+            );
+            $bersihBase = User::scopeRs(
+                DB::table('bersih')
+                    ->where('bersih.bersih_status', 'BERSIH')
+                    ->whereDate('bersih.bersih_created_at', today()),
+                'bersih.bersih_id_rs'
             );
 
             $kpi = [
@@ -48,10 +60,7 @@ class LaundryDashboardController extends Controller
                     Outstanding::query()->whereNotNull('outstanding_pending_created_at'),
                     'outstanding.outstanding_rs_scan'
                 )->count(),
-                'bersih' => User::scopeRs(
-                    DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
-                    'detail_linen.detail_id_rs'
-                )->count(),
+                'bersih' => (clone $bersihBase)->count(),
                 'delivered' => User::scopeRs(
                     DB::table('bersih')->whereDate('bersih_created_at', today()),
                     'bersih.bersih_id_rs'
@@ -62,7 +71,7 @@ class LaundryDashboardController extends Controller
                         ->where('outstanding_id_warehouse', $gudangId),
                     'outstanding.outstanding_rs_scan'
                 )->count(),
-                'kotor_kg' => DashboardCache::sumBerat($kotorBase),
+                'kotor_kg' => DashboardCache::sumBeratTransaksi($kotorBase),
             ];
 
             $antrean = [

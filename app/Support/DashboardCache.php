@@ -48,6 +48,30 @@ class DashboardCache
             ->sum('jenis_linen.jenis_berat');
     }
 
+    /**
+     * SUM jenis_berat untuk RFID pada query berbasis tabel transaksi
+     * (join via transaksi_rfid). RFID asing tanpa detail ikut 0.
+     */
+    public static function sumBeratTransaksi($query): float
+    {
+        return (float) (clone $query)
+            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'transaksi.transaksi_rfid')
+            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->sum('jenis_linen.jenis_berat');
+    }
+
+    /**
+     * SUM jenis_berat untuk RFID pada query berbasis tabel bersih
+     * (join via bersih_rfid).
+     */
+    public static function sumBeratBersih($query): float
+    {
+        return (float) (clone $query)
+            ->leftJoin('detail_linen', 'detail_linen.detail_rfid', '=', 'bersih.bersih_rfid')
+            ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
+            ->sum('jenis_linen.jenis_berat');
+    }
+
     public static function key(string $scope, string $segment): string
     {
         return 'dash:'.self::generation().':'.$scope.':'.$segment;

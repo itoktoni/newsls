@@ -4,14 +4,17 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Concerns\ResolvesDashboardRole;
 use App\Enums\LinenStatusEnum;
+use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
 use App\Models\DetailLinen;
 use App\Models\Outstanding;
+use App\Models\Transaksi;
 use App\Models\User;
 use App\Support\DashboardCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class RsDashboardController extends Controller
@@ -40,13 +43,20 @@ class RsDashboardController extends Controller
         $scope = DashboardCache::userScope();
 
         $payload = DashboardCache::remember($scope, 'rs:stats:v2', function () {
-            $bersihQuery = fn () => User::scopeRs(
-                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
-                'detail_linen.detail_id_rs'
-            );
+            // Kotor = baris transaksi KOTOR hari ini (sama dengan sumber
+            // report kotor) — bukan status detail_linen.
             $kotorQuery = fn () => User::scopeRs(
-                DetailLinen::query()->whereIn('detail_status_linen', [LinenStatusEnum::KOTOR, LinenStatusEnum::GUDANG]),
-                'detail_linen.detail_id_rs'
+                Transaksi::query()
+                    ->where('transaksi.transaksi_status', TransactionType::KOTOR)
+                    ->whereDate('transaksi.transaksi_created_at', today()),
+                ['transaksi.transaksi_rs_ori', 'transaksi.transaksi_rs_scan']
+            );
+            // Bersih = baris tabel bersih hari ini (hasil delivery).
+            $bersihQuery = fn () => User::scopeRs(
+                DB::table('bersih')
+                    ->where('bersih.bersih_status', 'BERSIH')
+                    ->whereDate('bersih.bersih_created_at', today()),
+                'bersih.bersih_id_rs'
             );
 
             $kpi = [
@@ -60,12 +70,16 @@ class RsDashboardController extends Controller
                     'outstanding.outstanding_rs_scan'
                 )->count(),
                 'bersih' => $bersihQuery()->count(),
-                'kotor_kg' => DashboardCache::sumBerat($kotorQuery()),
-                'bersih_kg' => DashboardCache::sumBerat($bersihQuery()),
+                'kotor_kg' => DashboardCache::sumBeratTransaksi($kotorQuery()),
+                'bersih_kg' => DashboardCache::sumBeratBersih($bersihQuery()),
             ];
 
-            // Sebaran bersih per ruangan: stok absolut (par per-ruangan tidak ada di schema).
-            $sebaran = $bersihQuery()
+            // Sebaran = stok bersih per ruangan (posisi linen saat ini,
+            // tetap dari detail_linen) — bukan arus delivery harian.
+            $sebaran = User::scopeRs(
+                DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
+                'detail_linen.detail_id_rs'
+            )
                 ->join('ruangan', 'ruangan.ruangan_id', '=', 'detail_linen.detail_id_ruangan')
                 ->leftJoin('jenis_linen', 'jenis_linen.jenis_id', '=', 'detail_linen.detail_id_jenis')
                 ->selectRaw('detail_linen.detail_id_ruangan as ruangan_id, ruangan.ruangan_nama, COUNT(*) as stok, SUM(jenis_linen.jenis_berat) as kg')
