@@ -24,10 +24,10 @@ $prosesBadge = fn ($v) => match ($v) {
 
         {{-- Statistik gudang utama --}}
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <x-card :label="$stats['gudang']->warehouse_nama ?? 'Gudang Utama'" :noGrid="true">
+            <x-card :label="$stats['gudang']->warehouse_nama ?? 'Gudang LC'" :noGrid="true">
                 <div class="text-center py-2">
                     <p class="text-3xl font-bold text-green-600">{{ number_format($stats['siap_packing'] ?? 0, 0, ',', '.') }}</p>
-                    <p class="text-xs text-on-surface-variant mt-1">Pcs siap packing (substitusi per jenis berlaku semua status milik)</p>
+                    <p class="text-xs text-on-surface-variant mt-1">Pcs siap packing <br> (substitusi per jenis berlaku semua status milik)</p>
                 </div>
             </x-card>
             <x-card label="Sudah Terpacking" :noGrid="true">
