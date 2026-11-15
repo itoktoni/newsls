@@ -1,6 +1,7 @@
 @props(['model' => null, 'id' => null])
 <td class="w-24 whitespace-nowrap">
     <div class="flex gap-2">
+        @if($id !== null && $id !== '')
         @can('update', $model ?? null)
         <a href="{{ moduleRoute('getUpdate', ['id' => $id]) }}" wire:navigate class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
             <span class="material-symbols-outlined text-lg">edit</span>
@@ -11,6 +12,7 @@
             <span class="material-symbols-outlined text-lg">delete</span>
         </a>
         @endcan
+        @endif
         {{ $slot }}
     </div>
 </td>
