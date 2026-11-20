@@ -115,9 +115,20 @@ class DownloadApiController extends Controller
         // Hitung dulu supaya RS kosong dapat envelope error biasa, bukan JSON
         // setengah jalan. Satu COUNT atas query yang sama (EXISTS, tanpa
         // OFFSET) — jauh lebih murah daripada COUNT atas IN/NOT IN.
+        // ?limit= (>0) = mode halaman: respons JSON biasa (tidak stream)
+        // supaya desktop bisa sync 100rb+ baris per halaman tanpa kena
+        // timeout (nginx proxy_read_timeout / HttpClient 100 detik) —
+        // ulangi dengan ?after=<rfid terakhir>&limit=10000 sampai data kosong.
+        $limit = min((int) request()->query('limit', 0), 20000);
+        $after = request()->query('after');
+
         $total = (int) $this->baseQuery($rsId, true)->count();
         if ($total === 0) {
             return Notes::failed(404, 'Data Tidak Ditemukan !');
+        }
+
+        if ($limit > 0) {
+            return $this->page($rsId, $rs, $total, is_string($after) && $after !== '' ? $after : null, $limit);
         }
 
         return $this->stream($rsId, $rs, $total);
@@ -142,8 +153,8 @@ class DownloadApiController extends Controller
                     'rs_id' => (int) $rs->rs_id,
                     'rs_nama' => $rs->rs_nama,
                 ],
-                'ruangan' => $this->ruanganList($rsId),
-                'opname' => $this->opnameRfids($rsId),
+                'ruangan' => $this->ruanganRows($rsId),
+                'opname' => $this->opnameRows($rsId),
             ],
             200,
             [
@@ -161,22 +172,110 @@ class DownloadApiController extends Controller
     }
 
     /**
-     * Generator baris `data[]` — field persis milik DownloadCollection:
+     * Mode halaman (?limit=&after=): satu chunk keyset, respons JSON biasa
+     * + `next_after` (rfid terakhir, null bila habis). Desktop loop sampai
+     * `data` kosong / `next_after` null — tiap request hanya ~detik sehingga
+     * tidak kena timeout, dan halaman yang gagal tinggal diulang.
+     */
+    private function page(int $rsId, object $rs, int $total, ?string $after, int $limit)
+    {
+        $rsNama = (string) $rs->rs_nama;
+        [$jenisNama, $ruanganNama, $bersih, $sekarang] = $this->labelMaps();
+
+        $query = $this->baseQuery($rsId);
+        if ($after !== null) {
+            $query->where('d.detail_rfid', '>', $after);
+        }
+        $chunk = $query->limit($limit)->get();
+
+        $data = [];
+        foreach ($chunk as $row) {
+            $data[] = $this->formatRow($row, $rsId, $rsNama, $jenisNama, $ruanganNama, $bersih, $sekarang);
+        }
+
+        $additional = [
+            'total' => $total,
+            'next_after' => $chunk->isEmpty() ? null : (string) $chunk->last()->detail_rfid,
+            'rs' => ['rs_id' => (int) $rs->rs_id, 'rs_nama' => $rs->rs_nama],
+        ];
+        if ($after === null) {
+            // Dropdown lokasi desktop: ikut di halaman pertama saja
+            // (kecil, puluhan baris). `opname` tidak ikut mode halaman —
+            // hanya relevan saat stock opname berjalan.
+            $additional['ruangan'] = iterator_to_array($this->ruanganRows($rsId));
+        }
+
+        return Notes::data($data, $additional);
+    }
+
+    /**
+     * Master nama: ratusan baris, sekali load lebih murah daripada join
+     * per baris (dan menghindari duplikasi baris kalau pivot dobel).
+     */
+    private function labelMaps(): array
+    {
+        return [
+            DB::table('jenis_linen')->pluck('jenis_nama', 'jenis_id'),
+            DB::table('ruangan')->pluck('ruangan_nama', 'ruangan_id'),
+            TransactionType::BERSIH,
+            now()->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * Satu baris `data[]` — field persis milik DownloadCollection:
      * rfid, rs_id, rs_nama, ruangan_id, ruangan_nama, jenis_id, jenis_nama,
      * status_transaksi, status_proses, tanggal.
      */
+    private function formatRow(object $row, int $rsId, string $rsNama, $jenisNama, $ruanganNama, string $bersih, string $sekarang): array
+    {
+        $rfid = (string) $row->detail_rfid;
+
+        // Aturan legacy DownloadCollection:
+        // - default BERSIH (linen dianggap ada di RS),
+        // - ada baris outstanding → status dari outstanding,
+        //   tanggal = waktu generate (state "sekarang"),
+        // - RFID belum pernah punya transaksi → dipaksa BERSIH.
+        $statusTransaksi = $bersih;
+        $statusProses = $bersih;
+        $tanggal = $row->detail_updated_at;
+
+        if ($row->outstanding_status_transaksi !== null) {
+            $statusTransaksi = $row->outstanding_status_transaksi ?: $bersih;
+            $statusProses = $row->outstanding_status_proses ?: $bersih;
+            $tanggal = $sekarang;
+        }
+        if (! $row->ada_transaksi) {
+            $statusTransaksi = $bersih;
+        }
+
+        $ruanganId = $row->detail_id_ruangan === null ? null : (int) $row->detail_id_ruangan;
+        $jenisId = $row->detail_id_jenis === null ? null : (int) $row->detail_id_jenis;
+
+        return [
+            'rfid' => $rfid,
+            'rs_id' => $rsId,
+            'rs_nama' => $rsNama,
+            'ruangan_id' => $ruanganId,
+            'ruangan_nama' => $ruanganId === null ? null : ($ruanganNama[$ruanganId] ?? null),
+            'jenis_id' => $jenisId,
+            'jenis_nama' => $jenisId === null ? null : ($jenisNama[$jenisId] ?? null),
+            'status_transaksi' => $statusTransaksi,
+            'status_proses' => $statusProses,
+            // Normalisasi 'Y-m-d H:i:s' (legacy: Carbon ISO8601 saat
+            // tanpa outstanding, string saat ada outstanding).
+            'tanggal' => $tanggal === null ? null : (string) $tanggal,
+        ];
+    }
+
+    /**
+     * Generator baris `data[]` — keyset pagination: mulai setelah RFID
+     * terakhir chunk sebelumnya. Tiap chunk biaya konstan (index PK),
+     * tidak seperti OFFSET yang memindai ulang baris setiap iterasi.
+     */
     private function rows(int $rsId, string $rsNama): \Generator
     {
-        // Master nama: ratusan baris, sekali load lebih murah daripada join
-        // per baris (dan menghindari duplikasi baris kalau pivot dobel).
-        $jenisNama = DB::table('jenis_linen')->pluck('jenis_nama', 'jenis_id');
-        $ruanganNama = DB::table('ruangan')->pluck('ruangan_nama', 'ruangan_id');
-
-        $bersih = TransactionType::BERSIH;
-        $sekarang = now()->format('Y-m-d H:i:s');
-        // Keyset pagination: mulai setelah RFID terakhir chunk sebelumnya.
-        // Tiap chunk biaya konstan (index PK), tidak seperti OFFSET yang
-        // memindai ulang (offset + limit) baris setiap iterasi.
+        [$jenisNama, $ruanganNama, $bersih, $sekarang] = $this->labelMaps();
         $lastRfid = null;
 
         while (true) {
@@ -197,43 +296,7 @@ class DownloadApiController extends Controller
             $lastRfid = (string) $chunk->last()->detail_rfid;
 
             foreach ($chunk as $row) {
-                $rfid = (string) $row->detail_rfid;
-
-                // Aturan legacy DownloadCollection:
-                // - default BERSIH (linen dianggap ada di RS),
-                // - ada baris outstanding → status dari outstanding,
-                //   tanggal = waktu generate (state "sekarang"),
-                // - RFID belum pernah punya transaksi → dipaksa BERSIH.
-                $statusTransaksi = $bersih;
-                $statusProses = $bersih;
-                $tanggal = $row->detail_updated_at;
-
-                if ($row->outstanding_status_transaksi !== null) {
-                    $statusTransaksi = $row->outstanding_status_transaksi ?: $bersih;
-                    $statusProses = $row->outstanding_status_proses ?: $bersih;
-                    $tanggal = $sekarang;
-                }
-                if (! $row->ada_transaksi) {
-                    $statusTransaksi = $bersih;
-                }
-
-                $ruanganId = $row->detail_id_ruangan === null ? null : (int) $row->detail_id_ruangan;
-                $jenisId = $row->detail_id_jenis === null ? null : (int) $row->detail_id_jenis;
-
-                yield [
-                    'rfid' => $rfid,
-                    'rs_id' => $rsId,
-                    'rs_nama' => $rsNama,
-                    'ruangan_id' => $ruanganId,
-                    'ruangan_nama' => $ruanganId === null ? null : ($ruanganNama[$ruanganId] ?? null),
-                    'jenis_id' => $jenisId,
-                    'jenis_nama' => $jenisId === null ? null : ($jenisNama[$jenisId] ?? null),
-                    'status_transaksi' => $statusTransaksi,
-                    'status_proses' => $statusProses,
-                    // Normalisasi 'Y-m-d H:i:s' (legacy: Carbon ISO8601 saat
-                    // tanpa outstanding, string saat ada outstanding).
-                    'tanggal' => $tanggal === null ? null : (string) $tanggal,
-                ];
+                yield $this->formatRow($row, $rsId, $rsNama, $jenisNama, $ruanganNama, $bersih, $sekarang);
             }
 
             unset($chunk, $query);
@@ -281,21 +344,24 @@ class DownloadApiController extends Controller
     }
 
     /**
-     * Ruangan milik RS (pivot rs_dan_ruangan) — dipakai desktop untuk
-     * melengkapi dropdown lokasi.
+     * Ruangan milik RS (pivot rs_dan_ruangan) — generator supaya byte
+     * pertama stream tidak menunggu query ini selesai (byte pertama
+     * keluar setelah COUNT + chunk pertama saja).
      */
-    private function ruanganList(int $rsId): array
+    private function ruanganRows(int $rsId): \Generator
     {
-        return DB::table('ruangan')
+        $rows = DB::table('ruangan')
             ->join('rs_dan_ruangan', 'rs_dan_ruangan.ruangan_id', '=', 'ruangan.ruangan_id')
             ->where('rs_dan_ruangan.rs_id', $rsId)
             ->orderBy('ruangan.ruangan_nama')
-            ->get(['ruangan.ruangan_id', 'ruangan.ruangan_nama'])
-            ->map(fn ($row) => [
+            ->cursor(['ruangan.ruangan_id', 'ruangan.ruangan_nama']);
+
+        foreach ($rows as $row) {
+            yield [
                 'ruangan_id' => (int) $row->ruangan_id,
                 'ruangan_nama' => $row->ruangan_nama,
-            ])
-            ->all();
+            ];
+        }
     }
 
     /**
@@ -303,7 +369,7 @@ class DownloadApiController extends Controller
      * RS ini — legacy mengirim daftar ini supaya desktop bisa menandai linen
      * yang sudah discan saat stock opname.
      */
-    private function opnameRfids(int $rsId): array
+    private function opnameRows(int $rsId): \Generator
     {
         $opnameId = DB::table('opname')
             ->where('opname_id_rs', $rsId)
@@ -312,14 +378,20 @@ class DownloadApiController extends Controller
             ->value('opname_id');
 
         if ($opnameId === null) {
-            return [];
+            return;
         }
 
-        return DB::table('opname_detail')
+        // cursor: opname bisa puluhan ribu baris — jangan pluck sekaligus
+        // ke memory sebelum byte pertama keluar.
+        $rows = DB::table('opname_detail')
             ->where('opname_detail_id_opname', $opnameId)
             ->where('opname_detail_ketemu', 1)
-            ->pluck('opname_detail_rfid')
-            ->all();
+            ->orderBy('opname_detail_rfid')
+            ->cursor(['opname_detail_rfid']);
+
+        foreach ($rows as $row) {
+            yield $row->opname_detail_rfid;
+        }
     }
 
     /**
