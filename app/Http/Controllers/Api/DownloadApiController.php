@@ -276,12 +276,8 @@ class DownloadApiController extends Controller
                 ->select([
                     'd.detail_rfid', 'd.detail_id_ruangan', 'd.detail_id_jenis', 'd.detail_updated_at',
                     'o.outstanding_status_transaksi', 'o.outstanding_status_proses',
-                ])
-                ->selectExists(function ($sub) {
-                    $sub->selectRaw('1')->from('transaksi as t')
-                        ->whereColumn('t.transaksi_rfid', 'd.detail_rfid')
-                        ->limit(1);
-                }, 'ada_transaksi'));
+                    DB::raw('EXISTS(SELECT 1 FROM transaksi AS t WHERE t.transaksi_rfid = d.detail_rfid LIMIT 1) AS ada_transaksi'),
+                ]));
     }
 
     /**
