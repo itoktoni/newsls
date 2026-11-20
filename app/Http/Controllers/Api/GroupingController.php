@@ -68,6 +68,8 @@ class GroupingController extends Controller
             $resource = DB::transaction(fn () => $this->process($rfid));
         } catch (ModelNotFoundException $e) {
             return Notes::error($rfid, 'RFID '.$rfid.' tidak ditemukan');
+        } catch (GroupingTooSoonException $e) {
+            return Notes::error($rfid, $e->getMessage());
         } catch (Throwable $e) {
             report($e);
             if ((int) $e->getCode() === 23000) {
@@ -160,6 +162,28 @@ class GroupingController extends Controller
         $this->log("Grouping QC RFID {$rfid}", $detail, $rfid);
 
         $statusLinen = $detail->detail_status_linen;
+
+        // Cooldown 24 jam: linen yang baru di-delivery (BERSIH, tanpa
+        // outstanding) tidak boleh masuk kotor lagi — cegah salah scan /
+        // double cycle. Lewat 24 jam boleh kotor lagi seperti biasa.
+        // Patokan = detail_updated_at yang ditulis delivery
+        // (PackingDeliveryController::updateDetailsToBersih).
+        if ($statusLinen === TransactionType::BERSIH && $detail->detail_updated_at) {
+            try {
+                $deliveredAt = Carbon::parse($detail->detail_updated_at);
+                if ($deliveredAt->greaterThan($now->copy()->subDay())) {
+                    $readyAt = $deliveredAt->copy()->addDay()->format('d/m/Y H:i');
+                    throw new GroupingTooSoonException(
+                        'Linen baru di-delivery ('.$deliveredAt->format('d/m/Y H:i').'), baru boleh kotor lagi setelah '.$readyAt.'.'
+                    );
+                }
+            } catch (GroupingTooSoonException $e) {
+                throw $e;
+            } catch (Throwable $e) {
+                // Tanggal korup/tak terbaca → lewatkan guard, jangan blokir operasional.
+            }
+        }
+
         // Key prefix GRP = penanda baris lahir dari grouping (bukan scan kotor).
         $key = $this->uniqueKey((string) env('CODE_GROUPING', 'GRP'));
 
@@ -541,4 +565,13 @@ class GroupingController extends Controller
             'status_linen' => $flag,
         ];
     }
+}
+
+/**
+ * Guard cooldown grouping: linen < 24 jam sejak delivery.
+ * Ditangkap show() menjadi Notes::error (jalur error yang sama
+ * dengan RFID tak dikenal, sudah ditangani desktop).
+ */
+class GroupingTooSoonException extends \RuntimeException
+{
 }
