@@ -78,7 +78,7 @@ class DownloadApiController extends Controller
      * desktop; 2.000 dipilih supaya `whereIn` untuk outstanding/transaksi
      * juga tetap ramping.
      */
-    private const CHUNK = 2000;
+    private const CHUNK = 5000;
 
     public function __invoke(string $rsid)
     {
@@ -115,7 +115,7 @@ class DownloadApiController extends Controller
         // Hitung dulu supaya RS kosong dapat envelope error biasa, bukan JSON
         // setengah jalan. Satu COUNT atas query yang sama (EXISTS, tanpa
         // OFFSET) — jauh lebih murah daripada COUNT atas IN/NOT IN.
-        $total = (int) $this->baseQuery($rsId)->count();
+        $total = (int) $this->baseQuery($rsId, true)->count();
         if ($total === 0) {
             return Notes::failed(404, 'Data Tidak Ditemukan !');
         }
@@ -184,6 +184,10 @@ class DownloadApiController extends Controller
             if ($lastRfid !== null) {
                 $query->where('d.detail_rfid', '>', $lastRfid);
             }
+            // Satu query per chunk: LEFT JOIN outstanding + EXISTS transaksi
+            // (dulu 3 roundtrip: base + whereIn outstanding + whereIn distinct
+            // transaksi). EXISTS memakai index transaksi(transaksi_rfid) per
+            // baris — jauh lebih murah daripada DISTINCT atas 5000 RFID.
             $chunk = $query->limit(self::CHUNK)->get();
 
             if ($chunk->isEmpty()) {
@@ -192,27 +196,8 @@ class DownloadApiController extends Controller
 
             $lastRfid = (string) $chunk->last()->detail_rfid;
 
-            $rfids = $chunk->pluck('detail_rfid')->all();
-
-            $outstanding = DB::table('outstanding')
-                ->whereIn('outstanding_rfid', $rfids)
-                ->get(['outstanding_rfid', 'outstanding_status_transaksi', 'outstanding_status_proses'])
-                ->keyBy('outstanding_rfid');
-
-            // Legacy menghitung `isset($transaksi[$rfid])` dari seluruh history
-            // (group by rfid) — yang dipakai hanya ADA/TIDAK, jadi cukup
-            // SELECT DISTINCT transaksi_rfid (index transaksi_rfid).
-            $adaTransaksi = array_flip(
-                DB::table('transaksi')
-                    ->whereIn('transaksi_rfid', $rfids)
-                    ->distinct()
-                    ->pluck('transaksi_rfid')
-                    ->all()
-            );
-
             foreach ($chunk as $row) {
                 $rfid = (string) $row->detail_rfid;
-                $out = $outstanding[$rfid] ?? null;
 
                 // Aturan legacy DownloadCollection:
                 // - default BERSIH (linen dianggap ada di RS),
@@ -223,12 +208,12 @@ class DownloadApiController extends Controller
                 $statusProses = $bersih;
                 $tanggal = $row->detail_updated_at;
 
-                if ($out !== null) {
-                    $statusTransaksi = $out->outstanding_status_transaksi ?: $bersih;
-                    $statusProses = $out->outstanding_status_proses ?: $bersih;
+                if ($row->outstanding_status_transaksi !== null) {
+                    $statusTransaksi = $row->outstanding_status_transaksi ?: $bersih;
+                    $statusProses = $row->outstanding_status_proses ?: $bersih;
                     $tanggal = $sekarang;
                 }
-                if (! isset($adaTransaksi[$rfid])) {
+                if (! $row->ada_transaksi) {
                     $statusTransaksi = $bersih;
                 }
 
@@ -251,7 +236,7 @@ class DownloadApiController extends Controller
                 ];
             }
 
-            unset($outstanding, $adaTransaksi, $rfids, $chunk, $query);
+            unset($chunk, $query);
 
             $this->flushChunk();
 
@@ -272,9 +257,10 @@ class DownloadApiController extends Controller
      * tidak kena jebakan NULL khas NOT IN. Urut `detail_rfid` (PK, ada index)
      * supaya keyset pagination stabil — tidak ada baris terlewat/duplikat.
      */
-    private function baseQuery(int $rsId)
+    private function baseQuery(int $rsId, bool $forCount = false)
     {
         return DB::table('detail_linen as d')
+            ->when(! $forCount, fn ($q) => $q->leftJoin('outstanding as o', 'o.outstanding_rfid', '=', 'd.detail_rfid'))
             ->where(function ($q) use ($rsId) {
                 $q->whereExists(function ($sub) use ($rsId) {
                     $sub->selectRaw('1')->from('config_linen as c')
@@ -286,7 +272,16 @@ class DownloadApiController extends Controller
                 });
             })
             ->orderBy('d.detail_rfid')
-            ->select(['d.detail_rfid', 'd.detail_id_ruangan', 'd.detail_id_jenis', 'd.detail_updated_at']);
+            ->when($forCount, fn ($q) => $q->select('d.detail_rfid'), fn ($q) => $q
+                ->select([
+                    'd.detail_rfid', 'd.detail_id_ruangan', 'd.detail_id_jenis', 'd.detail_updated_at',
+                    'o.outstanding_status_transaksi', 'o.outstanding_status_proses',
+                ])
+                ->selectExists(function ($sub) {
+                    $sub->selectRaw('1')->from('transaksi as t')
+                        ->whereColumn('t.transaksi_rfid', 'd.detail_rfid')
+                        ->limit(1);
+                }, 'ada_transaksi'));
     }
 
     /**
