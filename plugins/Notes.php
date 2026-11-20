@@ -233,8 +233,11 @@ class Notes
 
             if ($status >= 400) {
                 // Fix: single-object endpoints (login/me/logout/grouping) — [] cannot deserialize to object → "cannot deserialize JSON array into Data"
-                // List endpoints expect [], single-object endpoints expect null
-                $isSingleObjectEndpoint = request()->is('api/login') || request()->is('api/me') || request()->is('api/logout') || request()->is('api/grouping/*');
+                // List endpoints expect [], single-object endpoints expect null.
+                // Total counters (total/delivery, total/outstanding, total/bersih)
+                // juga single object {view_total, ...} — desktop TotalDeliveryDAO
+                // expects `data` object, jadi error (500/404) harus null bukan [].
+                $isSingleObjectEndpoint = request()->is('api/login') || request()->is('api/me') || request()->is('api/logout') || request()->is('api/grouping/*') || request()->is('api/total/*');
                 if ($isSingleObjectEndpoint) {
                     $data['data'] = null;
                 } else {
