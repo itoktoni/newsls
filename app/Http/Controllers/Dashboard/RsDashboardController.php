@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Charts\DashboardChart;
 use App\Concerns\ResolvesDashboardRole;
 use App\Enums\LinenStatusEnum;
 use App\Enums\TransactionType;
@@ -21,7 +22,7 @@ class RsDashboardController extends Controller
 {
     use ResolvesDashboardRole;
 
-    public function __invoke(Request $request): RedirectResponse|View
+    public function __invoke(Request $request, DashboardChart $chart): RedirectResponse|View
     {
         if (static::defaultDashboardRoute($request->user()?->role) !== 'dashboard.rs') {
             flash()->info('Halaman dashboard tidak sesuai peran Anda — dialihkan ke dashboard default.');
@@ -29,30 +30,44 @@ class RsDashboardController extends Controller
             return redirect()->route('dashboard');
         }
 
+        // RS terpilih dari dropdown (query ?rs_id=). applyRsFilter sekaligus
+        // guard: RS di luar daftar milik user → 403 via ensureRsAccess.
+        $rsId = $request->filled('rs_id') ? (int) $request->input('rs_id') : null;
+        if ($rsId !== null) {
+            User::ensureRsAccess($rsId);
+        }
+
         return view('dashboard.rs', [
             'title' => 'Dashboard Rumah Sakit',
-            ...$this->stats(),
+            'rsOptions' => User::rsOptions(),
+            'selectedRs' => $rsId,
+            'chart' => $chart->kotorVsBersihRs($rsId, (int) config('dashboard.chart_days', 7)),
+            ...$this->stats($rsId),
         ]);
     }
 
     /**
      * @return array{kpi: array, sebaran: Collection, alert: Collection}
      */
-    private function stats(): array
+    private function stats(?int $rsId): array
     {
         $scope = DashboardCache::userScope();
 
-        $payload = DashboardCache::remember($scope, 'rs:stats:v2', function () {
+        // Filter RS terpilih (null = semua RS milik user). Arrow fn
+        // auto-capture $rsId; applyRsFilter sekaligus guard akses.
+        $filter = fn ($query, string|array $columns) => User::applyRsFilter($query, $columns, $rsId);
+
+        $payload = DashboardCache::remember($scope, 'rs:stats:v2:rs:'.($rsId ?? 'all'), function () use ($filter) {
             // Kotor = baris transaksi KOTOR hari ini (sama dengan sumber
             // report kotor) — bukan status detail_linen.
-            $kotorQuery = fn () => User::scopeRs(
+            $kotorQuery = fn () => $filter(
                 Transaksi::query()
                     ->where('transaksi.transaksi_status', TransactionType::KOTOR)
                     ->whereDate('transaksi.transaksi_created_at', today()),
                 ['transaksi.transaksi_rs_ori', 'transaksi.transaksi_rs_scan']
             );
             // Bersih = baris tabel bersih hari ini (hasil delivery).
-            $bersihQuery = fn () => User::scopeRs(
+            $bersihQuery = fn () => $filter(
                 DB::table('bersih')
                     ->where('bersih.bersih_status', 'BERSIH')
                     ->whereDate('bersih.bersih_created_at', today()),
@@ -60,12 +75,12 @@ class RsDashboardController extends Controller
             );
 
             $kpi = [
-                'register' => User::scopeRs(
+                'register' => $filter(
                     DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::REGISTER),
                     'detail_linen.detail_id_rs'
                 )->count(),
                 'kotor' => $kotorQuery()->count(),
-                'pending' => User::scopeRs(
+                'pending' => $filter(
                     Outstanding::query()->whereNotNull('outstanding_pending_created_at'),
                     'outstanding.outstanding_rs_scan'
                 )->count(),
@@ -76,7 +91,7 @@ class RsDashboardController extends Controller
 
             // Sebaran = stok bersih per ruangan (posisi linen saat ini,
             // tetap dari detail_linen) — bukan arus delivery harian.
-            $sebaran = User::scopeRs(
+            $sebaran = $filter(
                 DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH),
                 'detail_linen.detail_id_rs'
             )

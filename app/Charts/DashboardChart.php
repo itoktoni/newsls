@@ -4,6 +4,7 @@ namespace App\Charts;
 
 use App\Models\DetailLinen;
 use App\Models\Transaksi;
+use App\Models\User;
 use App\Support\DashboardCache;
 use ArielMejiaDev\LarapexCharts\LarapexChart;
 use Carbon\Carbon;
@@ -11,6 +12,56 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardChart
 {
+    /**
+     * Kotor (transaksi KOTOR) vs Bersih (tabel bersih) per hari untuk
+     * dashboard RS — ikut filter RS terpilih (null = semua RS milik user).
+     */
+    public function kotorVsBersihRs(?int $rsId, int $days = 7): LarapexChart
+    {
+        $data = $this->kotorVsBersihRsData($rsId, $days);
+
+        return (new LarapexChart)->areaChart()
+            ->setTitle('Kotor vs Bersih ('.$days.' hari)')
+            ->setSubtitle('Transaksi kotor vs linen bersih harian')
+            ->addData($data['kotor'])
+            ->addData($data['bersih'])
+            ->setXAxis($data['labels'])
+            ->setColors(['#dc2626', '#16a34a'])
+            ->setGrid()
+            ->setMarkers(['#dc2626', '#16a34a'], 4, 6);
+    }
+
+    /**
+     * @return array{labels: string[], kotor: int[], bersih: int[]}
+     */
+    public function kotorVsBersihRsData(?int $rsId, int $days = 7): array
+    {
+        $segment = "chart:kotorBersihRs:{$days}:rs:".($rsId ?? 'all');
+
+        return DashboardCache::remember(DashboardCache::userScope(), $segment, function () use ($rsId, $days) {
+            $labels = [];
+            $kotor = [];
+            $bersih = [];
+
+            for ($i = 0; $i < $days; $i++) {
+                $d = Carbon::today()->subDays($days - 1 - $i);
+                $labels[] = $d->format('d M');
+                $kotor[] = User::applyRsFilter(
+                    Transaksi::where('transaksi_status', 'KOTOR')->whereDate('transaksi_created_at', $d),
+                    ['transaksi.transaksi_rs_ori', 'transaksi.transaksi_rs_scan'],
+                    $rsId
+                )->count();
+                $bersih[] = User::applyRsFilter(
+                    DB::table('bersih')->where('bersih_status', 'BERSIH')->whereDate('bersih_created_at', $d),
+                    'bersih.bersih_id_rs',
+                    $rsId
+                )->count();
+            }
+
+            return compact('labels', 'kotor', 'bersih');
+        });
+    }
+
     /**
      * Kotor (transaksi KOTOR) vs Bersih (tabel bersih) per hari — N hari terakhir.
      */

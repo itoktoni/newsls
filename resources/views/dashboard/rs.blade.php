@@ -1,16 +1,12 @@
 <?php
 /** @var array $kpi */
-/** @var \Illuminate\Support\Collection $sebaran */
+/** @var int|null $selectedRs */
+/** @var array $rsOptions */
 /** @var \Illuminate\Support\Collection $alert */
+/** @var \ArielMejiaDev\LarapexCharts\LarapexChart $chart */
 /** @var string $title */
 
 use App\Enums\LinenStatusEnum;
-
-$badgeClass = fn (string $level) => match ($level) {
-    'ok' => 'bg-green-100 text-green-800',
-    'warn' => 'bg-amber-100 text-amber-800',
-    default => 'bg-red-100 text-red-800',
-};
 ?>
 
 <x-layouts::app :title="$title">
@@ -22,6 +18,18 @@ $badgeClass = fn (string $level) => match ($level) {
         <x-breadcrumb :items="[
             ['url' => route('dashboard.rs'), 'label' => 'Dashboard RS'],
         ]" />
+
+        <form method="GET" action="{{ route('dashboard.rs') }}">
+            <x-card label="Filter Rumah Sakit" icon="local_hospital">
+                <x-select name="rs_id" label="Rumah Sakit" col="4" :options="$rsOptions" :default="$selectedRs" placeholder="-- Semua RS Saya --" />
+            </x-card>
+            <script>
+                (function () {
+                    var sel = document.querySelector('select[name="rs_id"]');
+                    if (sel) sel.addEventListener('change', function () { this.form.submit(); });
+                })();
+            </script>
+        </form>
 
         <x-stat-widget :items="[
             [
@@ -67,32 +75,6 @@ $badgeClass = fn (string $level) => match ($level) {
             </div>
         @endif
 
-        <x-card label="Sebaran Linen Bersih per Ruangan" icon="grid_view">
-            @if ($sebaran->isEmpty())
-                <div class="col-span-12 py-8 text-center text-sm text-on-surface-variant">
-                    Belum ada linen bersih tercatat.
-                </div>
-            @else
-                <div class="col-span-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    @foreach ($sebaran as $row)
-                        <div class="border border-outline-variant rounded-xl p-4 bg-surface-container">
-                            <div class="flex items-start justify-between gap-2 mb-2">
-                                <p class="font-medium text-on-surface text-sm">{{ $row['ruangan_nama'] }}</p>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold {{ $badgeClass($row['level']) }}">
-                                    {{ $row['level'] === 'ok' ? 'Aman' : ($row['level'] === 'warn' ? 'Tipis' : 'Kosong') }}
-                                </span>
-                            </div>
-                            <p class="text-2xl font-bold text-on-surface">{{ number_format($row['stok']) }}</p>
-                            <p class="text-xs text-on-surface-variant mt-0.5">Stok bersih · {{ formatQty($row['kg'] ?? 0) }} kg · par —</p>
-                        </div>
-                    @endforeach
-                </div>
-                <div class="col-span-12 mt-2">
-                    <a href="{{ route('detail-linen.getTable') }}" class="text-sm text-primary hover:underline">
-                        Lihat Data Linen →
-                    </a>
-                </div>
-            @endif
-        </x-card>
+        <x-chart-widget title="Kotor vs Bersih 7 Hari" :chart="$chart" />
     </div>
 </x-layouts::app>
