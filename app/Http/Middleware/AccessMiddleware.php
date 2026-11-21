@@ -52,7 +52,45 @@ class AccessMiddleware
             abort(403, 'Akun report-only: hanya halaman report yang boleh diakses.');
         }
 
+        // Role RS: hanya boleh melihat report (kecuali invoice internal).
+        // Pengguna & Audit, CMS, Settings, Master Data, dan operasional
+        // linen/transaksi/opname diblokir meski URL diakses langsung.
+        if ($user->role === RoleEnum::RS && ! $this->isRsAllowed($routeName)) {
+            abort(403, 'Akun RS: hanya halaman report yang boleh diakses.');
+        }
+
         return $next($request);
+    }
+
+    /**
+     * Halaman yang boleh dibuka role RS: dashboard RS + report
+     * (kecuali invoice internal) + profil sendiri + notifikasi/token.
+     */
+    private function isRsAllowed(?string $routeName): bool
+    {
+        // Closure tanpa nama (notifikasi/token milik sendiri).
+        if ($routeName === null) {
+            return true;
+        }
+
+        // Router dashboard + dashboard RS.
+        if (in_array($routeName, ['dashboard', 'dashboard.rs'], true)) {
+            return true;
+        }
+
+        // Profil sendiri (settings/profile, appearance, security) tetap boleh.
+        if (str_starts_with($routeName, 'profile.')
+            || str_starts_with($routeName, 'appearance.')
+            || str_starts_with($routeName, 'security.')) {
+            return true;
+        }
+
+        if (! str_starts_with($routeName, 'report-')) {
+            return false;
+        }
+
+        // Invoice khusus internal — disembunyikan dari akun RS.
+        return ! str_starts_with($routeName, 'report-invoice');
     }
 
     /**

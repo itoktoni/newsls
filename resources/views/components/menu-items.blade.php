@@ -2,8 +2,8 @@
 
 @php
     $menu = config('menu.sidebar');
-    // Report-only: hanya report, kecuali invoice.
-    $reportOnly = auth()->user()?->role === \App\Enums\RoleEnum::USER;
+    // Report-only (user) + RS: hanya report, kecuali invoice internal.
+    $reportOnly = in_array(auth()->user()?->role, [\App\Enums\RoleEnum::USER, \App\Enums\RoleEnum::RS], true);
     // Admin: sembunyikan section CMS dan Settings.
     $adminHide = auth()->user()?->role === \App\Enums\RoleEnum::ADMIN;
 @endphp
@@ -13,7 +13,8 @@
     @php
         $sectionItems = $section['items'];
         if ($reportOnly) {
-            $sectionItems = array_values(array_filter($sectionItems, fn ($i) => str_starts_with($i['route'], 'report-') && ! str_starts_with($i['route'], 'report-invoice')));
+            // Dashboard (router sesuai role) tetap tampil; sisanya hanya report non-invoice.
+            $sectionItems = array_values(array_filter($sectionItems, fn ($i) => $i['route'] === 'dashboard' || (str_starts_with($i['route'], 'report-') && ! str_starts_with($i['route'], 'report-invoice'))));
         }
     @endphp
     @if(count($sectionItems) === 0) @continue @endif

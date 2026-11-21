@@ -1,5 +1,10 @@
 @php
     $bottomNav = config('menu.bottom_nav');
+    // RS + report-only: bottom nav mobile hanya Home (dashboard sesuai role).
+    // Menu operasional (Linen/Transaksi/Bersih/Opname) diblokir di middleware.
+    if (in_array(auth()->user()?->role, [\App\Enums\RoleEnum::USER, \App\Enums\RoleEnum::RS], true)) {
+        $bottomNav = array_values(array_filter($bottomNav, fn ($i) => ($i['route'] ?? '') === 'dashboard'));
+    }
 @endphp
 
 <nav class="md:hidden fixed inset-x-0 bottom-0 z-50 h-16 bg-surface-container-lowest border-t border-outline-variant shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
