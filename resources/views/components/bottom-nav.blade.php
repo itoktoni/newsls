@@ -2,7 +2,7 @@
     $bottomNav = config('menu.bottom_nav');
     // RS + report-only: bottom nav mobile hanya Home (dashboard sesuai role).
     // Menu operasional (Linen/Transaksi/Bersih/Opname) diblokir di middleware.
-    if (in_array(auth()->user()?->role, [\App\Enums\RoleEnum::USER, \App\Enums\RoleEnum::RS], true)) {
+    if (in_array(strtolower(trim((string) (auth()->user()?->role ?? ''))), ['user', 'rs'], true)) {
         $bottomNav = array_values(array_filter($bottomNav, fn ($i) => ($i['route'] ?? '') === 'dashboard'));
     }
 @endphp

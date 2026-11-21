@@ -3,7 +3,9 @@
 @php
     $menu = config('menu.sidebar');
     // Report-only (user) + RS: hanya report, kecuali invoice internal.
-    $reportOnly = in_array(auth()->user()?->role, [\App\Enums\RoleEnum::USER, \App\Enums\RoleEnum::RS], true);
+    // Normalisasi ke string lowercase agar kebal format nilai role di DB.
+    $role = strtolower(trim((string) (auth()->user()?->role ?? '')));
+    $reportOnly = in_array($role, ['user', 'rs'], true);
     // Admin: sembunyikan section CMS dan Settings.
     $adminHide = auth()->user()?->role === \App\Enums\RoleEnum::ADMIN;
 @endphp

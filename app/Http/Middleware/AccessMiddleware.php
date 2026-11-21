@@ -48,14 +48,17 @@ class AccessMiddleware
         // Report-only: role user hanya boleh halaman report kecuali invoice
         // (+ router dashboard yang mengarah ke report). RS yang boleh
         // diakses tetap dijaga pivot rs_dan_user via middleware rs.access.
-        if ($user->role === RoleEnum::USER && ! $this->isReportOnlyAllowed($routeName)) {
+        // Normalisasi ke string lowercase agar kebal format nilai role di DB.
+        $role = strtolower(trim((string) ($user->role ?? '')));
+
+        if ($role === 'user' && ! $this->isReportOnlyAllowed($routeName)) {
             abort(403, 'Akun report-only: hanya halaman report yang boleh diakses.');
         }
 
         // Role RS: hanya boleh melihat report (kecuali invoice internal).
         // Pengguna & Audit, CMS, Settings, Master Data, dan operasional
         // linen/transaksi/opname diblokir meski URL diakses langsung.
-        if ($user->role === RoleEnum::RS && ! $this->isRsAllowed($routeName)) {
+        if ($role === 'rs' && ! $this->isRsAllowed($routeName)) {
             abort(403, 'Akun RS: hanya halaman report yang boleh diakses.');
         }
 
