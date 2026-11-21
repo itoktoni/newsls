@@ -15,7 +15,6 @@ use Plugins\Notes;
  * Kontrak respons mengikuti `andalan/app/Http/Resources/DownloadCollection`
  * (desktop memetakan root object + key `data`, `rs`, `ruangan`, `opname`),
  * tapi sumbernya tabel BKA langsung (detail_linen/outstanding/transaksi/opname)
- * karena project ini tidak punya `view_detail_linen`.
  *
  * ponytail: 12rb+ RFID per RS dan file JSON-nya mudah "putus" di tengah.
  * Penyebabnya bukan besar payload, tapi cara ambil datanya:
@@ -65,8 +64,8 @@ class DownloadApiController extends Controller
             if (! $hasLeftmost('transaksi', 'transaksi_rfid')) {
                 DB::statement('CREATE INDEX transaksi_rfid_index ON transaksi (transaksi_rfid)');
             }
-            if (! $hasLeftmost('config_linen', 'rs_id')) {
-                DB::statement('CREATE INDEX config_linen_rs_id_detail_rfid_index ON config_linen (rs_id, detail_rfid)');
+            if (! $hasLeftmost('detail_linen', 'detail_id_rs')) {
+                DB::statement('CREATE INDEX detail_linen_id_rs_detail_rfid_index ON detail_linen (detail_id_rs, detail_rfid)');
             }
         } catch (\Throwable $e) {
             // Abaikan: download tetap jalan, hanya lebih lambat.
@@ -180,7 +179,8 @@ class DownloadApiController extends Controller
     private function page(int $rsId, object $rs, int $total, ?string $after, int $limit)
     {
         $rsNama = (string) $rs->rs_nama;
-        [$jenisNama, $ruanganNama, $bersih, $sekarang] = $this->labelMaps();
+        $bersih = TransactionType::BERSIH;
+        $sekarang = now()->format('Y-m-d H:i:s');
 
         $query = $this->baseQuery($rsId);
         if ($after !== null) {
@@ -190,7 +190,7 @@ class DownloadApiController extends Controller
 
         $data = [];
         foreach ($chunk as $row) {
-            $data[] = $this->formatRow($row, $rsId, $rsNama, $jenisNama, $ruanganNama, $bersih, $sekarang);
+            $data[] = $this->formatRow($row, $rsId, $rsNama, $bersih, $sekarang);
         }
 
         $additional = [
@@ -209,25 +209,10 @@ class DownloadApiController extends Controller
     }
 
     /**
-     * Master nama: ratusan baris, sekali load lebih murah daripada join
-     * per baris (dan menghindari duplikasi baris kalau pivot dobel).
+     * Satu baris `data[]` — nama jenis/ruangan sudah ikut di-JOIN langsung
+     * di `baseQuery()` (tanpa view, tanpa pluck map terpisah).
      */
-    private function labelMaps(): array
-    {
-        return [
-            DB::table('jenis_linen')->pluck('jenis_nama', 'jenis_id'),
-            DB::table('ruangan')->pluck('ruangan_nama', 'ruangan_id'),
-            TransactionType::BERSIH,
-            now()->format('Y-m-d H:i:s'),
-        ];
-    }
-
-    /**
-     * Satu baris `data[]` — field persis milik DownloadCollection:
-     * rfid, rs_id, rs_nama, ruangan_id, ruangan_nama, jenis_id, jenis_nama,
-     * status_transaksi, status_proses, tanggal.
-     */
-    private function formatRow(object $row, int $rsId, string $rsNama, $jenisNama, $ruanganNama, string $bersih, string $sekarang): array
+    private function formatRow(object $row, int $rsId, string $rsNama, string $bersih, string $sekarang): array
     {
         $rfid = (string) $row->detail_rfid;
 
@@ -257,9 +242,9 @@ class DownloadApiController extends Controller
             'rs_id' => $rsId,
             'rs_nama' => $rsNama,
             'ruangan_id' => $ruanganId,
-            'ruangan_nama' => $ruanganId === null ? null : ($ruanganNama[$ruanganId] ?? null),
+            'ruangan_nama' => $row->ruangan_nama ?? null,
             'jenis_id' => $jenisId,
-            'jenis_nama' => $jenisId === null ? null : ($jenisNama[$jenisId] ?? null),
+            'jenis_nama' => $row->jenis_nama ?? null,
             'status_transaksi' => $statusTransaksi,
             'status_proses' => $statusProses,
             // Normalisasi 'Y-m-d H:i:s' (legacy: Carbon ISO8601 saat
@@ -275,7 +260,8 @@ class DownloadApiController extends Controller
      */
     private function rows(int $rsId, string $rsNama): \Generator
     {
-        [$jenisNama, $ruanganNama, $bersih, $sekarang] = $this->labelMaps();
+        $bersih = TransactionType::BERSIH;
+        $sekarang = now()->format('Y-m-d H:i:s');
         $lastRfid = null;
 
         while (true) {
@@ -296,7 +282,7 @@ class DownloadApiController extends Controller
             $lastRfid = (string) $chunk->last()->detail_rfid;
 
             foreach ($chunk as $row) {
-                yield $this->formatRow($row, $rsId, $rsNama, $jenisNama, $ruanganNama, $bersih, $sekarang);
+                yield $this->formatRow($row, $rsId, $rsNama, $bersih, $sekarang);
             }
 
             unset($chunk, $query);
@@ -311,33 +297,25 @@ class DownloadApiController extends Controller
     }
 
     /**
-     * Query dasar baris RFID yang boleh dipakai RS ini: anggota `config_linen`
-     * untuk RS tsb, ATAU linen FREE (tidak punya baris config_linen sama sekali).
-     *
-     * Memakai EXISTS/NOT EXISTS, bukan IN/NOT IN: tiap baris cukup satu index
-     * lookup yang berhenti di kecocokan pertama (PK `config_linen`), sehingga
-     * tidak ada materialisasi subquery atas seluruh tabel tiap chunk — dan
-     * tidak kena jebakan NULL khas NOT IN. Urut `detail_rfid` (PK, ada index)
-     * supaya keyset pagination stabil — tidak ada baris terlewat/duplikat.
+     * Query dasar: `detail_linen` milik RS ini (`detail_id_rs = rsId`)
+     * + JOIN langsung ke tabel master (tanpa view):
+     * `outstanding` (status), `jenis_linen` + `ruangan` (nama),
+     * `transaksi` via EXISTS (flag pernah transaksi).
+     * Tanpa `config_linen`. Urut `detail_rfid` (PK) supaya keyset stabil.
      */
     private function baseQuery(int $rsId, bool $forCount = false)
     {
         return DB::table('detail_linen as d')
-            ->when(! $forCount, fn ($q) => $q->leftJoin('outstanding as o', 'o.outstanding_rfid', '=', 'd.detail_rfid'))
-            ->where(function ($q) use ($rsId) {
-                $q->whereExists(function ($sub) use ($rsId) {
-                    $sub->selectRaw('1')->from('config_linen as c')
-                        ->whereColumn('c.detail_rfid', 'd.detail_rfid')
-                        ->where('c.rs_id', $rsId);
-                })->orWhereNotExists(function ($sub) {
-                    $sub->selectRaw('1')->from('config_linen as c')
-                        ->whereColumn('c.detail_rfid', 'd.detail_rfid');
-                });
-            })
+            ->when(! $forCount, fn ($q) => $q
+                ->leftJoin('outstanding as o', 'o.outstanding_rfid', '=', 'd.detail_rfid')
+                ->leftJoin('jenis_linen as j', 'j.jenis_id', '=', 'd.detail_id_jenis')
+                ->leftJoin('ruangan as r', 'r.ruangan_id', '=', 'd.detail_id_ruangan'))
+            ->where('d.detail_id_rs', $rsId)
             ->orderBy('d.detail_rfid')
             ->when($forCount, fn ($q) => $q->select('d.detail_rfid'), fn ($q) => $q
                 ->select([
                     'd.detail_rfid', 'd.detail_id_ruangan', 'd.detail_id_jenis', 'd.detail_updated_at',
+                    'j.jenis_nama', 'r.ruangan_nama',
                     'o.outstanding_status_transaksi', 'o.outstanding_status_proses',
                     DB::raw('EXISTS(SELECT 1 FROM transaksi AS t WHERE t.transaksi_rfid = d.detail_rfid LIMIT 1) AS ada_transaksi'),
                 ]));
