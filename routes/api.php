@@ -116,6 +116,7 @@ Route::middleware(['auth:sanctum', 'rs.access'])->group(function () {
     Route::get('list/packing/{rsid}', [PackingDeliveryController::class, 'listPacking'])->name('api.listPacking');
     Route::get('list/delivery/{rsid}', [PackingDeliveryController::class, 'listDelivery'])->name('api.listDelivery');
     Route::get('total/delivery/{rsid}/{status}', [PackingDeliveryController::class, 'totalDelivery'])->name('api.totalDelivery');
+    Route::get('total/sisa-delivery/{rsid}/{ruangan}/{status}', [PackingDeliveryController::class, 'totalSisaDelivery'])->name('api.totalSisaDelivery');
     Route::get('total/outstanding/{rsid}/{ruangan}/{jenis}/{transaksi}', [PackingDeliveryController::class, 'totalOutstanding'])->name('api.totalOutstanding');
     Route::get('total/bersih/{rsid}/{ruangan}/{jenis}/{transaksi}', [PackingDeliveryController::class, 'totalBersih'])->name('api.totalBersih');
 

@@ -55,6 +55,7 @@ it('exposes exactly the expected API route surface', function () {
         'api/total/bersih/{rsid}/{ruangan}/{jenis}/{transaksi}',
         'api/total/delivery/{rsid}/{status}',
         'api/total/outstanding/{rsid}/{ruangan}/{jenis}/{transaksi}',
+        'api/total/sisa-delivery/{rsid}/{ruangan}/{status}',
         'api/transaksi/kotor',
         'api/transaksi/retur',
         'api/transaksi/rewash',

@@ -835,12 +835,28 @@ class PackingDeliveryController extends Controller
         return Notes::data(['total' => $count, 'view_total' => $count]);
     }
 
+    public function totalSisaDelivery($rsid, $ruangan, $status)
+    {
+        if (strtoupper((string) $status) === TransactionType::BERSIH) {
+            $status = TransactionType::KOTOR;
+        }
+        $q = Outstanding::where('outstanding_rs_scan', $rsid)
+            ->where('outstanding_status_proses', 'PACKING')
+            ->where('outstanding_status_transaksi', $status);
+        if ($ruangan && (int) $ruangan !== 0) {
+            $q->where('outstanding_id_ruangan', $ruangan);
+        }
+        $count = $q->count();
+
+        return Notes::data(['total' => $count, 'view_total' => $count, 'view_rs_id' => (int) $rsid, 'view_ruangan_id' => (int) $ruangan, 'view_status' => $status]);
+    }
+
     public function totalOutstanding($rsid, $ruangan, $jenis, $transaksi)
     {
         if ($transaksi === TransactionType::BERSIH) {
             $transaksi = TransactionType::KOTOR;
         }
-        $q = Outstanding::query()->where('outstanding_rs_scan', $rsid)->where('outstanding_id_ruangan', $ruangan)->where('outstanding_status_transaksi', $transaksi);
+        $q = Outstanding::query()->where('outstanding_rs_scan', $rsid)->where('outstanding_id_ruangan', $ruangan)->where('outstanding_status_transaksi', $transaksi)->where('outstanding_status_proses', '!=', 'PACKING');
         if ($jenis && $jenis != 0) {
             $rfids = DetailLinen::where('detail_id_jenis', $jenis)->pluck('detail_rfid')->all();
             $q->whereIn('outstanding_rfid', $rfids);
