@@ -49,7 +49,7 @@ class AdminDashboardController extends Controller
                 ->whereDate('transaksi.transaksi_created_at', today());
             $bersihBase = DB::table('bersih')
                 ->where('bersih.bersih_status', 'BERSIH')
-                ->whereDate('bersih.bersih_created_at', today());
+                ->whereDate('bersih.bersih_report', today());
             $registerBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::REGISTER);
             $outstandingBase = Outstanding::query();
             $sebaranBase = DetailLinen::query()->where('detail_status_linen', LinenStatusEnum::BERSIH);
