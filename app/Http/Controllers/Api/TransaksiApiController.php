@@ -71,12 +71,12 @@ class TransaksiApiController extends Controller
 
             $ctx = $this->prepareContext($request);
             $rows = $this->buildRows($ctx, $statusTransaksi, $statusProcess);
-
             $this->persistTransactions($rows['transaksi']);
             $this->persistMaster($ctx, $statusTransaksi);
             $this->persistOutstanding($rows['outstanding'], $ctx['outstandingExisting'], $ctx['now'], $ctx['userId']);
             $this->refreshExistingOutstanding($ctx, $statusTransaksi, $statusProcess);
             $this->markDetailsAsDirty($rows['toDirty'], $ctx['now']);
+            $this->adoptFreeDetails($ctx, $rows['toDirty']);
             $this->logTransactions($rows['transaksi'], $request, $ctx['details']->all());
 
             DB::commit();
@@ -168,17 +168,22 @@ class TransaksiApiController extends Controller
             $detail = $ctx['details'][$rfid] ?? null;
             $out = $ctx['outstandingExisting'][$rfid] ?? null;
 
+            // Bypass FREE: RFID terdaftar dengan detail_id_rs=1 yang di-scan
+            // RS lain dianggap benar — lewati gate BERSIH/waktu sync.
+            $isFreeBypass = $detail && $this->isFreeBypass($detail, $ctx['rsScan']);
+
             // andalan (TransaksiController::rfidCanSyncToServer): RFID hanya
             // boleh di-sync kalau linen masih BERSIH dan — untuk KOTOR — sudah
             // lewat TRANSACTION_HOURS_ALLOWED jam sejak detail_updated_at. Yang tidak
             // lolos dilewati (tanpa transaksi/outstanding), sisanya tetap diproses.
             if ($detail && empty($out?->outstanding_status_transaksi)
+                && ! $isFreeBypass
                 && ! $this->rfidCanSyncToServer($statusTransaksi, $detail->detail_status_linen, $detail->detail_updated_at)) {
                 continue;
             }
 
             if ($detail) {
-                $this->buildForRegistered($rfid, $detail, $out, $ctx, $statusTransaksi, $statusProcess, $transaksi, $outstanding, $toDirty);
+                $this->buildForRegistered($rfid, $detail, $out, $ctx, $statusTransaksi, $statusProcess, $transaksi, $outstanding, $toDirty, $isFreeBypass);
             } else {
                 $this->buildForUnregistered($rfid, $out, $ctx, $statusTransaksi, $statusProcess, $transaksi, $outstanding);
             }
@@ -213,15 +218,32 @@ class TransaksiApiController extends Controller
         return true;
     }
 
-    private function buildForRegistered(string $rfid, $detail, $out, array $ctx, string $statusTransaksi, string $statusProcess, array &$transaksi, array &$outstanding, array &$toDirty): void
+    /**
+     * Bypass FREE via .env BYPASS_FREE_TRANSACTION: RFID terdaftar dengan
+     * detail_id_rs=1 yang di-scan RS lain (rsScan != 1) dianggap benar.
+     * Berlaku untuk kotor/retur/rewash (semua masuk transaction()).
+     */
+    private function isFreeBypass($detail, int $rsScan): bool
     {
-        $bedaRs = $ctx['rsScan'] == $detail->detail_id_rs ? 'TIDAK' : 'YA';
+        return (bool) env('BYPASS_FREE_TRANSACTION', false)
+            && (int) ($detail->detail_id_rs ?? 0) === 1
+            && $rsScan !== 1;
+    }
+
+    private function buildForRegistered(string $rfid, $detail, $out, array $ctx, string $statusTransaksi, string $statusProcess, array &$transaksi, array &$outstanding, array &$toDirty, bool $isFreeBypass = false): void
+    {
+        // Bypass FREE: rs_ori ikut rs_scan (dianggap milik RS pemindai),
+        // bukan 1. beda_rs dipaksa TIDAK agar status_sync=1 (dianggap benar).
+        $rsOri = $isFreeBypass ? $ctx['rsScan'] : $detail->detail_id_rs;
+        $bedaRs = $isFreeBypass
+            ? 'TIDAK'
+            : ($ctx['rsScan'] == $detail->detail_id_rs ? 'TIDAK' : 'YA');
 
         if (! isset($ctx['todayExisting'][$rfid])) {
             $transaksi[] = [
                 'transaksi_key' => $ctx['key'],
                 'transaksi_rfid' => $rfid,
-                'transaksi_rs_ori' => $detail->detail_id_rs,
+                'transaksi_rs_ori' => $rsOri,
                 'transaksi_rs_scan' => $ctx['rsScan'],
                 'transaksi_beda_rs' => $bedaRs,
                 'transaksi_id_ruangan' => $detail->detail_id_ruangan,
@@ -238,7 +260,7 @@ class TransaksiApiController extends Controller
             $outstanding[] = [
                 'outstanding_rfid' => $rfid,
                 'outstanding_key' => $ctx['key'],
-                'outstanding_rs_ori' => $detail->detail_id_rs,
+                'outstanding_rs_ori' => $rsOri,
                 'outstanding_rs_scan' => $ctx['rsScan'],
                 'outstanding_status_beda_rs' => $bedaRs,
                 'outstanding_id_ruangan' => $detail->detail_id_ruangan,
@@ -414,6 +436,41 @@ class TransaksiApiController extends Controller
                     'outstanding_status_beda_rs' => $bedaRs,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Bypass FREE lanjutan: detail_linen.detail_id_rs (1) diupdate ke rs_scan,
+     * dan outstanding lama yang menunjuk RFID tersebut ikut diupdate rs_ori-nya.
+     * Hanya jalan bila BYPASS_FREE_TRANSACTION=true.
+     */
+    private function adoptFreeDetails(array $ctx, array $toDirty): void
+    {
+        if (! (bool) env('BYPASS_FREE_TRANSACTION', false) || empty($toDirty)) {
+            return;
+        }
+
+        $freeRfids = [];
+        foreach (array_unique($toDirty) as $rfid) {
+            $detail = $ctx['details'][$rfid] ?? null;
+            if ($detail && (int) ($detail->detail_id_rs ?? 0) === 1 && $ctx['rsScan'] !== 1) {
+                $freeRfids[] = $rfid;
+            }
+        }
+
+        if (empty($freeRfids)) {
+            return;
+        }
+
+        foreach (array_chunk($freeRfids, 2000) as $chunk) {
+            DetailLinen::whereIn('detail_rfid', $chunk)
+                ->where('detail_id_rs', 1)
+                ->update(['detail_id_rs' => $ctx['rsScan']]);
+
+            Outstanding::whereIn('outstanding_rfid', $chunk)->update([
+                'outstanding_rs_ori' => $ctx['rsScan'],
+                'outstanding_status_beda_rs' => 'TIDAK',
+            ]);
         }
     }
 
