@@ -222,10 +222,26 @@ class TransaksiApiController extends Controller
      * Bypass FREE via .env BYPASS_FREE_TRANSACTION: RFID terdaftar dengan
      * detail_id_rs=1 yang di-scan RS lain (rsScan != 1) dianggap benar.
      * Berlaku untuk kotor/retur/rewash (semua masuk transaction()).
+     *
+     * Catatan: env() mengembalikan string — 'false'/'0'/'' harus dibaca
+     * sebagai mati, jadi pakai filter boolean, bukan (bool) cast.
      */
+    private function freeBypassEnabled(): bool
+    {
+        // Via config() agar tetap jalan saat config:cache aktif
+        // (env() langsung = null bila config di-cache). Fallback ke
+        // env() untuk konteks tanpa bootstrap config (mis. test unit).
+        $v = config('transaksi.bypass_free_transaction');
+        if ($v === null) {
+            $v = env('BYPASS_FREE_TRANSACTION', false);
+        }
+
+        return filter_var($v, FILTER_VALIDATE_BOOLEAN);
+    }
+
     private function isFreeBypass($detail, int $rsScan): bool
     {
-        return (bool) env('BYPASS_FREE_TRANSACTION', false)
+        return $this->freeBypassEnabled()
             && (int) ($detail->detail_id_rs ?? 0) === 1
             && $rsScan !== 1;
     }
@@ -446,7 +462,7 @@ class TransaksiApiController extends Controller
      */
     private function adoptFreeDetails(array $ctx, array $toDirty): void
     {
-        if (! (bool) env('BYPASS_FREE_TRANSACTION', false) || empty($toDirty)) {
+        if (! $this->freeBypassEnabled() || empty($toDirty)) {
             return;
         }
 
